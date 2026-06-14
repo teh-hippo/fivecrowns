@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#4c1d95">
+  <meta name="description" content="A minimal, mobile-friendly scorekeeper for the card game Five Crowns.">
+  <title>Five Crowns Scorer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <!-- Setup screen -->
+  <section id="setup-screen" class="screen setup" hidden>
+    <div class="setup-card">
+      <h1 class="brand"><span class="crown">♛</span> Five Crowns</h1>
+      <p class="tagline">Scorekeeper</p>
+
+      <div class="field">
+        <span class="field-label">Players</span>
+        <div class="stepper">
+          <button id="players-dec" type="button" class="step-btn" aria-label="Fewer players">−</button>
+          <output id="players-count" aria-live="polite">3</output>
+          <button id="players-inc" type="button" class="step-btn" aria-label="More players">+</button>
+        </div>
+      </div>
+
+      <ul id="name-list" class="name-list"></ul>
+
+      <button id="start-btn" type="button" class="primary big">Start game</button>
+    </div>
+  </section>
+
+  <!-- Game screen -->
+  <section id="game-screen" class="screen game" hidden>
+    <header class="game-header">
+      <h1 class="brand small"><span class="crown">♛</span> Five Crowns</h1>
+      <div class="header-actions">
+        <button id="add-player-btn" type="button" class="ghost">+ Player</button>
+        <button id="new-game-btn" type="button" class="ghost">New game</button>
+      </div>
+    </header>
+
+    <div id="winner-banner" class="winner-banner" role="status" aria-live="polite" hidden></div>
+
+    <div class="table-wrap">
+      <table id="score-table">
+        <caption class="visually-hidden">Five Crowns score sheet. Lowest total wins.</caption>
+        <thead><tr id="head-row"></tr></thead>
+        <tbody id="score-body"></tbody>
+        <tfoot><tr id="total-row"></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- Add player dialog -->
+  <dialog id="add-dialog" class="sheet">
+    <form id="add-form" method="dialog">
+      <h2>Add player</h2>
+      <label class="dialog-field">Name
+        <input id="add-name" type="text" autocomplete="off" placeholder="Player name">
+      </label>
+      <label class="dialog-field">Starting score
+        <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" value="0">
+      </label>
+      <menu class="dialog-actions">
+        <button id="add-cancel" type="button" class="ghost">Cancel</button>
+        <button id="add-confirm" type="submit" value="add" class="primary">Add</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- New game confirm dialog -->
+  <dialog id="confirm-dialog" class="sheet">
+    <form method="dialog">
+      <h2>Start a new game?</h2>
+      <p class="dialog-note">This clears the current scores.</p>
+      <menu class="dialog-actions">
+        <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
+        <button type="submit" value="ok" class="danger">New game</button>
+      </menu>
+    </form>
+  </dialog>
+</body>
+</html>
