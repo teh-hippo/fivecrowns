@@ -11,6 +11,8 @@
   --accent: #c9a227;
   --leader-bg: #e9f8ef;
   --leader-text: #0a7a3b;
+  --target-bg: #fdf3e0;
+  --target-text: #8a5400;
   --danger: #b42318;
   --shadow: 0 6px 24px rgba(20, 16, 40, 0.10);
   --lift: rgba(20, 16, 40, 0.18);
@@ -30,6 +32,8 @@
     --accent: #e3c14e;
     --leader-bg: #123524;
     --leader-text: #5fe39a;
+    --target-bg: #3a2c10;
+    --target-text: #f3c45c;
     --danger: #ff6b5e;
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
     --lift: rgba(0, 0, 0, 0.55);
@@ -268,7 +272,7 @@ thead .round-col, tfoot .round-col { z-index: 3; }
 
 .player-col { min-width: 84px; }
 .name-input {
-  width: 84px;
+  width: 100%;
   font-size: 16px;
   font-weight: 700;
   text-align: center;
@@ -284,7 +288,7 @@ thead .round-col, tfoot .round-col { z-index: 3; }
 
 .score-cell { padding: 0; }
 .score-input {
-  width: 84px;
+  width: 100%;
   min-height: 46px;
   font-size: 17px;
   text-align: center;
@@ -364,3 +368,162 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   .table-wrap { padding-inline: 1.4rem; }
   .game-header { padding-inline: 1.4rem; }
 }
+
+/* ---------- Game picker ---------- */
+.game-picker {
+  display: flex;
+  gap: 0.3rem;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 0.25rem;
+  margin: 0 0 1.2rem;
+}
+.pick { flex: 1; margin: 0; }
+.pick input {
+  position: absolute;
+  opacity: 0;
+  width: 1px; height: 1px;
+}
+.pick-name {
+  display: block;
+  text-align: center;
+  padding: 0.55rem 0.3rem;
+  border-radius: 9px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+.pick input:checked + .pick-name {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+.pick input:focus-visible + .pick-name {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.resume-note { color: var(--muted); margin: 0.2rem 0 1rem; }
+#setup-resume .big + .big { margin-top: 0.6rem; }
+
+/* ---------- Header actions ---------- */
+.game-header { gap: 0.4rem; }
+.brand.small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-actions { flex-wrap: wrap; justify-content: flex-end; }
+.header-actions .primary { padding: 0 0.7rem; font-size: 0.9rem; }
+
+/* ---------- Banner phases ---------- */
+.winner-banner.phase-complete,
+.winner-banner.phase-out {
+  background: var(--leader-bg);
+  color: var(--leader-text);
+}
+.winner-banner.phase-targetReached {
+  background: var(--target-bg);
+  color: var(--target-text);
+}
+
+/* ---------- Negative values ---------- */
+.total-cell.neg, .delta-cell.neg { color: var(--danger); }
+
+/* ---------- Get-on-board hint (Greed) ---------- */
+.total-cell .needs {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- 500 hand rows ---------- */
+.hand-head { padding: 0; }
+.hand-edit {
+  width: 100%;
+  min-height: 46px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+}
+.hand-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.delta-cell {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding: 0.5rem 0.25rem;
+  min-width: 84px;
+}
+.empty-hint { padding: 1.2rem 0.8rem; color: var(--muted); text-align: center; }
+
+/* ---------- Hand dialog (500) ---------- */
+.hand-sheet {
+  width: min(94vw, 420px);
+  max-height: 90dvh;
+  overflow: auto;
+}
+.hand-section {
+  margin: 0.7rem 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.chip {
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.chip.selected {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+}
+.chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.hand-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+}
+.hand-stepper-label { font-weight: 600; }
+.hand-stepper .stepper output { min-width: 2rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hand-hint { color: var(--muted); font-size: 0.85rem; margin: 0.1rem 0 0.5rem; }
+.hand-preview {
+  margin: 0.7rem 0 0.2rem;
+  font-weight: 700;
+  min-height: 1.3em;
+}
+
+/* ---------- Menu dialog ---------- */
+.menu-list { display: grid; gap: 0.6rem; margin: 0.4rem 0 1rem; }
+.menu-list .big { width: 100%; }
+.danger-text { color: var(--danger); }
+
+/* ---------- Dialog notes ---------- */
+.dialog-note.error { color: var(--danger); }
+

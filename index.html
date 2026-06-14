@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#4c1d95">
-  <meta name="description" content="A minimal, mobile-friendly scorekeeper for the card game Five Crowns.">
+  <meta name="description" content="A minimal, mobile-friendly scorekeeper for Five Crowns, Greed and 500.">
   <title>Five Crowns Scorer</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="games.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -19,28 +20,41 @@
       <h1 class="brand"><span class="crown">♛</span> Five Crowns</h1>
       <p class="tagline">Scorekeeper</p>
 
-      <div class="field">
-        <span class="field-label">Players</span>
-        <div class="stepper">
-          <button id="players-dec" type="button" class="step-btn" aria-label="Fewer players">−</button>
-          <output id="players-count" aria-live="polite">3</output>
-          <button id="players-inc" type="button" class="step-btn" aria-label="More players">+</button>
+      <fieldset id="game-picker" class="game-picker">
+        <legend class="visually-hidden">Choose a game</legend>
+      </fieldset>
+
+      <div id="setup-fresh" class="setup-section">
+        <div class="field">
+          <span class="field-label" id="count-label">Players</span>
+          <div class="stepper">
+            <button id="players-dec" type="button" class="step-btn" aria-label="Fewer">−</button>
+            <output id="players-count" aria-live="polite">3</output>
+            <button id="players-inc" type="button" class="step-btn" aria-label="More">+</button>
+          </div>
         </div>
+
+        <ul id="name-list" class="name-list"></ul>
+
+        <button id="start-btn" type="button" class="primary big">Start game</button>
       </div>
 
-      <ul id="name-list" class="name-list"></ul>
-
-      <button id="start-btn" type="button" class="primary big">Start game</button>
+      <div id="setup-resume" class="setup-section" hidden>
+        <p id="resume-note" class="resume-note">You have a game in progress.</p>
+        <button id="resume-btn" type="button" class="primary big">Resume game</button>
+        <button id="new-from-setup-btn" type="button" class="ghost big">Start new game</button>
+      </div>
     </div>
   </section>
 
   <!-- Game screen -->
   <section id="game-screen" class="screen game" hidden>
     <header class="game-header">
-      <h1 class="brand small"><span class="crown">♛</span> Five Crowns</h1>
+      <h1 class="brand small"><span class="crown">♛</span> <span id="game-name">Five Crowns</span></h1>
       <div class="header-actions">
-        <button id="add-player-btn" type="button" class="ghost">+ Player</button>
-        <button id="new-game-btn" type="button" class="ghost">New game</button>
+        <button id="score-hand-btn" type="button" class="primary" hidden>Score hand</button>
+        <button id="add-btn" type="button" class="ghost" hidden>+ Player</button>
+        <button id="menu-btn" type="button" class="ghost">Menu</button>
       </div>
     </header>
 
@@ -48,7 +62,7 @@
 
     <div class="table-wrap">
       <table id="score-table">
-        <caption class="visually-hidden">Five Crowns score sheet. Lowest total wins.</caption>
+        <caption id="table-caption" class="visually-hidden"></caption>
         <thead><tr id="head-row"></tr></thead>
         <tbody id="score-body"></tbody>
         <tfoot><tr id="total-row"></tr></tfoot>
@@ -57,16 +71,17 @@
   </section>
   </main>
 
-  <!-- Add player dialog -->
+  <!-- Add player / side dialog -->
   <dialog id="add-dialog" class="sheet">
     <form id="add-form" method="dialog">
-      <h2>Add player</h2>
+      <h2 id="add-title">Add player</h2>
       <label class="dialog-field">Name
-        <input id="add-name" type="text" autocomplete="off" placeholder="Player name">
+        <input id="add-name" type="text" autocomplete="off" placeholder="Name">
       </label>
       <label class="dialog-field">Starting score
         <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" value="0">
       </label>
+      <p id="add-hint" class="dialog-note" hidden></p>
       <menu class="dialog-actions">
         <button id="add-cancel" type="button" class="ghost">Cancel</button>
         <button id="add-confirm" type="submit" value="add" class="primary">Add</button>
@@ -78,10 +93,38 @@
   <dialog id="confirm-dialog" class="sheet">
     <form method="dialog">
       <h2>Start a new game?</h2>
-      <p class="dialog-note">This clears the current scores.</p>
+      <p class="dialog-note">This clears the current game's scores.</p>
       <menu class="dialog-actions">
         <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
         <button type="submit" value="ok" class="danger">New game</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- In-game menu dialog -->
+  <dialog id="menu-dialog" class="sheet">
+    <form method="dialog">
+      <h2>Menu</h2>
+      <div class="menu-list">
+        <button id="switch-btn" type="button" class="ghost big">Switch game</button>
+        <button id="newgame-btn" type="button" class="danger big">New game</button>
+      </div>
+      <menu class="dialog-actions">
+        <button id="menu-close" type="button" class="ghost">Close</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Score-a-hand dialog (500) -->
+  <dialog id="hand-dialog" class="sheet hand-sheet">
+    <form id="hand-form" method="dialog">
+      <h2 id="hand-title">Score hand</h2>
+      <div id="hand-body"></div>
+      <p id="hand-preview" class="hand-preview" aria-live="polite"></p>
+      <menu class="dialog-actions">
+        <button id="hand-delete" type="button" class="ghost danger-text" hidden>Delete</button>
+        <button id="hand-cancel" type="button" class="ghost">Cancel</button>
+        <button id="hand-save" type="submit" value="save" class="primary">Save</button>
       </menu>
     </form>
   </dialog>

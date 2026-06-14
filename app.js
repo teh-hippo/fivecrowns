@@ -1,166 +1,279 @@
 'use strict';
 
-/* ---------- Five Crowns constants ---------- */
-// Round N deals N+2 cards; the wild rank equals that card count.
-const WILD_LABELS = ['3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s', 'Jacks', 'Queens', 'Kings'];
-const ROUNDS = WILD_LABELS.length; // 11
-const STORAGE_KEY = 'fivecrowns:v1';
-const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 8;
+/*
+ * Generic scorekeeping engine. Reads the active game object from `games.js`
+ * (a classic-script global, loaded first) and renders setup, the score grid,
+ * totals, the winner/target banner and the score-entry dialogs from it. No game
+ * rules live here; everything game-specific is a property of the game object.
+ */
 
-/* ---------- State ---------- */
-function defaultState() {
-  return { started: false, players: [], scores: {}, nextId: 1 };
-}
+const LAST_GAME_KEY = 'scorer:lastGame';
 
-function normalize(s) {
-  if (!s || typeof s !== 'object') return defaultState();
-  const seen = new Set();
-  const players = [];
-  let maxId = 0;
-  (Array.isArray(s.players) ? s.players : []).forEach((p) => {
-    if (!p || typeof p.id !== 'string' || seen.has(p.id)) return;
-    seen.add(p.id);
-    const seed = typeof p.seed === 'number' && Number.isFinite(p.seed) ? p.seed : 0;
-    const name = typeof p.name === 'string' && p.name.trim() ? p.name : 'Player ' + (players.length + 1);
-    players.push({ id: p.id, name, seed });
-    const m = /^p(\d+)$/.exec(p.id);
-    if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
-  });
-  const srcScores = s.scores && typeof s.scores === 'object' ? s.scores : {};
-  const scores = {};
-  players.forEach((p) => {
-    const a = Array.isArray(srcScores[p.id]) ? srcScores[p.id].slice(0, ROUNDS) : [];
-    while (a.length < ROUNDS) a.push(null);
-    scores[p.id] = a.map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null));
-  });
-  const storedNext = typeof s.nextId === 'number' && Number.isFinite(s.nextId) ? s.nextId : 0;
-  // Recompute nextId from the highest existing pN id so corrupt/stale storage
-  // can never make addPlayerToState reuse an id and clobber another player.
-  const nextId = Math.max(maxId + 1, storedNext, players.length + 1);
-  return { started: !!s.started, players, scores, nextId };
-}
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return normalize(JSON.parse(raw));
-  } catch (e) { /* ignore corrupt/unavailable storage */ }
-  return defaultState();
-}
-
-function save() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) { /* storage may be full or blocked; scores stay in memory */ }
-}
-
-let state = load();
-let setupNames = ['Player 1', 'Player 2', 'Player 3'];
-
-/* ---------- State helpers ---------- */
-function playerById(id) {
-  return state.players.find((p) => p.id === id);
-}
-
-function addPlayerToState(name, seed) {
-  const id = 'p' + state.nextId++;
-  const clean = (name || '').trim() || 'Player ' + (state.players.length + 1);
-  state.players.push({ id, name: clean, seed: seed || 0 });
-  state.scores[id] = new Array(ROUNDS).fill(null);
-  return id;
-}
-
-function setScore(pid, round, value) {
-  if (!Array.isArray(state.scores[pid])) state.scores[pid] = new Array(ROUNDS).fill(null);
-  state.scores[pid][round] = value;
-  save();
-}
-
-function totalFor(pid) {
-  const player = playerById(pid);
-  const seed = player ? player.seed || 0 : 0;
-  const arr = state.scores[pid] || [];
-  return arr.reduce((sum, v) => sum + (v || 0), seed);
-}
-
-// The final round (11) is played by everyone present at the end, so use it to
-// decide the game is over without forcing mid-game joiners to fill earlier rounds.
-function isComplete() {
-  return (
-    state.players.length > 0 &&
-    state.players.every((p) => {
-      const arr = state.scores[p.id];
-      return arr && arr[ROUNDS - 1] != null;
-    })
-  );
-}
-
-/* ---------- DOM refs ---------- */
-const setupScreen = document.getElementById('setup-screen');
-const gameScreen = document.getElementById('game-screen');
-const playersCount = document.getElementById('players-count');
-const playersDec = document.getElementById('players-dec');
-const playersInc = document.getElementById('players-inc');
-const nameList = document.getElementById('name-list');
-const startBtn = document.getElementById('start-btn');
-
-const headRow = document.getElementById('head-row');
-const scoreBody = document.getElementById('score-body');
-const totalRow = document.getElementById('total-row');
-const winnerBanner = document.getElementById('winner-banner');
-const addPlayerBtn = document.getElementById('add-player-btn');
-const newGameBtn = document.getElementById('new-game-btn');
-
-const addDialog = document.getElementById('add-dialog');
-const addName = document.getElementById('add-name');
-const addSeed = document.getElementById('add-seed');
-const addCancel = document.getElementById('add-cancel');
-const confirmDialog = document.getElementById('confirm-dialog');
-const confirmCancel = document.getElementById('confirm-cancel');
-
-/* ---------- DOM helper ---------- */
+/* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
   const node = document.createElement(tag);
   if (attrs) {
     for (const k in attrs) {
       if (k === 'class') node.className = attrs[k];
+      else if (k === 'hidden') { if (attrs[k]) node.hidden = true; }
       else node.setAttribute(k, attrs[k]);
     }
   }
   if (text != null) node.textContent = text;
   return node;
 }
+function onlyDigits(value) { return String(value).replace(/[^0-9]/g, ''); }
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function unitSingular(game) { return game.unitLabel === 'sides' ? 'side' : 'player'; }
+function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
-function onlyDigits(value) {
-  return String(value).replace(/[^0-9]/g, '');
+/* ---------- state ---------- */
+let activeGame = null;
+let state = null;
+let setupNames = [];
+let prevStatus = null;
+let handEditIndex = null;
+let handDraft = null;
+
+function defaultState(game) {
+  return { gameId: game.id, started: false, players: [], nextId: 1, scores: {}, hands: [] };
 }
 
-/* ---------- Screen switching ---------- */
+function normalizeState(game, s) {
+  const base = defaultState(game);
+  if (!s || typeof s !== 'object') return base;
+
+  const seen = new Set();
+  const players = [];
+  let maxId = 0;
+  (Array.isArray(s.players) ? s.players : []).forEach((p) => {
+    if (!p || typeof p.id !== 'string' || seen.has(p.id)) return;
+    seen.add(p.id);
+    const seed = (typeof p.seed === 'number' && Number.isFinite(p.seed)) ? p.seed : 0;
+    const name = (typeof p.name === 'string' && p.name.trim()) ? p.name : cap(unitSingular(game)) + ' ' + (players.length + 1);
+    players.push({ id: p.id, name, seed });
+    const m = /^p(\d+)$/.exec(p.id);
+    if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
+  });
+  base.players = players;
+  base.started = !!s.started;
+  base.nextId = Math.max(maxId + 1, (typeof s.nextId === 'number' ? s.nextId : 0), players.length + 1);
+
+  if (game.entry === 'cell') {
+    const src = (s.scores && typeof s.scores === 'object') ? s.scores : {};
+    const fixed = game.rounds.kind === 'fixed' ? game.rounds.count : null;
+    players.forEach((p) => {
+      let a = Array.isArray(src[p.id])
+        ? src[p.id].map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null))
+        : [];
+      if (fixed) {
+        a = a.slice(0, fixed);
+        while (a.length < fixed) a.push(null);
+      } else {
+        a = a.slice(0, lastFilledIndex(a) + 1); // trim trailing blanks
+      }
+      base.scores[p.id] = a;
+    });
+  } else {
+    const hands = Array.isArray(s.hands) ? s.hands : [];
+    base.hands = hands
+      .filter((h) => h && typeof h === 'object' && typeof h.bidderId === 'string' && h.deltas && typeof h.deltas === 'object')
+      .map((h, i) => ({
+        id: typeof h.id === 'string' ? h.id : 'h' + i,
+        bidderId: h.bidderId,
+        bid: h.bid,
+        bidValue: h.bidValue,
+        made: !!h.made,
+        tricks: (h.tricks && typeof h.tricks === 'object') ? h.tricks : {},
+        deltas: h.deltas,
+      }));
+  }
+  return base;
+}
+
+function loadGame(game) {
+  try {
+    const raw = localStorage.getItem(game.storageKey);
+    if (raw) return normalizeState(game, JSON.parse(raw));
+  } catch (e) { /* ignore corrupt/unavailable storage */ }
+  return defaultState(game);
+}
+
+function hasStartedSave(game) {
+  const st = loadGame(game);
+  return st.started && st.players.length > 0;
+}
+
+function save() {
+  try {
+    localStorage.setItem(activeGame.storageKey, JSON.stringify(serializeState(activeGame, state)));
+    localStorage.setItem(LAST_GAME_KEY, activeGame.id);
+  } catch (e) { /* storage may be full or blocked; scores stay in memory */ }
+}
+
+// Serialize only the fields a game needs, so Five Crowns keeps its original
+// `fivecrowns:v1` shape and open cell games never persist a trailing blank row.
+function serializeState(game, st) {
+  const out = {
+    started: st.started,
+    players: st.players.map((p) => ({ id: p.id, name: p.name, seed: p.seed })),
+    nextId: st.nextId,
+  };
+  if (game.entry === 'cell') {
+    const scores = {};
+    const fixed = game.rounds.kind === 'fixed';
+    st.players.forEach((p) => {
+      let a = (st.scores[p.id] || []).slice();
+      if (!fixed) a = a.slice(0, lastFilledIndex(a) + 1);
+      scores[p.id] = a;
+    });
+    out.scores = scores;
+  } else {
+    out.hands = st.hands || [];
+  }
+  return out;
+}
+
+/* ---------- state helpers ---------- */
+function playerById(id) { return state.players.find((p) => p.id === id); }
+function nameOf(id) { const p = playerById(id); return p ? p.name : id; }
+
+function addPlayerToState(name, seed) {
+  const id = 'p' + state.nextId++;
+  const clean = (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (state.players.length + 1);
+  state.players.push({ id, name: clean, seed: seed || 0 });
+  if (activeGame.entry === 'cell') {
+    state.scores[id] = activeGame.rounds.kind === 'fixed'
+      ? new Array(activeGame.rounds.count).fill(null)
+      : [];
+  }
+  return id;
+}
+
+function setScore(pid, round, value) {
+  if (!Array.isArray(state.scores[pid])) state.scores[pid] = [];
+  const arr = state.scores[pid];
+  while (arr.length <= round) arr.push(null);
+  arr[round] = value;
+  save();
+}
+
+// One pass that returns totals and status together (kept consistent by the game).
+function resolve() {
+  return activeGame.resolve(state.players, state);
+}
+
+/* ---------- DOM refs ---------- */
+const setupScreen = document.getElementById('setup-screen');
+const gameScreen = document.getElementById('game-screen');
+const picker = document.getElementById('game-picker');
+const setupFresh = document.getElementById('setup-fresh');
+const setupResume = document.getElementById('setup-resume');
+const resumeNote = document.getElementById('resume-note');
+const resumeBtn = document.getElementById('resume-btn');
+const newFromSetupBtn = document.getElementById('new-from-setup-btn');
+const countLabel = document.getElementById('count-label');
+const playersCount = document.getElementById('players-count');
+const playersDec = document.getElementById('players-dec');
+const playersInc = document.getElementById('players-inc');
+const nameList = document.getElementById('name-list');
+const startBtn = document.getElementById('start-btn');
+
+const gameName = document.getElementById('game-name');
+const headerScoreHandBtn = document.getElementById('score-hand-btn');
+const addBtn = document.getElementById('add-btn');
+const menuBtn = document.getElementById('menu-btn');
+const caption = document.getElementById('table-caption');
+const headRow = document.getElementById('head-row');
+const scoreBody = document.getElementById('score-body');
+const totalRow = document.getElementById('total-row');
+const winnerBanner = document.getElementById('winner-banner');
+
+const addDialog = document.getElementById('add-dialog');
+const addTitle = document.getElementById('add-title');
+const addName = document.getElementById('add-name');
+const addSeed = document.getElementById('add-seed');
+const addHint = document.getElementById('add-hint');
+const addConfirm = document.getElementById('add-confirm');
+const addCancel = document.getElementById('add-cancel');
+
+const confirmDialog = document.getElementById('confirm-dialog');
+const confirmCancel = document.getElementById('confirm-cancel');
+
+const menuDialog = document.getElementById('menu-dialog');
+const switchBtn = document.getElementById('switch-btn');
+const newgameBtn = document.getElementById('newgame-btn');
+const menuClose = document.getElementById('menu-close');
+
+const handDialog = document.getElementById('hand-dialog');
+const handTitle = document.getElementById('hand-title');
+const handBody = document.getElementById('hand-body');
+const handPreview = document.getElementById('hand-preview');
+const handDeleteBtn = document.getElementById('hand-delete');
+const handCancel = document.getElementById('hand-cancel');
+const handSave = document.getElementById('hand-save');
+
+/* ---------- screen switching ---------- */
 function showSetup() {
   setupScreen.hidden = false;
   gameScreen.hidden = true;
+  renderPicker();
+  refreshSetupView();
 }
 
 function showGame() {
   setupScreen.hidden = true;
   gameScreen.hidden = false;
+  gameName.textContent = activeGame.name;
   renderGame();
 }
 
-/* ---------- Setup rendering ---------- */
-function renderSetup() {
+/* ---------- picker + setup ---------- */
+function renderPicker() {
+  picker.innerHTML = '';
+  GAME_ORDER.forEach((id) => {
+    const g = GAMES[id];
+    const label = el('label', { class: 'pick' });
+    const input = el('input', { type: 'radio', name: 'game', value: id });
+    if (id === activeGame.id) input.checked = true;
+    input.addEventListener('change', () => { if (input.checked) selectGame(id); });
+    label.appendChild(input);
+    label.appendChild(el('span', { class: 'pick-name' }, g.name));
+    picker.appendChild(label);
+  });
+}
+
+function selectGame(id) {
+  activeGame = GAMES[id];
+  refreshSetupView();
+}
+
+function refreshSetupView() {
+  countLabel.textContent = cap(activeGame.unitLabel);
+  if (hasStartedSave(activeGame)) {
+    setupResume.hidden = false;
+    setupFresh.hidden = true;
+    resumeNote.textContent = 'You have a ' + activeGame.name + ' game in progress.';
+  } else {
+    setupResume.hidden = true;
+    setupFresh.hidden = false;
+    setupNames = activeGame.defaultNames();
+    renderNameList();
+  }
+}
+
+function renderNameList() {
   playersCount.textContent = setupNames.length;
-  playersDec.disabled = setupNames.length <= MIN_PLAYERS;
-  playersInc.disabled = setupNames.length >= MAX_PLAYERS;
+  playersDec.disabled = setupNames.length <= activeGame.minPlayers;
+  playersInc.disabled = setupNames.length >= activeGame.maxPlayers;
   nameList.innerHTML = '';
   setupNames.forEach((nm, i) => {
     const li = el('li', { class: 'name-row' });
     const input = el('input', {
       type: 'text',
       value: nm,
-      placeholder: 'Player ' + (i + 1),
-      'aria-label': 'Player ' + (i + 1) + ' name',
+      placeholder: cap(unitSingular(activeGame)) + ' ' + (i + 1),
+      'aria-label': cap(unitSingular(activeGame)) + ' ' + (i + 1) + ' name',
       autocomplete: 'off',
     });
     input.addEventListener('input', () => { setupNames[i] = input.value; });
@@ -169,114 +282,221 @@ function renderSetup() {
   });
 }
 
-/* ---------- Game rendering ---------- */
+/* ---------- game rendering ---------- */
+function captionText() {
+  const dir = activeGame.winDirection === 'low' ? 'Lowest' : 'Highest';
+  let t = activeGame.name + ' score sheet. ' + dir + ' total wins';
+  if (activeGame.target != null) t += '; first to ' + activeGame.target;
+  return t + '.';
+}
+
+function cornerLabel() { return activeGame.entry === 'hand' ? 'Hand' : 'Round'; }
+
+function cellRowCount(st) {
+  if (activeGame.rounds.kind === 'fixed') return activeGame.rounds.count;
+  let lastFilled = -1;
+  state.players.forEach((p) => { lastFilled = Math.max(lastFilled, lastFilledIndex(state.scores[p.id] || [])); });
+  const started = lastFilled + 1;
+  if (st && st.finalRound != null) return st.finalRound + 1;        // capped final round (Greed)
+  if (!st || st.phase === 'inProgress') return started + 1;          // trailing empty row
+  return started;
+}
+
 function renderGame() {
-  // Header row: corner + one editable name per player.
+  const { totals, status } = resolve();
+  gameName.textContent = activeGame.name;
+  caption.textContent = captionText();
+  renderHeaderActions(status);
+  buildHead();
+  buildBody(status);
+  buildFoot();
+  updateTotalsAndBanner(totals, status);
+  prevStatus = status;
+}
+
+function renderHeaderActions(st) {
+  const inProgress = st.phase === 'inProgress';
+  addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
+  addBtn.hidden = !inProgress;
+  headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
+}
+
+function buildHead() {
   headRow.innerHTML = '';
-  headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, 'Round'));
+  headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, cornerLabel()));
   state.players.forEach((p) => {
     const th = el('th', { class: 'player-col', scope: 'col', 'data-pid': p.id });
-    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': 'Player name', autocomplete: 'off' });
+    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': 'Name', autocomplete: 'off' });
     input.addEventListener('input', () => {
       p.name = input.value;
       save();
       refreshScoreLabels(p.id);
-      updateTotals();
+      updateTotalsAndBanner();
     });
     th.appendChild(input);
     headRow.appendChild(th);
   });
+}
 
-  // Body: 11 rounds.
+// Keep score-cell aria-labels in sync when a player is renamed (cell games).
+function refreshScoreLabels(pid) {
+  const p = playerById(pid);
+  if (!p) return;
+  scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
+    const r = Number(input.getAttribute('data-round'));
+    const label = activeGame.roundLabel(r);
+    input.setAttribute('aria-label', p.name + ' ' + label.num + (label.sub ? ' (' + label.sub + ')' : ''));
+  });
+}
+
+function buildBody(st) {
   scoreBody.innerHTML = '';
-  for (let r = 0; r < ROUNDS; r++) {
-    const tr = el('tr', { 'data-round': String(r) });
-    const rh = el('th', { class: 'round-col', scope: 'row' });
-    rh.appendChild(el('span', { class: 'round-num' }, String(r + 1)));
-    rh.appendChild(el('span', { class: 'wild' }, WILD_LABELS[r] + ' wild'));
+  if (activeGame.entry === 'hand') {
+    buildHandRows();
+  } else {
+    const rows = cellRowCount(st);
+    for (let r = 0; r < rows; r++) scoreBody.appendChild(buildCellRow(r));
+  }
+}
+
+function buildCellRow(r) {
+  const label = activeGame.roundLabel(r);
+  const tr = el('tr', { 'data-round': String(r) });
+  const rh = el('th', { class: 'round-col', scope: 'row' });
+  rh.appendChild(el('span', { class: 'round-num' }, label.num));
+  if (label.sub) rh.appendChild(el('span', { class: 'wild' }, label.sub));
+  tr.appendChild(rh);
+
+  state.players.forEach((p) => {
+    const td = el('td', { class: 'score-cell' });
+    const input = el('input', {
+      type: 'text',
+      inputmode: 'numeric',
+      pattern: '[0-9]*',
+      class: 'score-input',
+      'data-pid': p.id,
+      'data-round': String(r),
+      'aria-label': p.name + ' ' + label.num + (label.sub ? ' (' + label.sub + ')' : ''),
+    });
+    const arr = state.scores[p.id] || [];
+    const v = arr[r];
+    input.value = v == null ? '' : String(v);
+    input.addEventListener('input', () => {
+      const digits = onlyDigits(input.value);
+      if (digits !== input.value) input.value = digits;
+      setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
+      handleCellChange();
+    });
+    td.appendChild(input);
+    tr.appendChild(td);
+  });
+  return tr;
+}
+
+function buildHandRows() {
+  const hands = state.hands || [];
+  hands.forEach((hand, i) => {
+    const tr = el('tr', { 'data-hand': String(i) });
+    const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
+    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) });
+    btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1)));
+    btn.appendChild(el('span', { class: 'wild' }, activeGame.handSummary(hand, state.players)));
+    btn.addEventListener('click', () => openHandDialog(i));
+    rh.appendChild(btn);
     tr.appendChild(rh);
 
     state.players.forEach((p) => {
-      const td = el('td', { class: 'score-cell' });
-      const input = el('input', {
-        type: 'text',
-        inputmode: 'numeric',
-        pattern: '[0-9]*',
-        class: 'score-input',
-        'data-pid': p.id,
-        'data-round': String(r),
-        'aria-label': p.name + ' round ' + (r + 1) + ' score',
-      });
-      const v = state.scores[p.id] ? state.scores[p.id][r] : null;
-      input.value = v == null ? '' : String(v);
-      input.addEventListener('input', () => {
-        const digits = onlyDigits(input.value);
-        if (digits !== input.value) input.value = digits;
-        setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
-        updateTotals();
-      });
-      td.appendChild(input);
+      const td = el('td', { class: 'score-cell delta-cell' });
+      const d = hand.deltas ? hand.deltas[p.id] : undefined;
+      if (d != null) {
+        td.textContent = (d > 0 ? '+' : '') + d;
+        if (d < 0) td.classList.add('neg');
+      }
       tr.appendChild(td);
     });
     scoreBody.appendChild(tr);
-  }
+  });
 
-  // Footer: totals.
+  if (hands.length === 0) {
+    const tr = el('tr');
+    const td = el('td', { class: 'empty-hint', colspan: String(state.players.length + 1) },
+      'No hands yet. Tap "Score hand" to record one.');
+    tr.appendChild(td);
+    scoreBody.appendChild(tr);
+  }
+}
+
+function buildFoot() {
   totalRow.innerHTML = '';
   totalRow.appendChild(el('th', { class: 'round-col', scope: 'row' }, 'Total'));
   state.players.forEach((p) => {
     totalRow.appendChild(el('td', { class: 'total-cell', 'data-pid': p.id }));
   });
-
-  updateTotals();
 }
 
-// Keep score-input aria-labels in sync when a player is renamed.
-function refreshScoreLabels(pid) {
-  const player = playerById(pid);
-  if (!player) return;
-  scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
-    const r = Number(input.getAttribute('data-round'));
-    input.setAttribute('aria-label', player.name + ' round ' + (r + 1) + ' score');
-  });
-}
+function updateTotalsAndBanner(totals, st) {
+  if (!totals || !st) { const r = resolve(); totals = r.totals; st = r.status; }
 
-function updateTotals() {
-  const totals = state.players.map((p) => ({ p, total: totalFor(p.id) }));
-  if (totals.length === 0) return;
-
-  const min = Math.min(...totals.map((t) => t.total));
-  const max = Math.max(...totals.map((t) => t.total));
-  const highlight = totals.length > 1 && min !== max;
-
-  totals.forEach(({ p, total }) => {
+  state.players.forEach((p) => {
     const cell = totalRow.querySelector('.total-cell[data-pid="' + p.id + '"]');
-    if (cell) {
-      cell.textContent = String(total);
-      cell.classList.toggle('leader', highlight && total === min);
+    if (!cell) return;
+    const t = totals[p.id];
+    cell.textContent = '';
+    cell.appendChild(document.createTextNode(String(t)));
+    cell.classList.toggle('leader', st.leaders.indexOf(p.id) !== -1);
+    cell.classList.toggle('neg', activeGame.allowNegative && t < 0);
+    // Greed: subtle hint while a player has not yet banked >= 500 to get on board.
+    if (activeGame.onBoardMin && t === 0 && lastFilledIndex(state.scores[p.id] || []) >= 0) {
+      cell.appendChild(el('span', { class: 'needs' }, 'needs ' + activeGame.onBoardMin));
     }
   });
 
-  if (isComplete()) {
-    const winners = totals.filter((t) => t.total === min).map((t) => t.p.name);
+  winnerBanner.className = 'winner-banner phase-' + st.phase;
+  if (st.text) {
     winnerBanner.hidden = false;
-    winnerBanner.textContent =
-      winners.length === 1
-        ? '\u{1F3C6} ' + winners[0] + ' wins with ' + min + '!'
-        : '\u{1F3C6} Tie at ' + min + ': ' + winners.join(', ');
+    winnerBanner.textContent = st.text;
   } else {
     winnerBanner.hidden = true;
     winnerBanner.textContent = '';
   }
 }
 
-/* ---------- Actions ---------- */
+// After a cell edit, update header/totals/banner in place and grow or trim the
+// trailing rows. Never a full rebuild, so the focused input is preserved even on
+// the keystroke that completes a game or first reaches a target.
+function handleCellChange() {
+  const { totals, status } = resolve();
+  renderHeaderActions(status);
+  updateTotalsAndBanner(totals, status);
+  const want = cellRowCount(status);
+  while (scoreBody.children.length < want) scoreBody.appendChild(buildCellRow(scoreBody.children.length));
+  // only trim trailing rows that don't hold focus
+  while (scoreBody.children.length > want
+    && !scoreBody.lastChild.contains(document.activeElement)) {
+    scoreBody.removeChild(scoreBody.lastChild);
+  }
+  prevStatus = status;
+}
+
+/* ---------- actions ---------- */
 function startGame() {
-  state = defaultState();
+  state = defaultState(activeGame);
   state.started = true;
   setupNames.forEach((n) => addPlayerToState(n, 0));
   save();
   showGame();
+}
+
+function resumeGame() {
+  state = loadGame(activeGame);
+  showGame();
+}
+
+function newGame() {
+  state = defaultState(activeGame);
+  save();
+  setupNames = activeGame.defaultNames();
+  showSetup();
 }
 
 function addPlayer(name, seed) {
@@ -285,60 +505,186 @@ function addPlayer(name, seed) {
   renderGame();
 }
 
-function newGame() {
-  state = defaultState();
-  setupNames = ['Player 1', 'Player 2', 'Player 3'];
-  save();
-  renderSetup();
-  showSetup();
+/* ---------- add-player dialog ---------- */
+function validateSeed() {
+  const seed = parseInt(onlyDigits(addSeed.value), 10) || 0;
+  if (activeGame.target != null && seed >= activeGame.target) {
+    addHint.hidden = false;
+    addHint.textContent = 'Starting score must be less than ' + activeGame.target + '.';
+    addHint.classList.add('error');
+    addConfirm.disabled = true;
+    return false;
+  }
+  addHint.classList.remove('error');
+  if (activeGame.target != null) {
+    addHint.hidden = false;
+    addHint.textContent = 'Must be less than ' + activeGame.target + '.';
+  } else {
+    addHint.hidden = true;
+  }
+  addConfirm.disabled = false;
+  return true;
 }
 
-/* ---------- Wiring ---------- */
-playersInc.addEventListener('click', () => {
-  if (setupNames.length < MAX_PLAYERS) {
-    setupNames.push('Player ' + (setupNames.length + 1));
-    renderSetup();
-  }
-});
-playersDec.addEventListener('click', () => {
-  if (setupNames.length > MIN_PLAYERS) {
-    setupNames.pop();
-    renderSetup();
-  }
-});
-startBtn.addEventListener('click', startGame);
-
-addPlayerBtn.addEventListener('click', () => {
+function openAddDialog() {
+  addTitle.textContent = 'Add ' + unitSingular(activeGame);
   addName.value = '';
   addSeed.value = '0';
-  // Reset returnValue so an Escape-dismiss can't replay the previous "add"
-  // (Firefox/Safari don't clear it on a bare close request the way Chromium does).
+  validateSeed();
   addDialog.returnValue = '';
   addDialog.showModal();
   addName.focus();
+}
+
+/* ---------- generic UI helpers ---------- */
+
+function chip(label, selected, onClick, ariaLabel) {
+  const b = el('button', { type: 'button', class: 'chip' + (selected ? ' selected' : ''), 'aria-pressed': selected ? 'true' : 'false' }, label);
+  if (ariaLabel) b.setAttribute('aria-label', ariaLabel);
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function labeledStepper(label, value, min, max, onChange) {
+  const wrap = el('div', { class: 'hand-stepper' });
+  wrap.appendChild(el('span', { class: 'hand-stepper-label' }, label));
+  const ctrl = el('div', { class: 'stepper' });
+  const dec = el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Decrease ' + label }, '−');
+  const out = el('output', {}, String(value));
+  const inc = el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Increase ' + label }, '+');
+  dec.disabled = value <= min;
+  inc.disabled = value >= max;
+  dec.addEventListener('click', () => onChange(clamp(value - 1, min, max)));
+  inc.addEventListener('click', () => onChange(clamp(value + 1, min, max)));
+  ctrl.appendChild(dec); ctrl.appendChild(out); ctrl.appendChild(inc);
+  wrap.appendChild(ctrl);
+  return wrap;
+}
+
+/* ---------- hand dialog (delegated to the game) ---------- */
+const HAND_UI = { el: el, chip: chip, labeledStepper: labeledStepper };
+
+function renderHandForm() {
+  handBody.innerHTML = '';
+  activeGame.hand.build(handBody, handDraft, state.players, HAND_UI, onHandChange);
+}
+
+function onHandChange() {
+  renderHandForm();
+  updateHandPreview();
+}
+
+function updateHandPreview() {
+  const v = activeGame.hand.validate(handDraft, state.players);
+  handSave.disabled = !v.valid;
+  handPreview.textContent = v.message;
+}
+
+function openHandDialog(index) {
+  if (index == null && state.players.length < 2) return;
+  handEditIndex = index;
+  handDraft = index != null
+    ? activeGame.hand.draftFromRecord(state.hands[index])
+    : activeGame.hand.newDraft(state.players);
+  handTitle.textContent = index != null ? 'Edit hand ' + (index + 1) : 'Score hand';
+  handDeleteBtn.hidden = index == null;
+  renderHandForm();
+  updateHandPreview();
+  handDialog.returnValue = '';
+  handDialog.showModal();
+  const firstChip = handBody.querySelector('.chip');
+  if (firstChip) firstChip.focus();
+}
+
+function saveHand() {
+  const id = handEditIndex != null ? state.hands[handEditIndex].id : null;
+  const record = activeGame.hand.toRecord(handDraft, state.players, id);
+  if (handEditIndex != null) state.hands[handEditIndex] = record;
+  else state.hands.push(record);
+  save();
+  const focusIdx = handEditIndex != null ? handEditIndex : state.hands.length - 1;
+  renderGame();
+  focusHandRow(focusIdx);
+}
+
+function deleteHand() {
+  if (handEditIndex == null) return;
+  state.hands.splice(handEditIndex, 1);
+  save();
+  renderGame();
+  focusHandRow(Math.min(handEditIndex, state.hands.length - 1));
+}
+
+// Restore focus after a hand-row rebuild: to the affected row's edit button, or
+// the Score hand button if no rows remain.
+function focusHandRow(i) {
+  if (i >= 0) {
+    const btn = scoreBody.querySelector('tr[data-hand="' + i + '"] .hand-edit');
+    if (btn) { btn.focus(); return; }
+  }
+  if (!headerScoreHandBtn.hidden) headerScoreHandBtn.focus();
+}
+
+/* ---------- wiring ---------- */
+playersInc.addEventListener('click', () => {
+  if (setupNames.length < activeGame.maxPlayers) {
+    setupNames.push(cap(unitSingular(activeGame)) + ' ' + (setupNames.length + 1));
+    renderNameList();
+  }
 });
+playersDec.addEventListener('click', () => {
+  if (setupNames.length > activeGame.minPlayers) {
+    setupNames.pop();
+    renderNameList();
+  }
+});
+startBtn.addEventListener('click', startGame);
+resumeBtn.addEventListener('click', resumeGame);
+newFromSetupBtn.addEventListener('click', () => { newGame(); });
+
+addBtn.addEventListener('click', openAddDialog);
+headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
+addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); });
 addCancel.addEventListener('click', () => addDialog.close('cancel'));
-addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); });
 addDialog.addEventListener('close', () => {
   if (addDialog.returnValue === 'add') {
     const seed = parseInt(onlyDigits(addSeed.value), 10) || 0;
+    if (activeGame.target != null && seed >= activeGame.target) return;
     addPlayer(addName.value, seed);
   }
 });
 
-newGameBtn.addEventListener('click', () => {
+menuBtn.addEventListener('click', () => { menuDialog.returnValue = ''; menuDialog.showModal(); });
+menuClose.addEventListener('click', () => menuDialog.close('cancel'));
+switchBtn.addEventListener('click', () => { menuDialog.close('cancel'); save(); showSetup(); });
+newgameBtn.addEventListener('click', () => {
+  menuDialog.close('cancel');
   confirmDialog.returnValue = '';
   confirmDialog.showModal();
 });
 confirmCancel.addEventListener('click', () => confirmDialog.close('cancel'));
-confirmDialog.addEventListener('close', () => {
-  if (confirmDialog.returnValue === 'ok') newGame();
+confirmDialog.addEventListener('close', () => { if (confirmDialog.returnValue === 'ok') newGame(); });
+
+handCancel.addEventListener('click', () => handDialog.close('cancel'));
+handDeleteBtn.addEventListener('click', () => handDialog.close('delete'));
+handDialog.addEventListener('close', () => {
+  if (handDialog.returnValue === 'save') saveHand();
+  else if (handDialog.returnValue === 'delete') deleteHand();
 });
 
-/* ---------- Init ---------- */
-if (state.started && state.players.length > 0) {
-  showGame();
-} else {
-  renderSetup();
-  showSetup();
+/* ---------- init ---------- */
+function init() {
+  let lastId = localStorage.getItem(LAST_GAME_KEY);
+  if (!lastId || !GAMES[lastId]) lastId = 'fivecrowns'; // first-run / migration default
+  activeGame = GAMES[lastId] || GAMES.fivecrowns;
+  if (hasStartedSave(activeGame)) {
+    state = loadGame(activeGame);
+    showGame();
+  } else {
+    state = defaultState(activeGame);
+    setupNames = activeGame.defaultNames();
+    showSetup();
+  }
 }
+
+init();
