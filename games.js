@@ -109,6 +109,17 @@ const fiveCrowns = {
   },
 };
 
+/* ---------- Five Crowns (reverse) ---------- */
+// The same game as Five Crowns, but the wild card counts down from Kings to 3s
+// (deal 13 cards in the first round, down to 3 in the last). Only the per-round
+// wild label changes, so this is the base game with roundLabel swapped.
+const fiveCrownsReverse = Object.assign({}, fiveCrowns, {
+  id: 'fivecrownsreverse',
+  name: 'Five Crowns (Reverse)',
+  storageKey: 'fivecrowns-reverse:v1',
+  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[FIVE_CROWNS_ROUNDS - 1 - i] + ' wild' }; },
+});
+
 /* ---------- Greed (dice) ---------- */
 const GREED_TARGET = 5000;
 const GREED_ON_BOARD = 500;
@@ -470,7 +481,8 @@ five00.hand = {
 /* ---------- registry ---------- */
 const GAMES = {
   fivecrowns: fiveCrowns,
+  fivecrownsreverse: fiveCrownsReverse,
   greed: greed,
   five00: five00,
 };
-const GAME_ORDER = ['fivecrowns', 'greed', 'five00'];
+const GAME_ORDER = ['fivecrowns', 'fivecrownsreverse', 'greed', 'five00'];

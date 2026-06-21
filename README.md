@@ -11,7 +11,9 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 ## Games
 
 - **Five Crowns** — 11 rounds, each with its own wild card (3s through Kings).
-  Lowest total wins. Complete once the final round is entered for everyone.
+  Lowest total wins. Complete once the final round is entered for everyone. A
+  reverse variant runs the same 11 rounds with the wild cards counting down from
+  Kings to 3s.
 - **Greed** (dice) — open-ended rounds where each player banks a turn total.
   You need 500 in a single turn to get on the board; a bust scores 0. Highest
   total wins, racing to 5000. When a player reaches 5000 there is exactly one
