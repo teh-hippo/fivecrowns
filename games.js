@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Game definitions for the multi-game scorer.
  *
@@ -486,3 +484,24 @@ const GAMES = {
   five00: five00,
 };
 const GAME_ORDER = ['fivecrowns', 'fivecrownsreverse', 'greed', 'five00'];
+
+export {
+  GAMES,
+  GAME_ORDER,
+  lastFilledIndex,
+  sumScores,
+  leadersOf,
+  joinNames,
+  winnerText,
+  greedRunningTotals,
+  contractValue,
+  suitContractValue,
+  bidLabel,
+  buildBidOrder,
+  fiveCrowns,
+  fiveCrownsReverse,
+  greed,
+  five00,
+  FIVE_CROWNS_WILDS,
+  FIVE_CROWNS_ROUNDS,
+};

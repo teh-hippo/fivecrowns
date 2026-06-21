@@ -1,4 +1,4 @@
-'use strict';
+import { GAMES, GAME_ORDER, lastFilledIndex } from './games.js';
 
 /*
  * Generic scorekeeping engine. Reads the active game object from `games.js`
