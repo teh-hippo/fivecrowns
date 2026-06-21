@@ -33,8 +33,12 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 - Running totals with the leader highlighted, and a clear winner, target or
   out banner per game.
 - Add a player part way through with a custom starting score, so a latecomer can
-  be slotted in without restarting.
-- Everything is saved in your browser, so a refresh never loses your scores.
+  be slotted in without restarting, or remove one on the setup screen.
+- When a game ends, tap **Play again** to start a fresh game with the same
+  players.
+- Everything is saved on your device, so a refresh, an app switch or losing
+  signal mid-game never loses your scores.
+- Installable to your home screen, where it runs full screen like an app.
 
 ## How to play
 
@@ -45,14 +49,40 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 3. Totals update live and the leader is highlighted as you go.
 4. Use **+ Player** / **+ Side** to add someone mid-game, or **Menu** to switch
    games or start a new one.
+5. When the game is won, tap **Play again** for a rematch with the same players.
 
 ## Local development
 
-Everything is plain HTML, CSS and JavaScript using classic `<script>` tags, so
-there is no build step and no bundler. Open `index.html` directly in a browser,
-or serve the folder with any static server.
+Everything is plain HTML, CSS and JavaScript loaded as native ES modules, so
+there is no build step and no bundler. The code is split into small modules:
+`games.js` holds the game definitions and pure scoring helpers, `state.js` the
+pure save and restore logic, and `app.js` the rendering and wiring. The page
+loads `app.js`, which imports the other two.
+
+Because browsers do not allow ES modules over `file://`, serve the folder with
+any static server rather than opening `index.html` directly:
+
+    python3 -m http.server
+
+then open the printed `http://localhost:8000`.
+
+### Tests
+
+The scoring and save logic is pure (no DOM), so it is covered by a small suite
+that runs on Node's built-in test runner with no dependencies:
+
+    npm test
+
+### Installing
+
+The app ships a web manifest and icons, so it can be added to a phone's home
+screen and run full screen. It deliberately has no service worker: scores live
+in `localStorage` (which an installed app keeps), so the offline value a service
+worker would add is small next to its upkeep and update risks.
 
 ## Deployment
 
 GitHub Pages serves the site straight from the `main` branch root, so any commit
-to `main` publishes automatically. There is no build or pipeline to maintain.
+to `main` publishes automatically. There is no build or pipeline to maintain; a
+small GitHub Actions workflow runs the unit tests on each push but does not gate
+the deploy.
