@@ -772,4 +772,11 @@ function init() {
   }
 }
 
+// Ask for persistent storage so saved games are less likely to be evicted under
+// storage pressure. Best-effort and silent: installed apps are favoured to be
+// granted it, and a refusal changes nothing (scores still live in localStorage).
+if (navigator.storage && typeof navigator.storage.persist === 'function') {
+  navigator.storage.persist().catch(() => {});
+}
+
 init();
