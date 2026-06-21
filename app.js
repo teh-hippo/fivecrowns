@@ -343,7 +343,36 @@ function buildHead() {
   });
 }
 
-// Keep score-cell aria-labels in sync when a player is renamed (cell games).
+// Keep the focused score cell clear of the on-screen keyboard and the sticky
+// header/footer. scrollIntoView centres in the layout viewport, which on iOS
+// ignores the keyboard (it shrinks only the visual viewport), so measure the
+// visual viewport and scroll the table within that visible band instead.
+function scrollScoreInputIntoView(input) {
+  const wrap = input.closest('.table-wrap');
+  const vv = window.visualViewport;
+  if (!wrap || !vv) { input.scrollIntoView({ block: 'center', inline: 'nearest' }); return; }
+  setTimeout(() => {
+    if (document.activeElement !== input) return;
+    const cell = input.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const corner = wrap.querySelector('thead .round-col');
+    const foot = wrap.querySelector('tfoot');
+    const headH = corner ? corner.getBoundingClientRect().height : 0;
+    const stickyW = corner ? corner.getBoundingClientRect().width : 0;
+    const footH = foot ? foot.getBoundingClientRect().height : 0;
+    const m = 24;
+    const top = wrapRect.top + headH + m;
+    const bottom = Math.min(vv.offsetTop + vv.height, wrapRect.bottom - footH) - m;
+    if (cell.bottom > bottom) wrap.scrollTop += cell.bottom - bottom;
+    else if (cell.top < top) wrap.scrollTop -= top - cell.top;
+    const left = wrapRect.left + stickyW + m;
+    const right = wrapRect.right - m;
+    if (cell.right > right) wrap.scrollLeft += cell.right - right;
+    else if (cell.left < left) wrap.scrollLeft -= left - cell.left;
+  }, 300);
+}
+
+
 function refreshScoreLabels(pid) {
   const p = playerById(pid);
   if (!p) return;
@@ -393,10 +422,7 @@ function buildCellRow(r) {
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
     });
-    input.addEventListener('focus', () => {
-      // Keep the focused cell clear of the on-screen keyboard on phones.
-      input.scrollIntoView({ block: 'center', inline: 'nearest' });
-    });
+    input.addEventListener('focus', () => scrollScoreInputIntoView(input));
     // The numeric keypad has no Next key, so wire Enter to the following cell.
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -702,6 +728,26 @@ function closeOnBackdropTap(dialog) {
   });
 }
 [addDialog, menuDialog, handDialog].forEach(closeOnBackdropTap);
+
+/* ---------- keyboard-aware viewport ---------- */
+// Track the visual viewport so the game screen and bottom-sheet dialogs shrink
+// to the area above the on-screen keyboard instead of being hidden behind it
+// (iOS shrinks only the visual viewport, not the layout one). Exposed as CSS
+// custom properties so the layout stays declarative.
+function syncViewport() {
+  const vv = window.visualViewport;
+  const appH = vv ? vv.height : window.innerHeight;
+  const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  const docEl = document.documentElement;
+  docEl.style.setProperty('--app-height', appH + 'px');
+  docEl.style.setProperty('--keyboard-height', kb + 'px');
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncViewport);
+  window.visualViewport.addEventListener('scroll', syncViewport);
+}
+window.addEventListener('orientationchange', syncViewport);
+syncViewport();
 
 /* ---------- <dialog> fallback ---------- */
 // Minimal modal-dialog fallback for browsers without showModal (iOS Safari
