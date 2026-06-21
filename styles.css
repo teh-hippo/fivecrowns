@@ -357,6 +357,27 @@ dialog.sheet {
 }
 dialog.sheet::backdrop { background: rgba(10, 8, 20, 0.5); }
 
+/* On phones, present dialogs as bottom sheets: actions land in the thumb zone
+   and a centred box can no longer be hidden behind the on-screen keyboard. */
+@media (max-width: 480px) and (pointer: coarse) {
+  dialog.sheet {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    inset: auto 0 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: max(1.2rem, env(safe-area-inset-bottom));
+  }
+  .no-dialog dialog.sheet[open] {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    max-width: none;
+  }
+}
+
 /* Fallback presentation for browsers without native modal <dialog>
    (iOS Safari < 15.4). Scoped to .no-dialog, which the JS fallback adds only
    when showModal is unavailable, so it is inert on current browsers. */
