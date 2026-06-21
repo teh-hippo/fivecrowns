@@ -335,6 +335,7 @@ tfoot td, tfoot th {
 }
 tfoot .round-col { z-index: 4; }
 .total-cell {
+  position: relative;
   text-align: center;
   font-weight: 800;
   font-size: 1.05rem;
@@ -344,6 +345,14 @@ tfoot .round-col { z-index: 4; }
 .total-cell.leader {
   background: var(--leader-bg);
   color: var(--leader-text);
+}
+.total-cell .leader-mark {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--accent);
 }
 
 /* ---------- Dialogs ---------- */

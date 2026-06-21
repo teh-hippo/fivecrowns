@@ -329,9 +329,9 @@ function renderHeaderActions(st) {
 function buildHead() {
   headRow.innerHTML = '';
   headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, cornerLabel()));
-  state.players.forEach((p) => {
+  state.players.forEach((p, i) => {
     const th = el('th', { class: 'player-col', scope: 'col', 'data-pid': p.id });
-    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': 'Name', autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'done' });
+    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': cap(unitSingular(activeGame)) + ' ' + (i + 1) + ' name', autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'done' });
     input.addEventListener('input', () => {
       p.name = input.value;
       save();
@@ -373,13 +373,17 @@ function scrollScoreInputIntoView(input) {
 }
 
 
+function scoreCellLabel(name, label) {
+  return name + ', round ' + label.num + (label.sub ? ' (' + label.sub + ')' : '') + ' score';
+}
+
+// Keep score-cell aria-labels in sync when a player is renamed (cell games).
 function refreshScoreLabels(pid) {
   const p = playerById(pid);
   if (!p) return;
   scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
     const r = Number(input.getAttribute('data-round'));
-    const label = activeGame.roundLabel(r);
-    input.setAttribute('aria-label', p.name + ' ' + label.num + (label.sub ? ' (' + label.sub + ')' : ''));
+    input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r)));
   });
 }
 
@@ -411,7 +415,7 @@ function buildCellRow(r) {
       class: 'score-input',
       'data-pid': p.id,
       'data-round': String(r),
-      'aria-label': p.name + ' ' + label.num + (label.sub ? ' (' + label.sub + ')' : ''),
+      'aria-label': scoreCellLabel(p.name, label),
     });
     const arr = state.scores[p.id] || [];
     const v = arr[r];
@@ -442,7 +446,7 @@ function buildHandRows() {
   hands.forEach((hand, i) => {
     const tr = el('tr', { 'data-hand': String(i) });
     const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
-    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) });
+    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) + ', ' + activeGame.handSummary(hand, state.players) });
     btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1)));
     btn.appendChild(el('span', { class: 'wild' }, activeGame.handSummary(hand, state.players)));
     btn.addEventListener('click', () => openHandDialog(i));
@@ -485,13 +489,22 @@ function updateTotalsAndBanner(totals, st) {
     const cell = totalRow.querySelector('.total-cell[data-pid="' + p.id + '"]');
     if (!cell) return;
     const t = totals[p.id];
+    const isLeader = st.leaders.indexOf(p.id) !== -1;
     cell.textContent = '';
     cell.appendChild(document.createTextNode(String(t)));
-    cell.classList.toggle('leader', st.leaders.indexOf(p.id) !== -1);
+    cell.classList.toggle('leader', isLeader);
     cell.classList.toggle('neg', activeGame.allowNegative && t < 0);
+    // A crown marks the leader so it does not rely on the green colour alone.
+    if (isLeader) {
+      cell.appendChild(el('span', { class: 'leader-mark', 'aria-hidden': 'true' }, '\u265B'));
+      cell.appendChild(el('span', { class: 'visually-hidden' }, ' leader'));
+    }
     // Greed: subtle hint while a player has not yet banked >= 500 to get on board.
     if (activeGame.onBoardMin && t === 0 && lastFilledIndex(state.scores[p.id] || []) >= 0) {
-      cell.appendChild(el('span', { class: 'needs' }, 'needs ' + activeGame.onBoardMin));
+      cell.appendChild(el('span', {
+        class: 'needs',
+        title: 'Needs ' + activeGame.onBoardMin + ' in a single turn to get on the board',
+      }, 'needs ' + activeGame.onBoardMin));
     }
   });
 
