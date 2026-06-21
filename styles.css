@@ -226,7 +226,6 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   width: max-content;
-  min-width: 100%;
 }
 caption { text-align: left; }
 
@@ -270,9 +269,10 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   color: var(--muted);
 }
 
-.player-col { min-width: 84px; }
+.player-col { width: 68px; min-width: 68px; max-width: 68px; }
 .name-input {
   width: 100%;
+  min-width: 0;
   font-size: 16px;
   font-weight: 700;
   text-align: center;
