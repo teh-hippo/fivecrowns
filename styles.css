@@ -270,7 +270,7 @@ thead th {
   background: var(--surface-2);
   text-align: left;
   padding: 0.4rem 0.4rem;
-  min-width: 56px;
+  min-width: 4ch;
 }
 thead .round-col, tfoot .round-col { z-index: 3; }
 
@@ -502,7 +502,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   padding: 0.5rem 0.25rem;
-  min-width: 84px;
+  min-width: 6ch;
 }
 .empty-hint { padding: 1.2rem 0.8rem; color: var(--muted); text-align: center; }
 
