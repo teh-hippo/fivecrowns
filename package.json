@@ -1,0 +1,10 @@
+{
+  "name": "fivecrowns",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A minimal, mobile-friendly scorekeeper for Five Crowns, Greed and 500.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
