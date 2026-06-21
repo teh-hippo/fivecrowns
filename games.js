@@ -92,7 +92,7 @@ const fiveCrowns = {
   minPlayers: 2,
   maxPlayers: 8,
   defaultNames() { return ['Player 1', 'Player 2', 'Player 3']; },
-  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[i] + ' wild' }; },
+  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[i] }; },
   resolve(players, state) {
     const totals = {};
     players.forEach((p) => { totals[p.id] = (p.seed || 0) + sumScores(state.scores[p.id] || []); });
@@ -117,7 +117,7 @@ const fiveCrownsReverse = Object.assign({}, fiveCrowns, {
   id: 'fivecrownsreverse',
   name: 'Five Crowns (Reverse)',
   storageKey: 'fivecrowns-reverse:v1',
-  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[FIVE_CROWNS_ROUNDS - 1 - i] + ' wild' }; },
+  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[FIVE_CROWNS_ROUNDS - 1 - i] }; },
 });
 
 /* ---------- Greed (dice) ---------- */
