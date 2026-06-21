@@ -29,6 +29,9 @@ const TROPHY = '\u{1F3C6} ';
 const DART = '\u{1F3AF} ';
 
 /* ---------- shared helpers ---------- */
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function unitSingular(game) { return game.unitLabel === 'sides' ? 'side' : 'player'; }
+
 function sumScores(arr) {
   let total = 0;
   if (Array.isArray(arr)) {
@@ -488,6 +491,8 @@ const GAME_ORDER = ['fivecrowns', 'fivecrownsreverse', 'greed', 'five00'];
 export {
   GAMES,
   GAME_ORDER,
+  cap,
+  unitSingular,
   lastFilledIndex,
   sumScores,
   leadersOf,
