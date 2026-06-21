@@ -284,6 +284,15 @@ function renderNameList() {
     });
     input.addEventListener('input', () => { setupNames[i] = input.value; });
     li.appendChild(input);
+    if (setupNames.length > activeGame.minPlayers) {
+      const rm = el('button', {
+        type: 'button',
+        class: 'name-remove',
+        'aria-label': 'Remove ' + cap(unitSingular(activeGame)) + ' ' + (i + 1),
+      }, '\u00d7');
+      rm.addEventListener('click', () => { setupNames.splice(i, 1); renderNameList(); });
+      li.appendChild(rm);
+    }
     nameList.appendChild(li);
   });
 }

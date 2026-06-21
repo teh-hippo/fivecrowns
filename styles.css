@@ -185,7 +185,14 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   display: grid;
   gap: 0.55rem;
 }
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .name-row input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   font-size: 16px;
   padding: 0.7rem 0.8rem;
@@ -193,6 +200,16 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--text);
+}
+.name-remove {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 .name-row input:focus-visible {
   outline: 2px solid var(--primary);
