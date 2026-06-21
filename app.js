@@ -199,6 +199,7 @@ const addCancel = document.getElementById('add-cancel');
 
 const confirmDialog = document.getElementById('confirm-dialog');
 const confirmCancel = document.getElementById('confirm-cancel');
+const confirmOk = document.getElementById('confirm-ok');
 
 const menuDialog = document.getElementById('menu-dialog');
 const switchBtn = document.getElementById('switch-btn');
@@ -386,6 +387,10 @@ function buildCellRow(r) {
       if (digits !== input.value) input.value = digits;
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
+    });
+    input.addEventListener('focus', () => {
+      // Keep the focused cell clear of the on-screen keyboard on phones.
+      input.scrollIntoView({ block: 'center', inline: 'nearest' });
     });
     td.appendChild(input);
     tr.appendChild(td);
@@ -663,6 +668,7 @@ newgameBtn.addEventListener('click', () => {
   confirmDialog.showModal();
 });
 confirmCancel.addEventListener('click', () => confirmDialog.close('cancel'));
+confirmOk.addEventListener('click', () => confirmDialog.close('ok'));
 confirmDialog.addEventListener('close', () => { if (confirmDialog.returnValue === 'ok') newGame(); });
 
 handCancel.addEventListener('click', () => handDialog.close('cancel'));
@@ -671,6 +677,60 @@ handDialog.addEventListener('close', () => {
   if (handDialog.returnValue === 'save') saveHand();
   else if (handDialog.returnValue === 'delete') deleteHand();
 });
+
+// Tapping the backdrop dismisses non-destructive dialogs (phones have no Esc key).
+function closeOnBackdropTap(dialog) {
+  dialog.addEventListener('click', (e) => {
+    if (e.target !== dialog) return; // ignore clicks on the dialog's contents
+    const r = dialog.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+      dialog.close('cancel');
+    }
+  });
+}
+[addDialog, menuDialog, handDialog].forEach(closeOnBackdropTap);
+
+/* ---------- <dialog> fallback ---------- */
+// Minimal modal-dialog fallback for browsers without showModal (iOS Safari
+// < 15.4). Completely inert when native modal dialogs are supported, so it
+// adds nothing on current browsers.
+(function dialogFallback() {
+  const proto = window.HTMLDialogElement && HTMLDialogElement.prototype;
+  if (proto && typeof proto.showModal === 'function') return;
+  document.documentElement.classList.add('no-dialog');
+  let openCount = 0;
+  function show() {
+    if (this.hasAttribute('open')) return;
+    this.setAttribute('open', '');
+    openCount++;
+    document.documentElement.classList.add('has-open-dialog');
+  }
+  function close(value) {
+    if (!this.hasAttribute('open')) return;
+    if (value !== undefined) this.returnValue = value;
+    this.removeAttribute('open');
+    openCount = Math.max(0, openCount - 1);
+    if (openCount === 0) document.documentElement.classList.remove('has-open-dialog');
+    this.dispatchEvent(new Event('close'));
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('dialog'), (d) => {
+    d.showModal = show;
+    d.show = show;
+    d.close = close;
+    if (!('returnValue' in d) || typeof d.returnValue !== 'string') d.returnValue = '';
+    // Re-create native form[method=dialog] submit semantics (set returnValue
+    // from the activated button, then close).
+    d.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!btn || !d.contains(btn)) return;
+      const form = btn.form;
+      if (form && form.getAttribute('method') === 'dialog' && (btn.type === 'submit' || !btn.type)) {
+        e.preventDefault();
+        d.close(btn.value || '');
+      }
+    });
+  });
+})();
 
 /* ---------- init ---------- */
 function init() {

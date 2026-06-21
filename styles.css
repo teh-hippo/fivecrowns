@@ -276,6 +276,7 @@ thead .round-col, tfoot .round-col { z-index: 3; }
 .name-input {
   width: 5ch;
   min-width: 0;
+  min-height: 44px;
   font-size: 16px;
   font-weight: 700;
   text-align: center;
@@ -340,6 +341,33 @@ dialog.sheet {
   box-shadow: var(--shadow);
 }
 dialog.sheet::backdrop { background: rgba(10, 8, 20, 0.5); }
+
+/* Fallback presentation for browsers without native modal <dialog>
+   (iOS Safari < 15.4). Scoped to .no-dialog, which the JS fallback adds only
+   when showModal is unavailable, so it is inert on current browsers. */
+.no-dialog dialog:not([open]) { display: none; }
+.no-dialog dialog[open] {
+  display: block;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  z-index: 1000;
+  max-height: 90vh;
+  overflow: auto;
+}
+.no-dialog.has-open-dialog { overflow: hidden; }
+.no-dialog.has-open-dialog::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(10, 8, 20, 0.5);
+  z-index: 999;
+}
 dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 .dialog-field {
   display: block;

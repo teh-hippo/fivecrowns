@@ -77,7 +77,7 @@
     <form id="add-form" method="dialog">
       <h2 id="add-title">Add player</h2>
       <label class="dialog-field">Name
-        <input id="add-name" type="text" autocomplete="off" placeholder="Name">
+        <input id="add-name" type="text" autocomplete="off" placeholder="Name" autofocus>
       </label>
       <label class="dialog-field">Starting score
         <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" value="0">
@@ -97,7 +97,7 @@
       <p class="dialog-note">This clears the current game's scores.</p>
       <menu class="dialog-actions">
         <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
-        <button type="submit" value="ok" class="danger">New game</button>
+        <button id="confirm-ok" type="button" class="danger">New game</button>
       </menu>
     </form>
   </dialog>
