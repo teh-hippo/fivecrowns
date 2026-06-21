@@ -276,6 +276,10 @@ function renderNameList() {
       placeholder: cap(unitSingular(activeGame)) + ' ' + (i + 1),
       'aria-label': cap(unitSingular(activeGame)) + ' ' + (i + 1) + ' name',
       autocomplete: 'off',
+      autocapitalize: 'words',
+      autocorrect: 'off',
+      spellcheck: 'false',
+      enterkeyhint: 'next',
     });
     input.addEventListener('input', () => { setupNames[i] = input.value; });
     li.appendChild(input);
@@ -327,7 +331,7 @@ function buildHead() {
   headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, cornerLabel()));
   state.players.forEach((p) => {
     const th = el('th', { class: 'player-col', scope: 'col', 'data-pid': p.id });
-    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': 'Name', autocomplete: 'off' });
+    const input = el('input', { type: 'text', class: 'name-input', value: p.name, 'aria-label': 'Name', autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'done' });
     input.addEventListener('input', () => {
       p.name = input.value;
       save();
@@ -374,6 +378,7 @@ function buildCellRow(r) {
       type: 'text',
       inputmode: 'numeric',
       pattern: '[0-9]*',
+      enterkeyhint: 'next',
       class: 'score-input',
       'data-pid': p.id,
       'data-round': String(r),
@@ -391,6 +396,14 @@ function buildCellRow(r) {
     input.addEventListener('focus', () => {
       // Keep the focused cell clear of the on-screen keyboard on phones.
       input.scrollIntoView({ block: 'center', inline: 'nearest' });
+    });
+    // The numeric keypad has no Next key, so wire Enter to the following cell.
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const inputs = Array.from(scoreBody.querySelectorAll('.score-input'));
+      const next = inputs[inputs.indexOf(input) + 1];
+      if (next) next.focus(); else input.blur();
     });
     td.appendChild(input);
     tr.appendChild(td);

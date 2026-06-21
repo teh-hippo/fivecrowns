@@ -77,10 +77,10 @@
     <form id="add-form" method="dialog">
       <h2 id="add-title">Add player</h2>
       <label class="dialog-field">Name
-        <input id="add-name" type="text" autocomplete="off" placeholder="Name" autofocus>
+        <input id="add-name" type="text" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Name" autofocus>
       </label>
       <label class="dialog-field">Starting score
-        <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" value="0">
+        <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" value="0">
       </label>
       <p id="add-hint" class="dialog-note" hidden></p>
       <menu class="dialog-actions">
