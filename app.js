@@ -181,6 +181,7 @@ const startBtn = document.getElementById('start-btn');
 
 const gameName = document.getElementById('game-name');
 const headerScoreHandBtn = document.getElementById('score-hand-btn');
+const playAgainBtn = document.getElementById('play-again-btn');
 const addBtn = document.getElementById('add-btn');
 const menuBtn = document.getElementById('menu-btn');
 const caption = document.getElementById('table-caption');
@@ -321,9 +322,11 @@ function renderGame() {
 
 function renderHeaderActions(st) {
   const inProgress = st.phase === 'inProgress';
+  const ended = st.phase === 'complete' || st.phase === 'out';
   addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
   addBtn.hidden = !inProgress;
   headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
+  playAgainBtn.hidden = !ended;
 }
 
 function buildHead() {
@@ -556,6 +559,25 @@ function newGame() {
   showSetup();
 }
 
+// Start a fresh game with the same players, so a rematch keeps everyone's names.
+function playAgain() {
+  const keep = state.players.map((p) => ({ id: p.id, name: p.name, seed: 0 }));
+  const fresh = defaultState(activeGame);
+  fresh.started = true;
+  fresh.players = keep;
+  fresh.nextId = state.nextId;
+  keep.forEach((p) => {
+    if (activeGame.entry === 'cell') {
+      fresh.scores[p.id] = activeGame.rounds.kind === 'fixed'
+        ? new Array(activeGame.rounds.count).fill(null)
+        : [];
+    }
+  });
+  state = fresh;
+  save();
+  renderGame();
+}
+
 function addPlayer(name, seed) {
   addPlayerToState(name, seed);
   save();
@@ -697,9 +719,10 @@ playersDec.addEventListener('click', () => {
 });
 startBtn.addEventListener('click', startGame);
 resumeBtn.addEventListener('click', resumeGame);
-newFromSetupBtn.addEventListener('click', () => { newGame(); });
+newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''; confirmDialog.showModal(); });
 
 addBtn.addEventListener('click', openAddDialog);
+playAgainBtn.addEventListener('click', playAgain);
 headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
 addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); });
 addCancel.addEventListener('click', () => addDialog.close('cancel'));
