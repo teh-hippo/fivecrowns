@@ -117,10 +117,11 @@ button:active { transform: translateY(1px); }
 
 /* ---------- Setup screen ---------- */
 .setup {
+  min-height: 100vh;
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 1.25rem;
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
 }
 .setup-card {
   width: 100%;
@@ -188,7 +189,9 @@ button:active { transform: translateY(1px); }
 .game {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .game-header {
   flex: 0 0 auto;
@@ -196,7 +199,7 @@ button:active { transform: translateY(1px); }
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.7rem 0.9rem;
+  padding: max(0.7rem, env(safe-area-inset-top)) max(0.9rem, env(safe-area-inset-right)) 0.7rem max(0.9rem, env(safe-area-inset-left));
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
@@ -218,8 +221,8 @@ button:active { transform: translateY(1px); }
 .table-wrap {
   flex: 1 1 auto;
   overflow: auto;
-  padding: 0.6rem 0.9rem 1rem;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 max(0.9rem, env(safe-area-inset-right)) 0 max(0.9rem, env(safe-area-inset-left));
 }
 
 table {
@@ -473,6 +476,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 /* ---------- Hand dialog (500) ---------- */
 .hand-sheet {
   width: min(94vw, 420px);
+  max-height: 90vh;
   max-height: 90dvh;
   overflow: auto;
 }

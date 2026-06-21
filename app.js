@@ -95,7 +95,7 @@ function loadGame(game) {
   try {
     const raw = localStorage.getItem(game.storageKey);
     if (raw) return normalizeState(game, JSON.parse(raw));
-  } catch (e) { /* ignore corrupt/unavailable storage */ }
+  } catch (e) { console.warn('fivecrowns: ignoring corrupt or unavailable save', e); }
   return defaultState(game);
 }
 
@@ -674,7 +674,8 @@ handDialog.addEventListener('close', () => {
 
 /* ---------- init ---------- */
 function init() {
-  let lastId = localStorage.getItem(LAST_GAME_KEY);
+  let lastId = null;
+  try { lastId = localStorage.getItem(LAST_GAME_KEY); } catch (e) { /* storage unavailable */ }
   if (!lastId || !GAMES[lastId]) lastId = 'fivecrowns'; // first-run / migration default
   activeGame = GAMES[lastId] || GAMES.fivecrowns;
   if (hasStartedSave(activeGame)) {
