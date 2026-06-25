@@ -27,7 +27,10 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 
 - Pick the game on the setup screen. Each game keeps its own saved progress, so
   switching between them never loses a game in play.
-- Customise the number of players (or sides, for 500) and their names.
+- Customise the number of players (or sides, for 500) and their names. Drag the
+  grip handle to reorder them on the setup screen (or focus it and use the arrow
+  keys), and the names you used are kept as the defaults for the next game of
+  that type.
 - Quick numeric entry tuned for phones (the number pad shows automatically); 500
   uses a chip and stepper dialog so you never type a negative score by hand.
 - Running totals with the leader highlighted, and a clear winner, target or

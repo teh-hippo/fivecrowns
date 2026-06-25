@@ -9,6 +9,7 @@ import { defaultState, normalizeState, serializeState } from './state.js';
  */
 
 const LAST_GAME_KEY = 'scorer:lastGame';
+const NAMES_KEY = 'scorer:names';
 
 /* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
@@ -51,7 +52,36 @@ function save() {
   try {
     localStorage.setItem(activeGame.storageKey, JSON.stringify(serializeState(activeGame, state)));
     localStorage.setItem(LAST_GAME_KEY, activeGame.id);
+    // Remember the current roster so the next new game of this type can reuse it.
+    // Guarded on players.length so newGame()'s empty save keeps the saved names.
+    if (state.players.length > 0) rememberNames(activeGame, state.players.map((p) => p.name));
   } catch (e) { /* storage may be full or blocked; scores stay in memory */ }
+}
+
+// Per-game roster of the last-used names, kept apart from the game state so it
+// survives a "new game" (which wipes the state) and seeds the next setup screen.
+function loadRosters() {
+  try {
+    const obj = JSON.parse(localStorage.getItem(NAMES_KEY));
+    return (obj && typeof obj === 'object') ? obj : {};
+  } catch (e) { return {}; }
+}
+
+function rememberNames(game, names) {
+  const all = loadRosters();
+  all[game.id] = names;
+  localStorage.setItem(NAMES_KEY, JSON.stringify(all));
+}
+
+function recalledNames(game) {
+  const names = loadRosters()[game.id];
+  if (Array.isArray(names)
+    && names.every((n) => typeof n === 'string')
+    && names.length >= game.minPlayers
+    && names.length <= game.maxPlayers) {
+    return names.slice();
+  }
+  return game.defaultNames();
 }
 
 /* ---------- state helpers ---------- */
@@ -179,7 +209,7 @@ function refreshSetupView() {
   } else {
     setupResume.hidden = true;
     setupFresh.hidden = false;
-    setupNames = activeGame.defaultNames();
+    setupNames = recalledNames(activeGame);
     renderNameList();
   }
 }
@@ -189,8 +219,23 @@ function renderNameList() {
   playersDec.disabled = setupNames.length <= activeGame.minPlayers;
   playersInc.disabled = setupNames.length >= activeGame.maxPlayers;
   nameList.innerHTML = '';
+  const unit = cap(unitSingular(activeGame));
   setupNames.forEach((nm, i) => {
     const li = el('li', { class: 'name-row' });
+
+    // Grip handle: drag to reorder (mouse + touch via Pointer Events) or, when
+    // focused, ArrowUp/ArrowDown to move the row for keyboard users.
+    const grip = el('button', {
+      type: 'button',
+      class: 'name-drag',
+      'aria-label': 'Reorder ' + unit + ' ' + (i + 1),
+      title: 'Drag to reorder',
+    });
+    grip.appendChild(dragIcon());
+    grip.addEventListener('pointerdown', (e) => startRowDrag(e, grip));
+    grip.addEventListener('keydown', (e) => moveRowByKey(e, i));
+    li.appendChild(grip);
+
     const input = el('input', {
       type: 'text',
       value: nm,
@@ -215,6 +260,77 @@ function renderNameList() {
     }
     nameList.appendChild(li);
   });
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function dragIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('width', '18');
+  svg.setAttribute('height', '18');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  [4, 9, 14].forEach((y) => {
+    const r = document.createElementNS(SVG_NS, 'rect');
+    r.setAttribute('x', '4'); r.setAttribute('y', String(y));
+    r.setAttribute('width', '12'); r.setAttribute('height', '2'); r.setAttribute('rx', '1');
+    svg.appendChild(r);
+  });
+  return svg;
+}
+
+// Rebuild setupNames from the inputs in their current DOM order (after a drag).
+function commitNameOrder() {
+  setupNames = Array.prototype.map.call(nameList.querySelectorAll('.name-row input'), (inp) => inp.value);
+}
+
+// Live pointer-drag reordering of a name row. The grip captures the pointer so
+// touch drags don't scroll the page; move/end listen on the document so the drag
+// always commits even if the pointer leaves the grip. On release we read the new
+// order and re-render to refresh each row's index-bound handlers and labels.
+function startRowDrag(e, grip) {
+  const li = grip.closest('.name-row');
+  if (!li) return;
+  e.preventDefault();
+  const pid = e.pointerId;
+  try { grip.setPointerCapture(pid); } catch (_) { /* unsupported */ }
+  li.classList.add('dragging');
+
+  const move = (ev) => {
+    if (ev.pointerId !== pid) return;
+    const rows = Array.prototype.filter.call(nameList.querySelectorAll('.name-row'), (o) => o !== li);
+    const before = rows.find((o) => {
+      const r = o.getBoundingClientRect();
+      return ev.clientY < r.top + r.height / 2;
+    }) || null;
+    if (before !== li.nextElementSibling) nameList.insertBefore(li, before);
+  };
+  const end = (ev) => {
+    if (ev && ev.pointerId !== pid) return;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', end);
+    document.removeEventListener('pointercancel', end);
+    try { grip.releasePointerCapture(pid); } catch (_) { /* already released */ }
+    li.classList.remove('dragging');
+    commitNameOrder();
+    renderNameList();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+}
+
+function moveRowByKey(e, i) {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const j = i + (e.key === 'ArrowUp' ? -1 : 1);
+  if (j < 0 || j >= setupNames.length) return;
+  e.preventDefault();
+  const moved = setupNames[i];
+  setupNames[i] = setupNames[j];
+  setupNames[j] = moved;
+  renderNameList();
+  const grips = nameList.querySelectorAll('.name-drag');
+  if (grips[j]) grips[j].focus();
 }
 
 /* ---------- game rendering ---------- */
@@ -484,7 +600,7 @@ function resumeGame() {
 function newGame() {
   state = defaultState(activeGame);
   save();
-  setupNames = activeGame.defaultNames();
+  setupNames = recalledNames(activeGame);
   showSetup();
 }
 
@@ -767,7 +883,7 @@ function init() {
     showGame();
   } else {
     state = defaultState(activeGame);
-    setupNames = activeGame.defaultNames();
+    setupNames = recalledNames(activeGame);
     showSetup();
   }
 }

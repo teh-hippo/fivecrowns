@@ -190,6 +190,35 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   align-items: center;
   gap: 0.5rem;
 }
+.name-drag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.name-drag:active { cursor: grabbing; }
+.name-drag svg { fill: currentColor; display: block; }
+.name-drag:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.name-row.dragging {
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  opacity: 0.9;
+}
 .name-row input {
   flex: 1;
   min-width: 0;
