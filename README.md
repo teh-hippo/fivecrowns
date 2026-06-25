@@ -46,9 +46,10 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 ## How to play
 
 1. Choose a game, then set the players (or sides) and their names.
-2. For Five Crowns and Greed, tap a cell and type each score. For 500, tap
-   **Score hand** and pick the bidder, contract and tricks; the dialog works out
-   every side's score.
+2. For Five Crowns and Greed, tap a cell and type each score. The keypad's
+   **Next** key (or Enter) moves along the round to the next player, and stops
+   after the last one. For 500, tap **Score hand** and pick the bidder, contract
+   and tricks; the dialog works out every side's score.
 3. Totals update live and the leader is highlighted as you go.
 4. Use **+ Player** / **+ Side** to add someone mid-game, or **Menu** to switch
    games or start a new one.

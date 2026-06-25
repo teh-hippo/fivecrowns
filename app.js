@@ -475,12 +475,14 @@ function buildCellRow(r) {
       handleCellChange();
     });
     input.addEventListener('focus', () => scrollScoreInputIntoView(input));
-    // The numeric keypad has no Next key, so wire Enter to the following cell.
+    // The numeric keypad's return key fires Enter: advance to the next player in
+    // this round so a round is entered left to right. After the last player there
+    // is no next cell, so blur to dismiss the keyboard rather than jump rounds.
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
-      const inputs = Array.from(scoreBody.querySelectorAll('.score-input'));
-      const next = inputs[inputs.indexOf(input) + 1];
+      const cells = Array.from(tr.querySelectorAll('.score-input'));
+      const next = cells[cells.indexOf(input) + 1];
       if (next) next.focus(); else input.blur();
     });
     td.appendChild(input);
