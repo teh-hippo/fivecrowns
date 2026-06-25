@@ -27,12 +27,15 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 
 - Pick the game on the setup screen. Each game keeps its own saved progress, so
   switching between them never loses a game in play.
-- Customise the number of players (or sides, for 500) and their names. Drag the
-  grip handle to reorder them on the setup screen (or focus it and use the arrow
-  keys), and the names you used are kept as the defaults for the next game of
-  that type.
-- Quick numeric entry tuned for phones (the number pad shows automatically); 500
-  uses a chip and stepper dialog so you never type a negative score by hand.
+- Customise the number of players (or sides, for 500) and their names; tap a
+  name to select the whole thing so you can type a replacement straight over it.
+  Drag the grip handle to reorder them on the setup screen (or focus it and use
+  the arrow keys), and the names you used are kept as the defaults for the next
+  game of that type.
+- Quick numeric entry tuned for phones (the number pad shows automatically); a
+  floating **Next player** button steps round the table even on touch keypads
+  that have no Return key. 500 uses a chip and stepper dialog so you never type a
+  negative score by hand.
 - Running totals with the leader highlighted, and a clear winner, target or
   out banner per game.
 - Add a player part way through with a custom starting score, so a latecomer can
@@ -46,10 +49,12 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 ## How to play
 
 1. Choose a game, then set the players (or sides) and their names.
-2. For Five Crowns and Greed, tap a cell and type each score. The keypad's
-   **Next** key (or Enter) moves along the round to the next player, and stops
-   after the last one. For 500, tap **Score hand** and pick the bidder, contract
-   and tricks; the dialog works out every side's score.
+2. For Five Crowns and Greed, tap any player's cell and type their score, then
+   tap the floating **Next player** button to move round the table from where you
+   started. It wraps past the last seat and reads **Done** once everyone is in,
+   so it never jumps ahead to the next round; a hardware Return or Enter key does
+   the same. For 500, tap **Score hand** and pick the bidder, contract and
+   tricks; the dialog works out every side's score.
 3. Totals update live and the leader is highlighted as you go.
 4. Use **+ Player** / **+ Side** to add someone mid-game, or **Menu** to switch
    games or start a new one.

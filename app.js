@@ -27,6 +27,22 @@ function el(tag, attrs, text) {
 function onlyDigits(value) { return String(value).replace(/[^0-9]/g, ''); }
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
+// Select the whole value when a field is activated so a tap overwrites the
+// existing name. iOS Safari collapses a selection made during the focus event,
+// so defer it to the next tick and re-apply on the pointer release that focused
+// the field. Only the focusing tap selects; later taps can place the caret.
+function selectAllOnEdit(input) {
+  let armed = false;
+  const run = () => setTimeout(() => {
+    if (document.activeElement !== input) return;
+    try { input.setSelectionRange(0, input.value.length); }
+    catch (_) { try { input.select(); } catch (_) { /* unsupported input type */ } }
+  }, 0);
+  input.addEventListener('focus', () => { armed = true; run(); });
+  input.addEventListener('pointerup', () => { if (armed) { armed = false; run(); } });
+  input.addEventListener('blur', () => { armed = false; });
+}
+
 /* ---------- state ---------- */
 let activeGame = null;
 let state = null;
@@ -139,6 +155,7 @@ const headRow = document.getElementById('head-row');
 const scoreBody = document.getElementById('score-body');
 const totalRow = document.getElementById('total-row');
 const winnerBanner = document.getElementById('winner-banner');
+const nextCell = document.getElementById('next-cell');
 
 const addDialog = document.getElementById('add-dialog');
 const addTitle = document.getElementById('add-title');
@@ -169,6 +186,7 @@ const handSave = document.getElementById('hand-save');
 function showSetup() {
   setupScreen.hidden = false;
   gameScreen.hidden = true;
+  hideNextCell();
   renderPicker();
   refreshSetupView();
 }
@@ -248,6 +266,7 @@ function renderNameList() {
       enterkeyhint: 'next',
     });
     input.addEventListener('input', () => { setupNames[i] = input.value; });
+    selectAllOnEdit(input);
     li.appendChild(input);
     if (setupNames.length > activeGame.minPlayers) {
       const rm = el('button', {
@@ -420,6 +439,57 @@ function scrollScoreInputIntoView(input) {
   }, 300);
 }
 
+/* ---------- score-entry advance ----------
+   Touch keypads (iOS in particular) have no Return/Next key, so entering a
+   round left to right needs an explicit control. advanceFrom() moves to the
+   next player in the same round, wraps round the table, and stops once it
+   returns to the cell where entry began. The floating #next-cell button drives
+   this on touch; a hardware Return key does the same on desktop and Android. */
+let entryStartCol = null;
+let advancing = false;
+let lastScoreInput = null;
+
+function scoreCellsInRow(input) {
+  const tr = input.closest('tr');
+  return tr ? Array.from(tr.querySelectorAll('.score-input')) : [input];
+}
+
+// Column the next step lands on, or null when the round-entry run is complete.
+function nextScoreCol(input) {
+  const cells = scoreCellsInRow(input);
+  const next = (cells.indexOf(input) + 1) % cells.length;
+  return (entryStartCol == null || next === entryStartCol) ? null : next;
+}
+
+function advanceFrom(input) {
+  const target = nextScoreCol(input);
+  if (target == null) { input.blur(); return; }
+  advancing = true;
+  scoreCellsInRow(input)[target].focus();
+  advancing = false;
+}
+
+const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+// Pin the control just above the on-screen keyboard. The keyboard overlays the
+// layout viewport on iOS, so its height is the gap the visual viewport leaves.
+function positionNextCell() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  nextCell.style.bottom = (keyboard + 14) + 'px';
+}
+
+function showNextCell(input) {
+  if (!coarsePointer()) return;
+  const done = nextScoreCol(input) == null;
+  nextCell.textContent = done ? 'Done' : 'Next player';
+  nextCell.setAttribute('aria-label', done ? 'Finish this round' : 'Next player');
+  nextCell.hidden = false;
+  positionNextCell();
+}
+
+function hideNextCell() { nextCell.hidden = true; }
 
 function scoreCellLabel(name, label) {
   return name + ', round ' + label.num + (label.sub ? ' (' + label.sub + ')' : '') + ' score';
@@ -437,6 +507,7 @@ function refreshScoreLabels(pid) {
 
 function buildBody(st) {
   scoreBody.innerHTML = '';
+  hideNextCell();
   if (activeGame.entry === 'hand') {
     buildHandRows();
   } else {
@@ -474,16 +545,23 @@ function buildCellRow(r) {
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
     });
-    input.addEventListener('focus', () => scrollScoreInputIntoView(input));
-    // The numeric keypad's return key fires Enter: advance to the next player in
-    // this round so a round is entered left to right. After the last player there
-    // is no next cell, so blur to dismiss the keyboard rather than jump rounds.
+    input.addEventListener('focus', () => {
+      lastScoreInput = input;
+      if (!advancing) entryStartCol = scoreCellsInRow(input).indexOf(input);
+      scrollScoreInputIntoView(input);
+      showNextCell(input);
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        const a = document.activeElement;
+        if (!(a && a.classList && a.classList.contains('score-input'))) hideNextCell();
+      }, 120);
+    });
+    // A hardware Return/Next key advances exactly like the on-screen Next button.
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
-      const cells = Array.from(tr.querySelectorAll('.score-input'));
-      const next = cells[cells.indexOf(input) + 1];
-      if (next) next.focus(); else input.blur();
+      advanceFrom(input);
     });
     td.appendChild(input);
     tr.appendChild(td);
@@ -767,6 +845,15 @@ playersDec.addEventListener('click', () => {
 startBtn.addEventListener('click', startGame);
 resumeBtn.addEventListener('click', resumeGame);
 newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''; confirmDialog.showModal(); });
+
+// Keep the focused cell (and its keyboard) active while tapping Next, then advance.
+nextCell.addEventListener('pointerdown', (e) => e.preventDefault());
+nextCell.addEventListener('click', () => { if (lastScoreInput) advanceFrom(lastScoreInput); });
+if (window.visualViewport) {
+  const reposition = () => { if (!nextCell.hidden) positionNextCell(); };
+  window.visualViewport.addEventListener('resize', reposition);
+  window.visualViewport.addEventListener('scroll', reposition);
+}
 
 addBtn.addEventListener('click', openAddDialog);
 playAgainBtn.addEventListener('click', playAgain);
