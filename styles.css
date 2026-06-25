@@ -352,7 +352,8 @@ tfoot td, tfoot th {
 }
 tfoot .round-col { z-index: 4; }
 .total-cell {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   text-align: center;
   font-weight: 800;
   font-size: 1.05rem;
