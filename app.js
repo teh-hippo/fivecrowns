@@ -132,6 +132,7 @@ function resolve() {
 /* ---------- DOM refs ---------- */
 const setupScreen = document.getElementById('setup-screen');
 const gameScreen = document.getElementById('game-screen');
+const gameHeader = gameScreen.querySelector('.game-header');
 const picker = document.getElementById('game-picker');
 const setupFresh = document.getElementById('setup-fresh');
 const setupResume = document.getElementById('setup-resume');
@@ -156,6 +157,7 @@ const scoreBody = document.getElementById('score-body');
 const totalRow = document.getElementById('total-row');
 const winnerBanner = document.getElementById('winner-banner');
 const nextCell = document.getElementById('next-cell');
+const scoreForm = document.getElementById('score-form');
 
 const addDialog = document.getElementById('add-dialog');
 const addTitle = document.getElementById('add-title');
@@ -444,7 +446,10 @@ function scrollScoreInputIntoView(input) {
    round left to right needs an explicit control. advanceFrom() moves to the
    next player in the same round, wraps round the table, and stops once it
    returns to the cell where entry began. The floating #next-cell button drives
-   this on touch; a hardware Return key does the same on desktop and Android. */
+   this on touch; a hardware Return key does the same on desktop and Android.
+   On iOS the keyboard's own Previous/Next bar (enabled by wrapping the grid in
+   #score-form) also steps between cells, but in linear DOM order: it flows on
+   into the next round rather than stopping, bypassing advanceFrom() by design. */
 let entryStartCol = null;
 let advancing = false;
 let lastScoreInput = null;
@@ -471,13 +476,13 @@ function advanceFrom(input) {
 
 const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
-// Pin the control just above the on-screen keyboard. The keyboard overlays the
-// layout viewport on iOS, so its height is the gap the visual viewport leaves.
+// Park the control just below the game header (top-right). The header is the
+// screen's top bar and never scrolls, so it stays above the on-screen keyboard;
+// anchoring there keeps the button visible on iOS, where the old keyboard-pinned
+// bottom position ended up hidden behind the keyboard.
 function positionNextCell() {
-  const vv = window.visualViewport;
-  if (!vv) return;
-  const keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-  nextCell.style.bottom = (keyboard + 14) + 'px';
+  const r = gameHeader && gameHeader.getBoundingClientRect();
+  nextCell.style.top = (r ? Math.round(r.bottom) + 8 : 64) + 'px';
 }
 
 function showNextCell(input) {
@@ -485,8 +490,9 @@ function showNextCell(input) {
   const done = nextScoreCol(input) == null;
   nextCell.textContent = done ? 'Done' : 'Next player';
   nextCell.setAttribute('aria-label', done ? 'Finish this round' : 'Next player');
-  nextCell.hidden = false;
+  // Position before revealing so it never flashes at the pre-paint fallback spot.
   positionNextCell();
+  nextCell.hidden = false;
 }
 
 function hideNextCell() { nextCell.hidden = true; }
@@ -849,6 +855,11 @@ newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''
 // Keep the focused cell (and its keyboard) active while tapping Next, then advance.
 nextCell.addEventListener('pointerdown', (e) => e.preventDefault());
 nextCell.addEventListener('click', () => { if (lastScoreInput) advanceFrom(lastScoreInput); });
+// The score grid is wrapped in a <form> only so iOS Safari shows its native
+// Previous/Next keyboard accessory bar. It must never submit: a submit would
+// navigate/reload and lose the in-progress game. (CSP rules out an inline
+// onsubmit, so swallow it here.)
+scoreForm.addEventListener('submit', (e) => e.preventDefault());
 if (window.visualViewport) {
   const reposition = () => { if (!nextCell.hidden) positionNextCell(); };
   window.visualViewport.addEventListener('resize', reposition);

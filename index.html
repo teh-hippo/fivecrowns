@@ -2,7 +2,7 @@
 <html lang="en-AU">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; object-src 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
@@ -69,14 +69,19 @@
 
     <div id="winner-banner" class="winner-banner" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
-    <div class="table-wrap">
+    <!-- The grid lives in a <form> (which is also the scroll wrapper) only so
+         iOS Safari shows its native Previous/Next keyboard accessory bar; those
+         arrows step between the score inputs in DOM order. The form never
+         submits (see app.js), so the sticky header/footer and horizontal
+         scrolling behave exactly as a plain .table-wrap div would. -->
+    <form id="score-form" class="table-wrap" novalidate autocomplete="off">
       <table id="score-table">
         <caption id="table-caption" class="visually-hidden"></caption>
         <thead><tr id="head-row"></tr></thead>
         <tbody id="score-body"></tbody>
         <tfoot><tr id="total-row"></tr></tfoot>
       </table>
-    </div>
+    </form>
   </section>
   </main>
 
@@ -137,8 +142,9 @@
       </menu>
     </form>
   </dialog>
-  <!-- Touch keypads (notably iOS) lack a Return/Next key, so this control
-       advances score entry to the next player and wraps round the table. -->
+  <!-- Fallback advance control for touch keypads whose action key doesn't
+       advance (e.g. iOS numeric pads). Parked top-right under the header by
+       app.js. iOS also gets the native Previous/Next bar (see #score-form). -->
   <button id="next-cell" class="next-cell" type="button" hidden></button>
 </body>
 </html>

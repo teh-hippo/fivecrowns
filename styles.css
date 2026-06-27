@@ -128,12 +128,15 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   min-height: 52px;
   font-size: 1.05rem;
 }
-/* Floating advance control for touch keypads that have no Return/Next key.
-   Pinned above the on-screen keyboard via the visual viewport (see app.js). */
+/* Floating fallback advance control, parked top-right just below the
+   (non-scrolling) game header by app.js. The header sits above the on-screen
+   keyboard, so the button is never occluded, unlike the old keyboard-pinned
+   bottom position, which iOS hid behind the keyboard. On iOS the native
+   Previous/Next bar also drives entry, so this is a fallback there. */
 .next-cell {
   position: fixed;
-  right: 14px;
-  bottom: 14px;
+  top: max(0.9rem, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
   z-index: 60;
   min-height: 44px;
   padding: 0 1.1rem;
