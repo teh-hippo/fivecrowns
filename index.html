@@ -143,8 +143,9 @@
     </form>
   </dialog>
   <!-- Fallback advance control for touch keypads whose action key doesn't
-       advance (e.g. iOS numeric pads). Parked top-right under the header by
-       app.js. iOS also gets the native Previous/Next bar (see #score-form). -->
+       advance (e.g. iOS numeric pads). app.js centres it on the row being edited
+       (right edge) and shows it only once the cell has a value. iOS also gets the
+       native Previous/Next bar (see #score-form). -->
   <button id="next-cell" class="next-cell" type="button" hidden></button>
 </body>
 </html>

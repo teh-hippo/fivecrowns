@@ -132,7 +132,6 @@ function resolve() {
 /* ---------- DOM refs ---------- */
 const setupScreen = document.getElementById('setup-screen');
 const gameScreen = document.getElementById('game-screen');
-const gameHeader = gameScreen.querySelector('.game-header');
 const picker = document.getElementById('game-picker');
 const setupFresh = document.getElementById('setup-fresh');
 const setupResume = document.getElementById('setup-resume');
@@ -476,17 +475,39 @@ function advanceFrom(input) {
 
 const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
-// Park the control just below the game header (top-right). The header is the
-// screen's top bar and never scrolls, so it stays above the on-screen keyboard;
-// anchoring there keeps the button visible on iOS, where the old keyboard-pinned
-// bottom position ended up hidden behind the keyboard.
+// Centre the control vertically on the row being edited, pinned to the right
+// edge (the right offset comes from CSS) so it tracks whatever cell is active.
+// The top is clamped to the visible score band - below the sticky header, above
+// the sticky totals and the on-screen keyboard - so the row never carries it out
+// of sight, mirroring the bounds used by scrollScoreInputIntoView.
 function positionNextCell() {
-  const r = gameHeader && gameHeader.getBoundingClientRect();
-  nextCell.style.top = (r ? Math.round(r.bottom) + 8 : 64) + 'px';
+  const input = lastScoreInput;
+  if (!input) return;
+  const row = input.closest('tr');
+  if (!row) return;
+  const rowRect = row.getBoundingClientRect();
+  const h = nextCell.offsetHeight || 44;
+  let top = rowRect.top + rowRect.height / 2 - h / 2;
+  const wrap = input.closest('.table-wrap');
+  if (wrap) {
+    const wrapRect = wrap.getBoundingClientRect();
+    const corner = wrap.querySelector('thead .round-col');
+    const foot = wrap.querySelector('tfoot');
+    const headH = corner ? corner.getBoundingClientRect().height : 0;
+    const footH = foot ? foot.getBoundingClientRect().height : 0;
+    const vv = window.visualViewport;
+    const lo = wrapRect.top + headH;
+    const hi = (vv ? Math.min(vv.offsetTop + vv.height, wrapRect.bottom) : wrapRect.bottom) - footH - h;
+    if (hi >= lo) top = clamp(top, lo, hi);
+  }
+  nextCell.style.top = Math.round(top) + 'px';
 }
 
 function showNextCell(input) {
   if (!coarsePointer()) return;
+  // Surface the control only once the cell holds a value; a focused but empty
+  // cell shows nothing.
+  if (input.value === '') { hideNextCell(); return; }
   const done = nextScoreCol(input) == null;
   nextCell.textContent = done ? 'Done' : 'Next player';
   nextCell.setAttribute('aria-label', done ? 'Finish this round' : 'Next player');
@@ -550,6 +571,7 @@ function buildCellRow(r) {
       if (digits !== input.value) input.value = digits;
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
+      showNextCell(input);
     });
     input.addEventListener('focus', () => {
       lastScoreInput = input;
@@ -569,6 +591,8 @@ function buildCellRow(r) {
       e.preventDefault();
       advanceFrom(input);
     });
+    // Tapping a cell that already holds a score selects it for easy overwrite.
+    selectAllOnEdit(input);
     td.appendChild(input);
     tr.appendChild(td);
   });
@@ -865,6 +889,9 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', reposition);
   window.visualViewport.addEventListener('scroll', reposition);
 }
+// The grid scrolls inside #score-form (not the page), so keep the button glued
+// to its row as the table scrolls under it.
+scoreForm.addEventListener('scroll', () => { if (!nextCell.hidden) positionNextCell(); }, { passive: true });
 
 addBtn.addEventListener('click', openAddDialog);
 playAgainBtn.addEventListener('click', playAgain);

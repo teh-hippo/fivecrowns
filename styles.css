@@ -128,11 +128,11 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   min-height: 52px;
   font-size: 1.05rem;
 }
-/* Floating fallback advance control, parked top-right just below the
-   (non-scrolling) game header by app.js. The header sits above the on-screen
-   keyboard, so the button is never occluded, unlike the old keyboard-pinned
-   bottom position, which iOS hid behind the keyboard. On iOS the native
-   Previous/Next bar also drives entry, so this is a fallback there. */
+/* Floating advance control. app.js pins it to the right edge and centres it
+   vertically on the row being edited, clamped to the visible score band so the
+   sticky header/totals and the on-screen keyboard never hide it. It appears only
+   once the focused cell holds a value. On iOS the native Previous/Next bar also
+   drives entry, so this is a fallback there. */
 .next-cell {
   position: fixed;
   top: max(0.9rem, env(safe-area-inset-top));
