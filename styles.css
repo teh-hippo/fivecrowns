@@ -103,6 +103,10 @@ button {
 }
 button:active { transform: translateY(1px); }
 button, .chip, .pick-name, .name-input { touch-action: manipulation; }
+/* Disabled controls (e.g. Save until a hand is valid, +/- at min/max) keep their
+   colour otherwise, so dim them to read as inactive. */
+button:disabled { opacity: 0.45; cursor: default; }
+button:disabled:active { transform: none; }
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
   button:active { transform: none; }
@@ -307,7 +311,13 @@ button, .chip, .pick-name, .name-input { touch-action: manipulation; }
   flex: 1 1 auto;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 0 max(0.9rem, env(safe-area-inset-right)) 0 max(0.9rem, env(safe-area-inset-left));
+  /* No inline padding: a sticky `left: 0` column pins to the scroll container's
+     padding edge, so any inline padding here becomes a gutter that horizontally
+     scrolled cells peek through, to the left of the frozen Round column. Keep the
+     grid full-bleed and take the safe-area inset as margins, which sit outside the
+     scrollport (so they never reintroduce the gutter). */
+  padding: 0;
+  margin-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 
 table {
@@ -526,7 +536,6 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 }
 
 @media (min-width: 700px) {
-  .table-wrap { padding-inline: 1.4rem; }
   .game-header { padding-inline: 1.4rem; }
 }
 
@@ -553,6 +562,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   align-items: center;
   justify-content: center;
   text-align: center;
+  min-height: 44px;
   padding: 0.55rem 0.3rem;
   border-radius: 9px;
   font-weight: 700;

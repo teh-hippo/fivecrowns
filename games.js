@@ -334,12 +334,15 @@ const five00 = {
 
     const { best, leaders, distinct } = leadersOf(totals, 'high');
     if (terminal && terminal.type === 'win') {
-      return { totals, status: { phase: 'complete', best, leaders: [terminal.winnerId], text: TROPHY + joinNames(players, [terminal.winnerId]) + ' wins at ' + FIVE00_TARGET + '!' } };
+      return { totals, status: { phase: 'complete', best, leaders: [terminal.winnerId], text: winnerText(players, [terminal.winnerId], totals[terminal.winnerId]) } };
     }
     if (terminal && terminal.type === 'out') {
       const survivors = players.filter((p) => terminal.outIds.indexOf(p.id) === -1).map((p) => p.id);
       const winners = survivors.length ? survivors : leaders;
-      return { totals, status: { phase: 'out', best, leaders: winners, text: TROPHY + joinNames(players, winners) + ' win \u2014 ' + joinNames(players, terminal.outIds) + ' out at ' + FIVE00_LOSE } };
+      // Report each out side's actual total, not the -500 threshold (a side can
+      // overshoot it), matching the "with <total>" style of the other banners.
+      const outText = terminal.outIds.map((id) => joinNames(players, [id]) + ' out at ' + totals[id]).join(', ');
+      return { totals, status: { phase: 'out', best, leaders: winners, text: TROPHY + joinNames(players, winners) + ' win \u2014 ' + outText } };
     }
     return { totals, status: { phase: 'inProgress', best, leaders: distinct ? leaders : [], text: '' } };
   },

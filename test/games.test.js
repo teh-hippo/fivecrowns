@@ -147,6 +147,26 @@ test('500 resolve: hands after the deciding hand are ignored', () => {
   assert.equal(totals.p2, 0); // the extra hand never counted
 });
 
+test('500 resolve: a winning banner reports the actual total, not the 500 target', () => {
+  const lead = handFor({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 7, p2: 3 } }); // p1 +140
+  const clinch = handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } }); // p1 +500 -> 640, wins
+  const { totals, status } = five00.resolve(sides, { hands: [lead, clinch] });
+  assert.equal(status.phase, 'complete');
+  assert.equal(totals.p1, 640);
+  assert.match(status.text, /wins with 640/);
+  assert.doesNotMatch(status.text, /500/);
+});
+
+test('500 resolve: an out banner reports the actual total, not the -500 threshold', () => {
+  const drop = handFor({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 6, p2: 4 } }); // p1 -140, p2 +40
+  const bust = handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 3, p2: 0 } }); // p1 -500 -> -640, out
+  const { totals, status } = five00.resolve(sides, { hands: [drop, bust] });
+  assert.equal(status.phase, 'out');
+  assert.equal(totals.p1, -640);
+  assert.deepEqual(status.leaders, ['p2']);
+  assert.match(status.text, /out at -640/);
+});
+
 /* ---------- Greed ---------- */
 test('greedRunningTotals respects getting on the board', () => {
   assert.deepEqual(greedRunningTotals(0, [300, 600, 100]), [0, 600, 700]);

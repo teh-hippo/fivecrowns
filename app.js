@@ -47,7 +47,6 @@ function selectAllOnEdit(input) {
 let activeGame = null;
 let state = null;
 let setupNames = [];
-let prevStatus = null;
 let handEditIndex = null;
 let handDraft = null;
 
@@ -388,7 +387,6 @@ function renderGame() {
   buildBody(status);
   buildFoot();
   updateTotalsAndBanner(totals, status);
-  prevStatus = status;
 }
 
 function renderHeaderActions(st) {
@@ -409,7 +407,19 @@ function buildHead() {
     input.addEventListener('input', () => {
       p.name = input.value;
       save();
-      refreshScoreLabels(p.id);
+      if (activeGame.entry === 'hand') refreshHandLabels();
+      else refreshScoreLabels(p.id);
+      updateTotalsAndBanner();
+    });
+    // Blank names fall back to a default like setup does, rather than persisting an
+    // empty header until the next reload. Done on blur so mid-edit emptying is fine.
+    input.addEventListener('blur', () => {
+      if (input.value.trim() !== '') return;
+      p.name = cap(unitSingular(activeGame)) + ' ' + (i + 1);
+      input.value = p.name;
+      save();
+      if (activeGame.entry === 'hand') refreshHandLabels();
+      else refreshScoreLabels(p.id);
       updateTotalsAndBanner();
     });
     th.appendChild(input);
@@ -535,6 +545,24 @@ function refreshScoreLabels(pid) {
   scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
     const r = Number(input.getAttribute('data-round'));
     input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r)));
+  });
+}
+
+// Keep 500's hand-row summaries and their aria-labels in sync when a side is
+// renamed (hand games have no .score-input for refreshScoreLabels to update).
+function refreshHandLabels() {
+  if (activeGame.entry !== 'hand') return;
+  const hands = state.hands || [];
+  scoreBody.querySelectorAll('tr[data-hand]').forEach((tr) => {
+    const i = Number(tr.getAttribute('data-hand'));
+    const hand = hands[i];
+    if (!hand) return;
+    const summary = activeGame.handSummary(hand, state.players);
+    const btn = tr.querySelector('.hand-edit');
+    if (!btn) return;
+    btn.setAttribute('aria-label', 'Edit hand ' + (i + 1) + ', ' + summary);
+    const wild = btn.querySelector('.wild');
+    if (wild) wild.textContent = summary;
   });
 }
 
@@ -696,7 +724,6 @@ function handleCellChange() {
     && !scoreBody.lastChild.contains(document.activeElement)) {
     scoreBody.removeChild(scoreBody.lastChild);
   }
-  prevStatus = status;
 }
 
 /* ---------- actions ---------- */
