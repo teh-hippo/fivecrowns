@@ -394,6 +394,19 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
+/* Cell-entry games (Five Crowns, Greed): pin the column widths so the grid never
+   reflows while a score is typed. With the default `table-layout: auto` the
+   columns size to their content, so each keystroke - and especially a total
+   growing past 100 around the half-way point - nudged every column and made the
+   whole grid jump. `table-layout: fixed` takes the widths from these rules
+   instead, and the inputs fill their (now constant) cell. Hand games (500) keep
+   auto sizing because their hand summaries vary in width. */
+#score-table.cells { table-layout: fixed; width: calc(4.5rem + var(--player-cols, 0) * 3.75rem); }
+#score-table.cells .round-col { width: 4.5rem; }
+#score-table.cells .player-col { width: 3.75rem; }
+#score-table.cells .name-input,
+#score-table.cells .score-input { width: 100%; }
+
 tfoot td, tfoot th {
   position: sticky;
   bottom: 0;

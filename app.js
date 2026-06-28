@@ -151,6 +151,7 @@ const playAgainBtn = document.getElementById('play-again-btn');
 const addBtn = document.getElementById('add-btn');
 const menuBtn = document.getElementById('menu-btn');
 const caption = document.getElementById('table-caption');
+const scoreTable = document.getElementById('score-table');
 const headRow = document.getElementById('head-row');
 const scoreBody = document.getElementById('score-body');
 const totalRow = document.getElementById('total-row');
@@ -377,6 +378,11 @@ function renderGame() {
   const { totals, status } = resolve();
   gameName.textContent = activeGame.name;
   caption.textContent = captionText();
+  // Cell-entry games get fixed column widths (see styles.css) so typing a score
+  // never reflows the grid. Hand games (500) keep auto sizing for their
+  // variable-width hand summaries. The column count feeds the table's calc width.
+  scoreTable.classList.toggle('cells', activeGame.entry === 'cell');
+  scoreTable.style.setProperty('--player-cols', String(state.players.length));
   renderHeaderActions(status);
   buildHead();
   buildBody(status);
