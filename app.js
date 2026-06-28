@@ -75,6 +75,10 @@ function save() {
 
 // Per-game roster of the last-used names, kept apart from the game state so it
 // survives a "new game" (which wipes the state) and seeds the next setup screen.
+// Stored per game as { last, memory }: `last` is the most recent roster (seeds the
+// setup screen unchanged); `memory` is a positional union that never shrinks, so a
+// name dropped when playing with fewer players can still be recalled when one is
+// added back (e.g. 4 players -> down to 2 -> adding a 3rd recalls the old player 3).
 function loadRosters() {
   try {
     const obj = JSON.parse(localStorage.getItem(NAMES_KEY));
@@ -82,21 +86,53 @@ function loadRosters() {
   } catch (e) { return {}; }
 }
 
+// Parse either storage shape: a bare array (old format) or { last, memory }.
+function rosterFor(gameId) {
+  const raw = loadRosters()[gameId];
+  if (Array.isArray(raw)) return { last: raw.slice(), memory: raw.slice() };
+  if (raw && typeof raw === 'object') {
+    const last = Array.isArray(raw.last) ? raw.last.slice() : [];
+    const memory = Array.isArray(raw.memory) ? raw.memory.slice() : last.slice();
+    return { last, memory };
+  }
+  return { last: [], memory: [] };
+}
+
 function rememberNames(game, names) {
   const all = loadRosters();
-  all[game.id] = names;
+  // Update each used position but keep any higher-index names from a larger past
+  // roster, so dropping players never erases names we might still want to recall.
+  const memory = rosterFor(game.id).memory;
+  names.forEach((nm, i) => { memory[i] = nm; });
+  all[game.id] = { last: names.slice(), memory };
   localStorage.setItem(NAMES_KEY, JSON.stringify(all));
 }
 
 function recalledNames(game) {
-  const names = loadRosters()[game.id];
-  if (Array.isArray(names)
-    && names.every((n) => typeof n === 'string')
+  const names = rosterFor(game.id).last;
+  if (names.every((n) => typeof n === 'string')
     && names.length >= game.minPlayers
     && names.length <= game.maxPlayers) {
     return names.slice();
   }
   return game.defaultNames();
+}
+
+// True for auto-generated names like "Player 3" / "Side 2", which we never suggest.
+function isDefaultName(nm) { return /^(player|side)\s+\d+$/i.test((nm || '').trim()); }
+
+// The next remembered name to offer when adding a player: the first name in the
+// per-game memory that is real (not a default) and not already in use, falling back
+// to the generated "Player N" / "Side N" once remembered names run out.
+function nextRecalledName(currentNames) {
+  const used = new Set(currentNames.map((n) => (n || '').trim().toLowerCase()));
+  for (const nm of rosterFor(activeGame.id).memory) {
+    if (typeof nm !== 'string') continue;
+    const t = nm.trim();
+    if (t === '' || isDefaultName(t) || used.has(t.toLowerCase())) continue;
+    return nm;
+  }
+  return cap(unitSingular(activeGame)) + ' ' + (currentNames.length + 1);
 }
 
 /* ---------- state helpers ---------- */
@@ -458,15 +494,13 @@ function scrollScoreInputIntoView(input) {
 
 /* ---------- score-entry advance ----------
    Touch keypads (iOS in particular) have no Return/Next key, so entering a
-   round left to right needs an explicit control. advanceFrom() moves to the
-   next player in the same round, wraps round the table, and stops once it
-   returns to the cell where entry began. The floating #next-cell button drives
-   this on touch; a hardware Return key does the same on desktop and Android.
-   On iOS the keyboard's own Previous/Next bar (enabled by wrapping the grid in
-   #score-form) also steps between cells, but in linear DOM order: it flows on
-   into the next round rather than stopping, bypassing advanceFrom() by design. */
-let entryStartCol = null;
-let advancing = false;
+   round needs an explicit control. advanceFrom() moves to the next still-empty
+   cell in the same round (skipping ones already scored) and blurs once none are
+   left, so the control reads "Done" on the last score regardless of player order.
+   The floating #next-cell button drives this on touch; a hardware Return key does
+   the same on desktop and Android. On iOS the keyboard's own Previous/Next bar
+   (enabled by wrapping the grid in #score-form) also steps between cells, but in
+   linear DOM order: it flows on into the next round, bypassing advanceFrom(). */
 let lastScoreInput = null;
 
 function scoreCellsInRow(input) {
@@ -474,19 +508,24 @@ function scoreCellsInRow(input) {
   return tr ? Array.from(tr.querySelectorAll('.score-input')) : [input];
 }
 
-// Column the next step lands on, or null when the round-entry run is complete.
+// Column the next step lands on: the next still-empty cell in the round, scanning
+// cyclically from the one after `input` so already-scored cells are skipped. null
+// when no other cell is empty, which is what surfaces "Done" - regardless of which
+// player's column we are on.
 function nextScoreCol(input) {
   const cells = scoreCellsInRow(input);
-  const next = (cells.indexOf(input) + 1) % cells.length;
-  return (entryStartCol == null || next === entryStartCol) ? null : next;
+  const cur = cells.indexOf(input);
+  for (let i = 1; i < cells.length; i++) {
+    const j = (cur + i) % cells.length;
+    if (cells[j].value === '') return j;
+  }
+  return null;
 }
 
 function advanceFrom(input) {
   const target = nextScoreCol(input);
   if (target == null) { input.blur(); return; }
-  advancing = true;
   scoreCellsInRow(input)[target].focus();
-  advancing = false;
 }
 
 const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
@@ -521,9 +560,10 @@ function positionNextCell() {
 
 function showNextCell(input) {
   if (!coarsePointer()) return;
-  // Surface the control only once the cell holds a value; a focused but empty
-  // cell shows nothing.
-  if (input.value === '') { hideNextCell(); return; }
+  // Shown whenever a score cell is focused, even while still empty, so on a touch
+  // keypad (no Return key) the advance control is always in reach. "Done" appears
+  // once no other cell in the round is empty; otherwise it steps to the next empty
+  // cell, skipping any already scored.
   const done = nextScoreCol(input) == null;
   nextCell.textContent = done ? 'Done' : 'Next player';
   nextCell.setAttribute('aria-label', done ? 'Finish this round' : 'Next player');
@@ -609,7 +649,6 @@ function buildCellRow(r) {
     });
     input.addEventListener('focus', () => {
       lastScoreInput = input;
-      if (!advancing) entryStartCol = scoreCellsInRow(input).indexOf(input);
       scrollScoreInputIntoView(input);
       showNextCell(input);
     });
@@ -795,7 +834,7 @@ function validateSeed() {
 
 function openAddDialog() {
   addTitle.textContent = 'Add ' + unitSingular(activeGame);
-  addName.value = '';
+  addName.value = nextRecalledName(state.players.map((p) => p.name));
   addSeed.value = '0';
   validateSeed();
   addDialog.returnValue = '';
@@ -895,7 +934,7 @@ function focusHandRow(i) {
 /* ---------- wiring ---------- */
 playersInc.addEventListener('click', () => {
   if (setupNames.length < activeGame.maxPlayers) {
-    setupNames.push(cap(unitSingular(activeGame)) + ' ' + (setupNames.length + 1));
+    setupNames.push(nextRecalledName(setupNames));
     renderNameList();
   }
 });
