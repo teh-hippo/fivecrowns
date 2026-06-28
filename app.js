@@ -466,7 +466,8 @@ function buildHead() {
 // Keep the focused score cell clear of the on-screen keyboard and the sticky
 // header/footer. scrollIntoView centres in the layout viewport, which on iOS
 // ignores the keyboard (it shrinks only the visual viewport), so measure the
-// visual viewport and scroll the table within that visible band instead.
+// visual viewport and scroll the table within that visible band instead. The
+// nudge eases in (smooth) unless the user prefers reduced motion.
 function scrollScoreInputIntoView(input) {
   const wrap = input.closest('.table-wrap');
   const vv = window.visualViewport;
@@ -487,12 +488,15 @@ function scrollScoreInputIntoView(input) {
     // lets the last rows scroll up, which floats the sticky tfoot to the keyboard.
     const visibleBottom = Math.min(vv.offsetTop + vv.height, wrapRect.bottom);
     const bottom = visibleBottom - footH - m;
-    if (cell.bottom > bottom) wrap.scrollTop += cell.bottom - bottom;
-    else if (cell.top < top) wrap.scrollTop -= top - cell.top;
+    let dy = 0;
+    if (cell.bottom > bottom) dy = cell.bottom - bottom;
+    else if (cell.top < top) dy = cell.top - top;
     const left = wrapRect.left + stickyW + m;
     const right = wrapRect.right - m;
-    if (cell.right > right) wrap.scrollLeft += cell.right - right;
-    else if (cell.left < left) wrap.scrollLeft -= left - cell.left;
+    let dx = 0;
+    if (cell.right > right) dx = cell.right - right;
+    else if (cell.left < left) dx = cell.left - left;
+    if (dx || dy) wrap.scrollBy({ top: dy, left: dx, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }, 300);
 }
 
@@ -533,12 +537,18 @@ function advanceFrom(input) {
 }
 
 const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 // Centre the control vertically on the row being edited, pinned to the right
 // edge (the right offset comes from CSS) so it tracks whatever cell is active.
-// The top is clamped to the visible score band - below the sticky header, above
-// the sticky totals and the on-screen keyboard - so the row never carries it out
-// of sight, mirroring the bounds used by scrollScoreInputIntoView.
+// The offset is clamped to the visible score band - below the sticky header,
+// above the sticky totals and the on-screen keyboard - so the row never carries
+// it out of sight, mirroring the bounds used by scrollScoreInputIntoView.
+//
+// The position is driven through the --nc-y custom property (a `translateY`),
+// NOT `top`: iOS Safari flings `position: fixed` elements to the top of the
+// screen while the keyboard animates in if they are positioned with top/bottom,
+// but honours `transform` (it is GPU-composited). So translate, never offset.
 function positionNextCell() {
   const input = lastScoreInput;
   if (!input) return;
@@ -546,7 +556,7 @@ function positionNextCell() {
   if (!row) return;
   const rowRect = row.getBoundingClientRect();
   const h = nextCell.offsetHeight || 44;
-  let top = rowRect.top + rowRect.height / 2 - h / 2;
+  let y = rowRect.top + rowRect.height / 2 - h / 2;
   const wrap = input.closest('.table-wrap');
   if (wrap) {
     const wrapRect = wrap.getBoundingClientRect();
@@ -557,9 +567,9 @@ function positionNextCell() {
     const vv = window.visualViewport;
     const lo = wrapRect.top + headH;
     const hi = (vv ? Math.min(vv.offsetTop + vv.height, wrapRect.bottom) : wrapRect.bottom) - footH - h;
-    if (hi >= lo) top = clamp(top, lo, hi);
+    if (hi >= lo) y = clamp(y, lo, hi);
   }
-  nextCell.style.top = Math.round(top) + 'px';
+  nextCell.style.setProperty('--nc-y', Math.round(y) + 'px');
 }
 
 function showNextCell(input) {

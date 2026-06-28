@@ -133,13 +133,16 @@ button:disabled:active { transform: none; }
   font-size: 1.05rem;
 }
 /* Floating advance control. app.js pins it to the right edge and centres it
-   vertically on the row being edited, clamped to the visible score band so the
-   sticky header/totals and the on-screen keyboard never hide it. It appears only
-   once the focused cell holds a value. On iOS the native Previous/Next bar also
-   drives entry, so this is a fallback there. */
+   vertically on the row being edited via the --nc-y translate (clamped to the
+   visible score band so the sticky header/totals and the on-screen keyboard
+   never hide it). It appears only once the focused cell holds a value. On iOS
+   the native Previous/Next bar also drives entry, so this is a fallback there.
+   Positioned with `transform`, never top/bottom: iOS flings fixed elements to
+   the top of the screen while the keyboard opens if they use top/bottom, but
+   renders transform offsets correctly. */
 .next-cell {
   position: fixed;
-  top: max(0.9rem, env(safe-area-inset-top));
+  top: 0;
   right: max(14px, env(safe-area-inset-right));
   z-index: 60;
   min-height: 44px;
@@ -153,8 +156,10 @@ button:disabled:active { transform: none; }
   box-shadow: var(--shadow);
   cursor: pointer;
   touch-action: manipulation;
+  transform: translateY(var(--nc-y, 0px));
+  transition: transform 0.18s ease;
 }
-.next-cell:active { transform: translateY(1px); }
+.next-cell:active { transform: translateY(calc(var(--nc-y, 0px) + 1px)); }
 
 /* ---------- Setup screen ---------- */
 .setup {
@@ -309,6 +314,11 @@ button:disabled:active { transform: none; }
   text-align: center;
 }
 .winner-banner[hidden] { display: none; }
+@keyframes winner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.winner-banner:not([hidden]) { animation: winner-in 0.28s ease both; }
 
 .table-wrap {
   flex: 1 1 auto;
@@ -462,11 +472,35 @@ dialog.sheet {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow);
+  /* Ease in on open and out on close. overlay/display are discrete properties,
+     so allow-discrete keeps the box painted through the close transition. On
+     browsers without @starting-style/allow-discrete this degrades to an instant
+     open (the end state still applies). */
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease,
+              overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
 }
-dialog.sheet::backdrop { background: rgba(10, 8, 20, 0.5); }
+dialog.sheet[open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+@starting-style {
+  dialog.sheet[open] { opacity: 0; transform: translateY(8px); }
+}
+dialog.sheet::backdrop {
+  background: rgba(10, 8, 20, 0);
+  transition: background 0.2s ease,
+              overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
+}
+dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0.5); }
+@starting-style {
+  dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0); }
+}
 
 /* On phones, present dialogs as bottom sheets: actions land in the thumb zone
-   and a centred box can no longer be hidden behind the on-screen keyboard. */
+   and a centred box can no longer be hidden behind the on-screen keyboard. They
+   also slide up from the bottom edge rather than the small desktop rise. */
 @media (max-width: 480px) and (pointer: coarse) {
   dialog.sheet {
     width: 100%;
@@ -475,6 +509,11 @@ dialog.sheet::backdrop { background: rgba(10, 8, 20, 0.5); }
     inset: auto 0 var(--keyboard-height, 0px) 0;
     border-radius: var(--radius) var(--radius) 0 0;
     padding-bottom: max(1.2rem, env(safe-area-inset-bottom));
+    transform: translateY(100%);
+  }
+  dialog.sheet[open] { transform: translateY(0); }
+  @starting-style {
+    dialog.sheet[open] { transform: translateY(100%); }
   }
   .no-dialog dialog.sheet[open] {
     top: auto;
@@ -699,3 +738,14 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 /* ---------- Dialog notes ---------- */
 .dialog-note.error { color: var(--danger); }
 
+
+/* ---------- Reduced motion (new transitions/animations) ----------
+   The earlier prefers-reduced-motion block sits before these rules, so disable
+   the score-entry and dialog motion here, after the rules they override, so
+   source order wins. Positions still update; they just snap instead of glide. */
+@media (prefers-reduced-motion: reduce) {
+  .next-cell { transition: none; }
+  dialog.sheet,
+  dialog.sheet::backdrop { transition: none; }
+  .winner-banner:not([hidden]) { animation: none; }
+}
