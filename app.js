@@ -482,7 +482,11 @@ function scrollScoreInputIntoView(input) {
     const footH = foot ? foot.getBoundingClientRect().height : 0;
     const m = 24;
     const top = wrapRect.top + headH + m;
-    const bottom = Math.min(vv.offsetTop + vv.height, wrapRect.bottom - footH) - m;
+    // Keep the cell clear of the keyboard, and reserve the sticky totals row's
+    // height under that line too: the table-wrap's keyboard-height bottom padding
+    // lets the last rows scroll up, which floats the sticky tfoot to the keyboard.
+    const visibleBottom = Math.min(vv.offsetTop + vv.height, wrapRect.bottom);
+    const bottom = visibleBottom - footH - m;
     if (cell.bottom > bottom) wrap.scrollTop += cell.bottom - bottom;
     else if (cell.top < top) wrap.scrollTop -= top - cell.top;
     const left = wrapRect.left + stickyW + m;
@@ -1010,17 +1014,15 @@ function closeOnBackdropTap(dialog) {
 [addDialog, menuDialog, handDialog].forEach(closeOnBackdropTap);
 
 /* ---------- keyboard-aware viewport ---------- */
-// Track the visual viewport so the game screen and bottom-sheet dialogs shrink
-// to the area above the on-screen keyboard instead of being hidden behind it
-// (iOS shrinks only the visual viewport, not the layout one). Exposed as CSS
-// custom properties so the layout stays declarative.
+// Track the on-screen keyboard's height in --keyboard-height so the bottom-sheet
+// dialogs lift to sit above it (iOS shrinks only the visual viewport, not the
+// layout one). The game screen itself is deliberately NOT resized: it stays full
+// height and the keyboard overlays its lower edge, so editing a score never
+// reflows the grid. The focused cell is kept visible by scrollScoreInputIntoView.
 function syncViewport() {
   const vv = window.visualViewport;
-  const appH = vv ? vv.height : window.innerHeight;
   const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
-  const docEl = document.documentElement;
-  docEl.style.setProperty('--app-height', appH + 'px');
-  docEl.style.setProperty('--keyboard-height', kb + 'px');
+  document.documentElement.style.setProperty('--keyboard-height', kb + 'px');
 }
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncViewport);

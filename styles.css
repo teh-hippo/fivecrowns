@@ -276,9 +276,12 @@ button:disabled:active { transform: none; }
 .game {
   display: flex;
   flex-direction: column;
+  /* Stay full height so the on-screen keyboard overlays the lower edge instead
+     of reflowing the grid. Do NOT re-tie this to the visual viewport (e.g. an
+     --app-height custom property): that shrinks the whole screen as the keyboard
+     animates in. The focused cell is kept visible by scrollScoreInputIntoView. */
   height: 100vh;
   height: 100dvh;
-  height: var(--app-height, 100dvh);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .game-header {
@@ -315,8 +318,10 @@ button:disabled:active { transform: none; }
      padding edge, so any inline padding here becomes a gutter that horizontally
      scrolled cells peek through, to the left of the frozen Round column. Keep the
      grid full-bleed and take the safe-area inset as margins, which sit outside the
-     scrollport (so they never reintroduce the gutter). */
-  padding: 0;
+     scrollport (so they never reintroduce the gutter). Bottom padding equals the
+     keyboard height (0 when closed) so the last rows can be scrolled clear of the
+     on-screen keyboard without resizing the screen. */
+  padding: 0 0 var(--keyboard-height, 0px);
   margin-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 
