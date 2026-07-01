@@ -191,7 +191,6 @@ const headRow = document.getElementById('head-row');
 const scoreBody = document.getElementById('score-body');
 const totalRow = document.getElementById('total-row');
 const winnerBanner = document.getElementById('winner-banner');
-const nextCell = document.getElementById('next-cell');
 const scoreForm = document.getElementById('score-form');
 
 const addDialog = document.getElementById('add-dialog');
@@ -223,7 +222,6 @@ const handSave = document.getElementById('hand-save');
 function showSetup() {
   setupScreen.hidden = false;
   gameScreen.hidden = true;
-  hideNextCell();
   renderPicker();
   refreshSetupView();
 }
@@ -502,14 +500,12 @@ function scrollScoreInputIntoView(input) {
 
 /* ---------- score-entry advance ----------
    Touch keypads (iOS in particular) have no Return/Next key, so entering a
-   round needs an explicit control. advanceFrom() moves to the next still-empty
-   cell in the same round (skipping ones already scored) and blurs once none are
-   left, so the control reads "Done" on the last score regardless of player order.
-   The floating #next-cell button drives this on touch; a hardware Return key does
-   the same on desktop and Android. On iOS the keyboard's own Previous/Next bar
-   (enabled by wrapping the grid in #score-form) also steps between cells, but in
-   linear DOM order: it flows on into the next round, bypassing advanceFrom(). */
-let lastScoreInput = null;
+   round needs help. advanceFrom() moves to the next still-empty cell in the same
+   round (skipping ones already scored) and blurs once none are left. A hardware
+   Return/Enter key drives it on desktop and Android. On iOS the keyboard's own
+   Previous/Next bar (enabled by wrapping the grid in #score-form) also steps
+   between cells, but in linear DOM order: it flows on into the next round,
+   bypassing advanceFrom(). */
 
 function scoreCellsInRow(input) {
   const tr = input.closest('tr');
@@ -536,57 +532,7 @@ function advanceFrom(input) {
   scoreCellsInRow(input)[target].focus();
 }
 
-const coarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
-// Centre the control vertically on the row being edited, pinned to the right
-// edge (the right offset comes from CSS) so it tracks whatever cell is active.
-// The offset is clamped to the visible score band - below the sticky header,
-// above the sticky totals and the on-screen keyboard - so the row never carries
-// it out of sight, mirroring the bounds used by scrollScoreInputIntoView.
-//
-// The position is driven through the --nc-y custom property (a `translateY`),
-// NOT `top`: iOS Safari flings `position: fixed` elements to the top of the
-// screen while the keyboard animates in if they are positioned with top/bottom,
-// but honours `transform` (it is GPU-composited). So translate, never offset.
-function positionNextCell() {
-  const input = lastScoreInput;
-  if (!input) return;
-  const row = input.closest('tr');
-  if (!row) return;
-  const rowRect = row.getBoundingClientRect();
-  const h = nextCell.offsetHeight || 44;
-  let y = rowRect.top + rowRect.height / 2 - h / 2;
-  const wrap = input.closest('.table-wrap');
-  if (wrap) {
-    const wrapRect = wrap.getBoundingClientRect();
-    const corner = wrap.querySelector('thead .round-col');
-    const foot = wrap.querySelector('tfoot');
-    const headH = corner ? corner.getBoundingClientRect().height : 0;
-    const footH = foot ? foot.getBoundingClientRect().height : 0;
-    const vv = window.visualViewport;
-    const lo = wrapRect.top + headH;
-    const hi = (vv ? Math.min(vv.offsetTop + vv.height, wrapRect.bottom) : wrapRect.bottom) - footH - h;
-    if (hi >= lo) y = clamp(y, lo, hi);
-  }
-  nextCell.style.setProperty('--nc-y', Math.round(y) + 'px');
-}
-
-function showNextCell(input) {
-  if (!coarsePointer()) return;
-  // Shown whenever a score cell is focused, even while still empty, so on a touch
-  // keypad (no Return key) the advance control is always in reach. "Done" appears
-  // once no other cell in the round is empty; otherwise it steps to the next empty
-  // cell, skipping any already scored.
-  const done = nextScoreCol(input) == null;
-  nextCell.textContent = done ? 'Done' : 'Next player';
-  nextCell.setAttribute('aria-label', done ? 'Finish this round' : 'Next player');
-  // Position before revealing so it never flashes at the pre-paint fallback spot.
-  positionNextCell();
-  nextCell.hidden = false;
-}
-
-function hideNextCell() { nextCell.hidden = true; }
 
 function scoreCellLabel(name, label) {
   return name + ', round ' + label.num + (label.sub ? ' (' + label.sub + ')' : '') + ' score';
@@ -622,7 +568,6 @@ function refreshHandLabels() {
 
 function buildBody(st) {
   scoreBody.innerHTML = '';
-  hideNextCell();
   if (activeGame.entry === 'hand') {
     buildHandRows();
   } else {
@@ -659,20 +604,11 @@ function buildCellRow(r) {
       if (digits !== input.value) input.value = digits;
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
-      showNextCell(input);
     });
     input.addEventListener('focus', () => {
-      lastScoreInput = input;
       scrollScoreInputIntoView(input);
-      showNextCell(input);
     });
-    input.addEventListener('blur', () => {
-      setTimeout(() => {
-        const a = document.activeElement;
-        if (!(a && a.classList && a.classList.contains('score-input'))) hideNextCell();
-      }, 120);
-    });
-    // A hardware Return/Next key advances exactly like the on-screen Next button.
+    // A hardware Return/Enter key advances to the next empty cell in the round.
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -962,22 +898,11 @@ startBtn.addEventListener('click', startGame);
 resumeBtn.addEventListener('click', resumeGame);
 newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''; confirmDialog.showModal(); });
 
-// Keep the focused cell (and its keyboard) active while tapping Next, then advance.
-nextCell.addEventListener('pointerdown', (e) => e.preventDefault());
-nextCell.addEventListener('click', () => { if (lastScoreInput) advanceFrom(lastScoreInput); });
 // The score grid is wrapped in a <form> only so iOS Safari shows its native
 // Previous/Next keyboard accessory bar. It must never submit: a submit would
 // navigate/reload and lose the in-progress game. (CSP rules out an inline
 // onsubmit, so swallow it here.)
 scoreForm.addEventListener('submit', (e) => e.preventDefault());
-if (window.visualViewport) {
-  const reposition = () => { if (!nextCell.hidden) positionNextCell(); };
-  window.visualViewport.addEventListener('resize', reposition);
-  window.visualViewport.addEventListener('scroll', reposition);
-}
-// The grid scrolls inside #score-form (not the page), so keep the button glued
-// to its row as the table scrolls under it.
-scoreForm.addEventListener('scroll', () => { if (!nextCell.hidden) positionNextCell(); }, { passive: true });
 
 addBtn.addEventListener('click', openAddDialog);
 playAgainBtn.addEventListener('click', playAgain);

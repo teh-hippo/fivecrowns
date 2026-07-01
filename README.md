@@ -33,10 +33,9 @@ Live app: https://teh-hippo.github.io/fivecrowns/
   the arrow keys), and the names you used are kept as the defaults for the next
   game of that type.
 - Quick numeric entry tuned for phones (the number pad shows automatically); a
-  **Next player** button pinned top-right steps round the table even on touch
-  keypads that have no Return key, and on iOS the keyboard's own Next arrow steps
-  through the cells too. 500 uses a chip and stepper dialog so you never type a
-  negative score by hand.
+  Return or Enter key steps round the table from where you started, and on iOS
+  the keyboard's own Previous/Next bar steps through the cells too. 500 uses a
+  chip and stepper dialog so you never type a negative score by hand.
 - Running totals with the leader highlighted, and a clear winner, target or
   out banner per game.
 - Add a player part way through with a custom starting score, so a latecomer can
@@ -45,19 +44,19 @@ Live app: https://teh-hippo.github.io/fivecrowns/
   players.
 - Everything is saved on your device, so a refresh, an app switch or losing
   signal mid-game never loses your scores.
+- A permanently dark, true-black interface that suits OLED screens.
 - Installable to your home screen, where it runs full screen like an app.
 
 ## How to play
 
 1. Choose a game, then set the players (or sides) and their names.
 2. For Five Crowns and Greed, tap any player's cell and type their score, then
-   tap the **Next player** button (top-right) to move round the table from where
-   you started. It wraps past the last seat and reads **Done** once everyone is
-   in, so it never jumps ahead to the next round; a hardware Return or Enter key
-   does the same. On iOS you can also use the keyboard's own Next arrow, which
-   steps through every cell and carries straight on into the next round. For 500,
-   tap **Score hand** and pick the bidder, contract and tricks; the dialog works
-   out every side's score.
+   press Return or Enter to move round the table from where you started. It wraps
+   past the last seat and skips seats already in, so it never jumps ahead to the
+   next round. On iOS, use the keyboard's own Previous/Next bar, which steps
+   through every cell and carries straight on into the next round. For 500, tap
+   **Score hand** and pick the bidder, contract and tricks; the dialog works out
+   every side's score.
 3. Totals update live and the leader is highlighted as you go.
 4. Use **+ Player** / **+ Side** to add someone mid-game, or **Menu** to switch
    games or start a new one.

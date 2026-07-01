@@ -1,43 +1,23 @@
 :root {
-  color-scheme: light dark;
-  --bg: #f4f4f8;
-  --surface: #ffffff;
-  --surface-2: #faf9fd;
-  --text: #1b1c28;
-  --muted: #6b6f80;
-  --line: #e6e6ee;
-  --primary: #4c1d95;
-  --primary-text: #ffffff;
-  --accent: #c9a227;
-  --leader-bg: #e9f8ef;
-  --leader-text: #0a7a3b;
-  --target-bg: #fdf3e0;
-  --target-text: #8a5400;
-  --danger: #b42318;
-  --shadow: 0 6px 24px rgba(20, 16, 40, 0.10);
-  --lift: rgba(20, 16, 40, 0.18);
+  color-scheme: dark;
+  --bg: #000000;
+  --table-bg: #000000;
+  --surface: #181a26;
+  --surface-2: #1e2030;
+  --text: #ececf3;
+  --muted: #9a9eb3;
+  --line: #2a2c3c;
+  --primary: #a78bfa;
+  --primary-text: #160d2b;
+  --accent: #e3c14e;
+  --leader-bg: #123524;
+  --leader-text: #5fe39a;
+  --target-bg: #3a2c10;
+  --target-text: #f3c45c;
+  --danger: #ff6b5e;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  --lift: rgba(0, 0, 0, 0.55);
   --radius: 14px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1018;
-    --surface: #181a26;
-    --surface-2: #1e2030;
-    --text: #ececf3;
-    --muted: #9a9eb3;
-    --line: #2a2c3c;
-    --primary: #a78bfa;
-    --primary-text: #160d2b;
-    --accent: #e3c14e;
-    --leader-bg: #123524;
-    --leader-text: #5fe39a;
-    --target-bg: #3a2c10;
-    --target-text: #f3c45c;
-    --danger: #ff6b5e;
-    --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-    --lift: rgba(0, 0, 0, 0.55);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -132,34 +112,6 @@ button:disabled:active { transform: none; }
   min-height: 52px;
   font-size: 1.05rem;
 }
-/* Floating advance control. app.js pins it to the right edge and centres it
-   vertically on the row being edited via the --nc-y translate (clamped to the
-   visible score band so the sticky header/totals and the on-screen keyboard
-   never hide it). It appears only once the focused cell holds a value. On iOS
-   the native Previous/Next bar also drives entry, so this is a fallback there.
-   Positioned with `transform`, never top/bottom: iOS flings fixed elements to
-   the top of the screen while the keyboard opens if they use top/bottom, but
-   renders transform offsets correctly. */
-.next-cell {
-  position: fixed;
-  top: 0;
-  right: max(14px, env(safe-area-inset-right));
-  z-index: 60;
-  min-height: 44px;
-  padding: 0 1.1rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--primary-text);
-  font: inherit;
-  font-weight: 700;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  touch-action: manipulation;
-  transform: translateY(var(--nc-y, 0px));
-  transition: transform 0.18s ease;
-}
-.next-cell:active { transform: translateY(calc(var(--nc-y, 0px) + 1px)); }
 
 /* ---------- Setup screen ---------- */
 .setup {
@@ -355,7 +307,7 @@ thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--surface-2);
+  background: var(--table-bg);
   padding: 0.35rem 0.4rem;
 }
 /* sticky round (first) column */
@@ -363,7 +315,7 @@ thead th {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--surface-2);
+  background: var(--table-bg);
   text-align: left;
   padding: 0.4rem 0.4rem;
   min-width: 4ch;
@@ -408,14 +360,14 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   font-size: 17px;
   text-align: center;
   border: none;
-  background: var(--surface);
+  background: var(--table-bg);
   color: var(--text);
   padding: 0.4rem 0.25rem;
   font-variant-numeric: tabular-nums;
 }
 .score-input:focus {
   outline: none;
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  background: color-mix(in srgb, var(--primary) 12%, var(--table-bg));
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
@@ -436,7 +388,7 @@ tfoot td, tfoot th {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: var(--surface-2);
+  background: var(--table-bg);
   border-top: 2px solid var(--line);
   box-shadow: 0 -8px 14px -8px var(--lift);
 }
@@ -744,7 +696,6 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
    the score-entry and dialog motion here, after the rules they override, so
    source order wins. Positions still update; they just snap instead of glide. */
 @media (prefers-reduced-motion: reduce) {
-  .next-cell { transition: none; }
   dialog.sheet,
   dialog.sheet::backdrop { transition: none; }
   .winner-banner:not([hidden]) { animation: none; }
