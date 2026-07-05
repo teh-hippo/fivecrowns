@@ -411,11 +411,10 @@ function renderGame() {
   const { totals, status } = resolve();
   gameName.textContent = activeGame.name;
   caption.textContent = captionText();
-  // Cell-entry games get fixed column widths (see styles.css) so typing a score
-  // never reflows the grid. Hand games (500) keep auto sizing for their
-  // variable-width hand summaries. The column count feeds the table's calc width.
-  scoreTable.classList.toggle('cells', activeGame.entry === 'cell');
-  scoreTable.style.setProperty('--player-cols', String(state.players.length));
+  // Cell-entry games type into cells, so every column must stay strict (a growing
+  // score must not reflow the grid); hand games let the first column grow for the
+  // summary. The width rules keyed off this live in styles.css.
+  scoreTable.dataset.entry = activeGame.entry;
   renderHeaderActions(status);
   buildHead();
   buildBody(status);
@@ -461,41 +460,12 @@ function buildHead() {
   });
 }
 
-// Keep the focused score cell clear of the on-screen keyboard and the sticky
-// header/footer. scrollIntoView centres in the layout viewport, which on iOS
-// ignores the keyboard (it shrinks only the visual viewport), so measure the
-// visual viewport and scroll the table within that visible band instead. The
-// nudge eases in (smooth) unless the user prefers reduced motion.
-function scrollScoreInputIntoView(input) {
-  const wrap = input.closest('.table-wrap');
-  const vv = window.visualViewport;
-  if (!wrap || !vv) { input.scrollIntoView({ block: 'center', inline: 'nearest' }); return; }
-  setTimeout(() => {
-    if (document.activeElement !== input) return;
-    const cell = input.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const corner = wrap.querySelector('thead .round-col');
-    const foot = wrap.querySelector('tfoot');
-    const headH = corner ? corner.getBoundingClientRect().height : 0;
-    const stickyW = corner ? corner.getBoundingClientRect().width : 0;
-    const footH = foot ? foot.getBoundingClientRect().height : 0;
-    const m = 24;
-    const top = wrapRect.top + headH + m;
-    // Keep the cell clear of the keyboard, and reserve the sticky totals row's
-    // height under that line too: the table-wrap's keyboard-height bottom padding
-    // lets the last rows scroll up, which floats the sticky tfoot to the keyboard.
-    const visibleBottom = Math.min(vv.offsetTop + vv.height, wrapRect.bottom);
-    const bottom = visibleBottom - footH - m;
-    let dy = 0;
-    if (cell.bottom > bottom) dy = cell.bottom - bottom;
-    else if (cell.top < top) dy = cell.top - top;
-    const left = wrapRect.left + stickyW + m;
-    const right = wrapRect.right - m;
-    let dx = 0;
-    if (cell.right > right) dx = cell.right - right;
-    else if (cell.left < left) dx = cell.left - left;
-    if (dx || dy) wrap.scrollBy({ top: dy, left: dx, behavior: reducedMotion() ? 'auto' : 'smooth' });
-  }, 300);
+// Keep the focused score cell clear of the sticky header/footer and, when the
+// on-screen keyboard is open, above it. The maths lives in .table-wrap's
+// scroll-padding (which reserves --keyboard-height at the bottom); this just asks
+// the browser to re-run its own scroll on focus and on a keyboard-driven resize.
+function revealScoreInput(input) {
+  input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 /* ---------- score-entry advance ----------
@@ -531,8 +501,6 @@ function advanceFrom(input) {
   if (target == null) { input.blur(); return; }
   scoreCellsInRow(input)[target].focus();
 }
-
-const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 function scoreCellLabel(name, label) {
   return name + ', round ' + label.num + (label.sub ? ' (' + label.sub + ')' : '') + ' score';
@@ -605,9 +573,7 @@ function buildCellRow(r) {
       setScore(p.id, r, digits === '' ? null : parseInt(digits, 10));
       handleCellChange();
     });
-    input.addEventListener('focus', () => {
-      scrollScoreInputIntoView(input);
-    });
+    input.addEventListener('focus', () => revealScoreInput(input));
     // A hardware Return/Enter key advances to the next empty cell in the round.
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -949,18 +915,22 @@ function closeOnBackdropTap(dialog) {
 [addDialog, menuDialog, handDialog].forEach(closeOnBackdropTap);
 
 /* ---------- keyboard-aware viewport ---------- */
-// Track the on-screen keyboard's height in --keyboard-height so the bottom-sheet
-// dialogs lift to sit above it (iOS shrinks only the visual viewport, not the
-// layout one). The game screen itself is deliberately NOT resized: it stays full
-// height and the keyboard overlays its lower edge, so editing a score never
-// reflows the grid. The focused cell is kept visible by scrollScoreInputIntoView.
+// Track the on-screen keyboard's height in --keyboard-height. The bottom-sheet
+// dialogs lift above it, and the grid reserves it via scroll-padding-bottom so a
+// focused cell can clear it. The game screen is deliberately NOT resized (it stays
+// full height and the keyboard overlays its lower edge), so editing never reflows
+// the grid; the focused cell is kept visible by revealScoreInput.
 function syncViewport() {
   const vv = window.visualViewport;
   const kb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
   document.documentElement.style.setProperty('--keyboard-height', kb + 'px');
 }
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', syncViewport);
+  window.visualViewport.addEventListener('resize', () => {
+    syncViewport();
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains('score-input')) revealScoreInput(active);
+  });
   window.visualViewport.addEventListener('scroll', syncViewport);
 }
 window.addEventListener('orientationchange', syncViewport);
