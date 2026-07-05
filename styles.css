@@ -303,6 +303,11 @@ table {
   width: min-content;
 }
 #score-table[data-entry="hand"] { width: max-content; }
+/* Scroll room below the footer, equal to the keyboard height, so the last rows can
+   scroll clear of the on-screen keyboard (the grid often fits the screen and can't
+   otherwise scroll). It sits below the sticky footer, so unlike bottom padding on
+   the scroll container it never lifts the footer off the foot of the grid. */
+#score-table { margin-bottom: var(--keyboard-height, 0px); }
 caption { text-align: left; }
 
 th, td {
