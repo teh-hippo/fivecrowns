@@ -11,10 +11,14 @@ import { defaultState, normalizeState, serializeState } from './state.js';
 const LAST_GAME_KEY = 'scorer:lastGame';
 const NAMES_KEY = 'scorer:names';
 
-// Random wild-reveal wheel timing/layout.
-const REEL_SPIN_MS = 4800;   // length of the spin
-const REEL_HOLD_MS = 650;    // pause on the result before closing
-const REEL_CYCLES = 8;       // how many shuffled passes of the remaining wilds
+// Random wild-reveal wheel: idles slowly until tapped, then decelerates to land.
+const REEL_SPIN_MS = 4200;       // the selection spin, once tapped
+const REEL_HOLD_MS = 700;        // pause on the result before closing
+const REEL_STRIP_CYCLES = 10;    // repeats of the remaining wilds down the strip
+const REEL_LAND_CYCLE = 2;       // which repeat the wheel rests on
+const REEL_IDLE_CYCLES = 4;      // repeats the selection spin travels through
+const REEL_IDLE_PXPS = 75;       // idle scroll speed (px per second)
+const REEL_DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)'; // smooth deceleration
 
 /* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
@@ -804,61 +808,95 @@ function openRandomReveal(r) {
   const order = state.wildOrder || [];
   const target = order[r];
   if (target == null) return;
-  if (reduceMotion()) { commitReveal(r); return; }
-  spinReel(order.slice(r), target, r);
+  if (reduceMotion() || !reelStrip.animate) { commitReveal(r); return; }
+  showReel(order.slice(r), target, r);
 }
 
-// Build the reel from several shuffled passes of the remaining wilds, forcing the
-// target into the slot that rests in the centre. Returns the translateY (px) that
-// centres it in the 3-tall window.
+function currentTranslateY() {
+  const t = getComputedStyle(reelStrip).transform;
+  if (!t || t === 'none') return 0;
+  try { return new DOMMatrixReadOnly(t).m42; } catch (_) { return 0; }
+}
+
+// Build the reel: one shuffled pass of the remaining wilds, repeated down a tall
+// strip so it can loop seamlessly. Returns the geometry used to idle and land.
+// The strip scrolls downward (numbers descend), so it rests at `landY` after
+// travelling up from the deeper `idleBase`.
 function buildReelStrip(remaining, target) {
+  reelStrip.getAnimations().forEach((a) => a.cancel());
   reelStrip.innerHTML = '';
-  const items = [];
-  for (let c = 0; c < REEL_CYCLES; c++) shuffleArr(remaining).forEach((w) => items.push(w));
-  const landIdx = items.length - 2; // one item below it fills the bottom slot
-  items[landIdx] = target;
-  items.forEach((w, idx) => {
-    reelStrip.appendChild(el('div', { class: idx === landIdx ? 'reel-item reel-target' : 'reel-item' }, w));
-  });
-  const h = reelStrip.children[0] ? reelStrip.children[0].offsetHeight : 0;
-  return (landIdx - 1) * h;
+  const reel = shuffleArr(remaining);
+  const len = reel.length;
+  const tIdx = reel.indexOf(target);
+  const landIdx = tIdx + REEL_LAND_CYCLE * len; // the resting occurrence of the target
+  for (let c = 0; c < REEL_STRIP_CYCLES; c++) {
+    reel.forEach((w, i) => {
+      const idx = c * len + i;
+      reelStrip.appendChild(el('div', { class: idx === landIdx ? 'reel-item reel-target' : 'reel-item' }, w));
+    });
+  }
+  const h = reelStrip.children[0] ? reelStrip.children[0].getBoundingClientRect().height : 0;
+  const cycleH = len * h;
+  const landY = -(landIdx - 1) * h;                 // centres the target in the window
+  const idleBase = landY - REEL_IDLE_CYCLES * cycleH; // deeper start for a downward spin
+  return { cycleH, landY, idleBase };
 }
 
-function spinReel(remaining, target, r) {
+// Show the wheel: it idles with a slow downward loop until tapped, then the tap
+// decelerates it onto the target. A second tap (or keypress) lands it at once.
+function showReel(remaining, target, r) {
   reelSpinning = true;
   reelTitle.textContent = 'Round ' + (r + 1);
   reelOverlay.hidden = false;
-  const finalTranslate = buildReelStrip(remaining, target); // measured while visible
-  reelStrip.style.transition = 'none';
-  reelStrip.style.transform = 'translateY(0px)';
-  void reelStrip.offsetHeight; // flush the reset before animating
-  requestAnimationFrame(() => {
-    reelStrip.style.transition = 'transform ' + REEL_SPIN_MS + 'ms cubic-bezier(0.1, 0.72, 0.2, 1)';
-    reelStrip.style.transform = 'translateY(-' + finalTranslate + 'px)';
-  });
+  const geo = buildReelStrip(remaining, target);
 
-  let done = false;
+  reelStrip.style.transform = 'translateY(' + geo.idleBase + 'px)';
+  const idleMs = Math.max(600, (geo.cycleH / REEL_IDLE_PXPS) * 1000);
+  let idle = reelStrip.animate(
+    [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
+    { duration: idleMs, iterations: Infinity, easing: 'linear' },
+  );
+
+  let phase = 'idle';
+  let settled = false;
+  let sel = null;
+  const cleanup = () => {
+    reelOverlay.removeEventListener('click', onTap);
+    document.removeEventListener('keydown', onKey, true);
+  };
   const finish = () => {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    reelStrip.removeEventListener('transitionend', onEnd);
-    reelOverlay.removeEventListener('click', onSkip);
+    if (settled) return;
+    settled = true;
+    cleanup();
+    if (idle) idle.cancel();
+    if (sel) sel.cancel();
+    reelStrip.style.transform = 'translateY(' + geo.landY + 'px)';
     setTimeout(() => {
       commitReveal(r);        // reveal behind the overlay, then drop it
       reelOverlay.hidden = true;
       reelSpinning = false;
     }, REEL_HOLD_MS);
   };
-  const onEnd = (e) => { if (e.propertyName === 'transform') finish(); };
-  const onSkip = () => {
-    reelStrip.style.transition = 'none';
-    reelStrip.style.transform = 'translateY(-' + finalTranslate + 'px)';
-    finish();
+  const spin = () => {
+    const current = currentTranslateY();
+    if (idle) { idle.cancel(); idle = null; }
+    reelStrip.style.transform = 'translateY(' + current + 'px)';
+    sel = reelStrip.animate(
+      [{ transform: 'translateY(' + current + 'px)' }, { transform: 'translateY(' + geo.landY + 'px)' }],
+      { duration: REEL_SPIN_MS, easing: REEL_DECEL, fill: 'forwards' },
+    );
+    sel.onfinish = finish;
+    setTimeout(() => { if (!settled) finish(); }, REEL_SPIN_MS + 600); // safety net
   };
-  reelStrip.addEventListener('transitionend', onEnd);
-  reelOverlay.addEventListener('click', onSkip);
-  const timer = setTimeout(finish, REEL_SPIN_MS + 500); // safety net if transitionend is missed
+  const onTap = () => {
+    if (phase === 'idle') { phase = 'spin'; spin(); }
+    else if (phase === 'spin') { finish(); }
+  };
+  const onKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); onTap(); }
+  };
+  reelOverlay.addEventListener('click', onTap);
+  document.addEventListener('keydown', onKey, true);
 }
 
 // Round 1 of a Random game reveals on its own: spin the wheel as soon as the game
