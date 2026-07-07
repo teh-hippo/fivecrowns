@@ -14,9 +14,11 @@ Live app: https://teh-hippo.github.io/fivecrowns/
   Lowest total wins. Complete once the final round is entered for everyone. Setup
   offers a wild-order choice: **Up** (3s to Kings), **Down** (Kings to 3s), or
   **Random**. In Random the order is hidden and revealed a round at a time by a
-  spinning wheel: Round 1 spins automatically at the start, and each later round
-  glows once the round above it is fully entered, ready for a tap to spin it open.
-  A round's scores stay locked until its wild has been revealed.
+  spinning wheel. Round 1's wheel appears at the start; each later round unlocks a
+  **Reveal wild** button (and a glowing hint) once the round above it is fully
+  entered. The wheel idles until you spin it, lands on the wild with a confetti
+  burst, and waits for you to confirm. A round's scores stay locked until its wild
+  has been revealed.
 - **Greed** (dice) — open-ended rounds where each player banks a turn total.
   You need 500 in a single turn to get on the board; a bust scores 0. Highest
   total wins, racing to 5000. When a player reaches 5000 there is exactly one

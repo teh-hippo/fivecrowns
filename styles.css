@@ -356,6 +356,7 @@ thead .round-col, tfoot .round-col { z-index: 3; }
 .wild-ready {
   color: var(--primary);
   font-weight: 800;
+  font-size: 1rem;
   animation: wild-glow 1.4s ease-in-out infinite;
 }
 .round-ready:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 6px; }
@@ -363,13 +364,19 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   0%, 100% { opacity: 0.55; text-shadow: none; }
   50% { opacity: 1; text-shadow: 0 0 9px var(--primary); }
 }
+/* Dedicated header button to open the wheel: a pulsing ring makes it obvious. */
+.reveal-wild { animation: reveal-pulse 1.5s ease-in-out infinite; }
+@keyframes reveal-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(167, 139, 250, 0); }
+}
 .score-input:disabled {
   opacity: 0.3;
   cursor: not-allowed;
   background: repeating-linear-gradient(-45deg, transparent, transparent 5px, var(--line) 5px, var(--line) 6px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .wild-ready { animation: none; }
+  .wild-ready, .reveal-wild { animation: none; }
 }
 
 .player-col { padding: 0.35rem 0; width: var(--col-player); }
@@ -801,5 +808,32 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   font-weight: 800;
   color: var(--text);
 }
-.reel-target { color: var(--primary); }
-.reel-skip { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.reel-target {
+  color: var(--primary);
+  animation: reel-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+@keyframes reel-pop {
+  0% { transform: scale(1); text-shadow: none; }
+  55% { transform: scale(1.4); text-shadow: 0 0 16px var(--primary); }
+  100% { transform: scale(1.18); text-shadow: 0 0 10px var(--primary); }
+}
+.reel-action { margin-top: 0.2rem; min-width: 9rem; }
+
+.reel-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.confetti-bit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reel-target { animation: none; text-shadow: 0 0 10px var(--primary); }
+}

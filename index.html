@@ -64,6 +64,7 @@
     <header class="game-header">
       <h1 class="brand small"><span class="crown">♛</span> <span id="game-name">Five Crowns</span></h1>
       <div class="header-actions">
+        <button id="reveal-wild-btn" type="button" class="primary reveal-wild" hidden>Reveal wild</button>
         <button id="score-hand-btn" type="button" class="primary" hidden>Score hand</button>
         <button id="play-again-btn" type="button" class="primary" hidden>Play again</button>
         <button id="add-btn" type="button" class="ghost" hidden>+ Player</button>
@@ -148,12 +149,13 @@
   </dialog>
 
   <!-- Random wild-reveal wheel (Five Crowns): a full-screen vertical spinner. -->
-  <div id="reel-overlay" class="reel-overlay" hidden aria-hidden="true">
+  <div id="reel-overlay" class="reel-overlay" hidden>
     <div class="reel-card">
       <p id="reel-title" class="reel-title"></p>
       <div class="reel-window"><div id="reel-strip" class="reel-strip"></div></div>
-      <p class="reel-skip">Tap to spin</p>
+      <button id="reel-action" type="button" class="primary big reel-action">Spin</button>
     </div>
+    <div id="reel-confetti" class="reel-confetti" aria-hidden="true"></div>
   </div>
 </body>
 </html>
