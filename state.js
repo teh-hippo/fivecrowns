@@ -31,10 +31,11 @@ function normalizeState(game, s) {
   base.nextId = Math.max(maxId + 1, (typeof s.nextId === 'number' ? s.nextId : 0), players.length + 1);
 
   // Copy any extra per-game state fields the game declares (e.g. Five Crowns'
-  // variant + wildOrder), tolerating only strings and arrays from a save.
+  // variant, wildOrder and revealedCount), tolerating only strings, finite
+  // numbers and arrays from a save.
   (game.stateFields || []).forEach((f) => {
     const v = s[f];
-    if (typeof v === 'string' || Array.isArray(v)) base[f] = v;
+    if (typeof v === 'string' || Array.isArray(v) || (typeof v === 'number' && Number.isFinite(v))) base[f] = v;
   });
 
   if (game.entry === 'cell') {

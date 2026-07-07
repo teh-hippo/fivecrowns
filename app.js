@@ -11,6 +11,11 @@ import { defaultState, normalizeState, serializeState } from './state.js';
 const LAST_GAME_KEY = 'scorer:lastGame';
 const NAMES_KEY = 'scorer:names';
 
+// Random wild-reveal wheel timing/layout.
+const REEL_SPIN_MS = 4800;   // length of the spin
+const REEL_HOLD_MS = 650;    // pause on the result before closing
+const REEL_CYCLES = 8;       // how many shuffled passes of the remaining wilds
+
 /* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
   const node = document.createElement(tag);
@@ -50,6 +55,7 @@ let setupNames = [];
 let setupVariant = null;
 let handEditIndex = null;
 let handDraft = null;
+let reelSpinning = false;
 
 function loadGame(game) {
   try {
@@ -221,6 +227,10 @@ const handPreview = document.getElementById('hand-preview');
 const handDeleteBtn = document.getElementById('hand-delete');
 const handCancel = document.getElementById('hand-cancel');
 const handSave = document.getElementById('hand-save');
+
+const reelOverlay = document.getElementById('reel-overlay');
+const reelStrip = document.getElementById('reel-strip');
+const reelTitle = document.getElementById('reel-title');
 
 /* ---------- screen switching ---------- */
 function showSetup() {
@@ -447,6 +457,7 @@ function renderGame() {
   buildBody(status);
   buildFoot();
   updateTotalsAndBanner(totals, status);
+  maybeAutoReveal();
 }
 
 function renderHeaderActions(st) {
@@ -530,8 +541,9 @@ function advanceFrom(input) {
 }
 
 function scoreCellLabel(name, label) {
-  // A masked (unrevealed) wild is not spoken, so screen readers don't spoil it.
-  const wild = label.sub && !label.masked ? ' (' + label.sub + ')' : '';
+  // Neither a locked (masked) nor a ready (?) wild is spoken, so screen readers
+  // don't spoil the reveal; only a revealed round names its wild.
+  const wild = label.sub && !label.masked && !label.ready ? ' (' + label.sub + ')' : '';
   return name + ', round ' + label.num + wild + ' score';
 }
 
@@ -573,12 +585,51 @@ function buildBody(st) {
   }
 }
 
-function buildCellRow(r) {
+// Set a round header's wild sub-label and its ready-to-spin affordance from the
+// game's roundLabel. Reused on build and on every in-place refresh.
+function applyRoundHeader(th, label) {
+  let wild = th.querySelector('.wild');
+  if (label.sub) {
+    if (!wild) { wild = el('span', { class: 'wild' }); th.appendChild(wild); }
+    wild.textContent = label.sub;
+    wild.classList.toggle('wild-masked', !!label.masked);
+    wild.classList.toggle('wild-ready', !!label.ready);
+  } else if (wild) {
+    wild.remove();
+  }
+  const ready = !!label.ready;
+  th.classList.toggle('round-ready', ready);
+  if (ready) {
+    th.dataset.ready = '1';
+    th.setAttribute('role', 'button');
+    th.setAttribute('tabindex', '0');
+    th.setAttribute('aria-label', 'Reveal the wild for round ' + label.num);
+  } else {
+    delete th.dataset.ready;
+    th.removeAttribute('role');
+    th.removeAttribute('tabindex');
+    th.removeAttribute('aria-label');
+  }
+}
+
+// Apply a round's state to its whole row: header affordance plus cell locking.
+// A round's score cells stay disabled until the round has been revealed.
+function applyRoundRow(tr, r) {
   const label = activeGame.roundLabel(r, state);
+  const th = tr.querySelector('.round-col');
+  if (th) applyRoundHeader(th, label);
+  const lock = !!label.masked || !!label.ready;
+  tr.querySelectorAll('.score-input').forEach((inp) => {
+    inp.disabled = lock;
+    const p = playerById(inp.getAttribute('data-pid'));
+    if (p) inp.setAttribute('aria-label', scoreCellLabel(p.name, label));
+  });
+}
+
+function buildCellRow(r) {
   const tr = el('tr', { 'data-round': String(r) });
   const rh = el('th', { class: 'round-col', scope: 'row' });
-  rh.appendChild(el('span', { class: 'round-num' }, label.num));
-  if (label.sub) rh.appendChild(el('span', { class: label.masked ? 'wild wild-masked' : 'wild' }, label.sub));
+  rh.appendChild(el('span', { class: 'round-num' }, activeGame.roundLabel(r, state).num));
   tr.appendChild(rh);
 
   state.players.forEach((p) => {
@@ -591,7 +642,6 @@ function buildCellRow(r) {
       class: 'score-input',
       'data-pid': p.id,
       'data-round': String(r),
-      'aria-label': scoreCellLabel(p.name, label),
     });
     const arr = state.scores[p.id] || [];
     const v = arr[r];
@@ -614,6 +664,7 @@ function buildCellRow(r) {
     td.appendChild(input);
     tr.appendChild(td);
   });
+  applyRoundRow(tr, r);
   return tr;
 }
 
@@ -708,22 +759,115 @@ function handleCellChange() {
     && !scoreBody.lastChild.contains(document.activeElement)) {
     scoreBody.removeChild(scoreBody.lastChild);
   }
-  refreshWildLabels();
+  refreshRandomRows();
 }
 
-// Reveal masked wilds as rounds complete (Random variant): recompute each visible
-// round header's sub-label in place, touching only the header, never the inputs.
-function refreshWildLabels() {
+// Refresh Random round headers and cell-locking in place as rounds complete or
+// are revealed: recompute each visible row from the game's roundLabel. Touches
+// headers and input.disabled only, never the values.
+function refreshRandomRows() {
   if (!(activeGame.variants && state.variant === 'random')) return;
   Array.prototype.forEach.call(scoreBody.children, (tr) => {
     const r = Number(tr.getAttribute('data-round'));
-    if (Number.isNaN(r)) return;
-    const wild = tr.querySelector('.wild');
-    if (!wild) return;
-    const label = activeGame.roundLabel(r, state);
-    wild.textContent = label.sub;
-    wild.classList.toggle('wild-masked', !!label.masked);
+    if (!Number.isNaN(r)) applyRoundRow(tr, r);
   });
+}
+
+/* ---------- Random wild-reveal wheel ---------- */
+function shuffleArr(arr) {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = out[i]; out[i] = out[j]; out[j] = t;
+  }
+  return out;
+}
+
+function reduceMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+// Commit a reveal: mark the round opened, persist, and refresh the grid so the
+// wild shows and its cells unlock (and the next round can start glowing).
+function commitReveal(r) {
+  state.revealedCount = Math.max(state.revealedCount || 0, r + 1);
+  save();
+  refreshRandomRows();
+}
+
+// Open the wheel for round r if it is the ready (next, unlocked) Random round.
+function openRandomReveal(r) {
+  if (reelSpinning) return;
+  if (!(activeGame.variants && state.variant === 'random')) return;
+  const label = activeGame.roundLabel(r, state);
+  if (!label.ready) return;
+  const order = state.wildOrder || [];
+  const target = order[r];
+  if (target == null) return;
+  if (reduceMotion()) { commitReveal(r); return; }
+  spinReel(order.slice(r), target, r);
+}
+
+// Build the reel from several shuffled passes of the remaining wilds, forcing the
+// target into the slot that rests in the centre. Returns the translateY (px) that
+// centres it in the 3-tall window.
+function buildReelStrip(remaining, target) {
+  reelStrip.innerHTML = '';
+  const items = [];
+  for (let c = 0; c < REEL_CYCLES; c++) shuffleArr(remaining).forEach((w) => items.push(w));
+  const landIdx = items.length - 2; // one item below it fills the bottom slot
+  items[landIdx] = target;
+  items.forEach((w, idx) => {
+    reelStrip.appendChild(el('div', { class: idx === landIdx ? 'reel-item reel-target' : 'reel-item' }, w));
+  });
+  const h = reelStrip.children[0] ? reelStrip.children[0].offsetHeight : 0;
+  return (landIdx - 1) * h;
+}
+
+function spinReel(remaining, target, r) {
+  reelSpinning = true;
+  reelTitle.textContent = 'Round ' + (r + 1);
+  reelOverlay.hidden = false;
+  const finalTranslate = buildReelStrip(remaining, target); // measured while visible
+  reelStrip.style.transition = 'none';
+  reelStrip.style.transform = 'translateY(0px)';
+  void reelStrip.offsetHeight; // flush the reset before animating
+  requestAnimationFrame(() => {
+    reelStrip.style.transition = 'transform ' + REEL_SPIN_MS + 'ms cubic-bezier(0.1, 0.72, 0.2, 1)';
+    reelStrip.style.transform = 'translateY(-' + finalTranslate + 'px)';
+  });
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    reelStrip.removeEventListener('transitionend', onEnd);
+    reelOverlay.removeEventListener('click', onSkip);
+    setTimeout(() => {
+      commitReveal(r);        // reveal behind the overlay, then drop it
+      reelOverlay.hidden = true;
+      reelSpinning = false;
+    }, REEL_HOLD_MS);
+  };
+  const onEnd = (e) => { if (e.propertyName === 'transform') finish(); };
+  const onSkip = () => {
+    reelStrip.style.transition = 'none';
+    reelStrip.style.transform = 'translateY(-' + finalTranslate + 'px)';
+    finish();
+  };
+  reelStrip.addEventListener('transitionend', onEnd);
+  reelOverlay.addEventListener('click', onSkip);
+  const timer = setTimeout(finish, REEL_SPIN_MS + 500); // safety net if transitionend is missed
+}
+
+// Round 1 of a Random game reveals on its own: spin the wheel as soon as the game
+// is shown with nothing revealed yet (covers start, resume and play again).
+function maybeAutoReveal() {
+  if (gameScreen.hidden || reelSpinning) return;
+  if (!(activeGame.variants && state.variant === 'random')) return;
+  if ((state.revealedCount || 0) !== 0) return;
+  openRandomReveal(0);
 }
 
 /* ---------- actions ---------- */
@@ -917,6 +1061,20 @@ newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''
 // navigate/reload and lose the in-progress game. (CSP rules out an inline
 // onsubmit, so swallow it here.)
 scoreForm.addEventListener('submit', (e) => e.preventDefault());
+
+// Tap or keyboard-activate a glowing "ready" round header to spin its wild open.
+scoreBody.addEventListener('click', (e) => {
+  const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null;
+  if (!th) return;
+  openRandomReveal(Number(th.closest('tr').getAttribute('data-round')));
+});
+scoreBody.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null;
+  if (!th) return;
+  e.preventDefault();
+  openRandomReveal(Number(th.closest('tr').getAttribute('data-round')));
+});
 
 addBtn.addEventListener('click', openAddDialog);
 playAgainBtn.addEventListener('click', playAgain);

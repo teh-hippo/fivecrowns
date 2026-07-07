@@ -218,27 +218,42 @@ test('Five Crowns wild order: up as printed, down reversed, random a full shuffl
 
   const random = fiveCrowns.initVariant('random');
   assert.equal(random.variant, 'random');
+  assert.equal(random.revealedCount, 0);
   assert.equal(random.wildOrder.length, 11);
   assert.deepEqual([...random.wildOrder].sort(), [...FIVE_CROWNS_WILDS].sort());
+
+  // Up/Down are never masked, so they carry no revealedCount.
+  assert.equal(up.revealedCount, undefined);
+  assert.equal(down.revealedCount, undefined);
 
   // An unknown variant falls back to the default.
   assert.equal(fiveCrowns.initVariant('nope').variant, 'up');
 });
 
-test('Random wilds reveal one round at a time as the round above is completed', () => {
+test('Random wilds are gated by a spin: locked, then ready, then revealed', () => {
   const order = FIVE_CROWNS_WILDS;
-  const st = { variant: 'random', wildOrder: order, players: sides, scores: { p1: [], p2: [] } };
+  const st = { variant: 'random', wildOrder: order, revealedCount: 0, players: sides, scores: { p1: [], p2: [] } };
 
-  // Round 0 is known from the start; round 1 is masked until round 0 is full.
-  assert.equal(fiveCrowns.roundLabel(0, st).masked, undefined);
+  // Round 0 starts ready (glowing, tappable), not yet revealed; round 1 is locked.
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: '?', ready: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
+
+  // Opening round 0 (spin done) reveals its wild; round 1 stays locked until
+  // round 0 is fully entered.
+  st.revealedCount = 1;
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: order[0] });
   assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
 
   st.scores.p1[0] = 5; // only one player scored round 0
-  assert.equal(fiveCrowns.roundLabel(1, st).masked, true);
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
 
-  st.scores.p2[0] = 3; // round 0 now complete
+  st.scores.p2[0] = 3; // round 0 now complete -> round 1 becomes ready (not auto-revealed)
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '?', ready: true });
+  assert.deepEqual(fiveCrowns.roundLabel(2, st), { num: '3', sub: '\u2014', masked: true });
+
+  // Spinning round 1 open reveals it.
+  st.revealedCount = 2;
   assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: order[1] });
-  assert.equal(fiveCrowns.roundLabel(2, st).masked, true);
 });
 
 test('Five Crowns resolve: in progress until every round is entered, then lowest wins', () => {

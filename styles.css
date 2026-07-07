@@ -349,8 +349,28 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   font-weight: 600;
   color: var(--muted);
 }
-/* An unrevealed Random wild: dimmed placeholder, hidden until its round opens. */
+/* A locked Random wild: dimmed placeholder, hidden until its round opens. */
 .wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
+/* The next round, ready to spin open: a glowing, tappable hint. */
+.round-ready { cursor: pointer; }
+.wild-ready {
+  color: var(--primary);
+  font-weight: 800;
+  animation: wild-glow 1.4s ease-in-out infinite;
+}
+.round-ready:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 6px; }
+@keyframes wild-glow {
+  0%, 100% { opacity: 0.55; text-shadow: none; }
+  50% { opacity: 1; text-shadow: 0 0 9px var(--primary); }
+}
+.score-input:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 5px, var(--line) 5px, var(--line) 6px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wild-ready { animation: none; }
+}
 
 .player-col { padding: 0.35rem 0; width: var(--col-player); }
 .name-input {
@@ -721,3 +741,65 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   dialog.sheet::backdrop { transition: none; }
   .winner-banner:not([hidden]) { animation: none; }
 }
+
+/* ---------- Random wild-reveal wheel ---------- */
+.reel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.82);
+  -webkit-backdrop-filter: blur(5px);
+          backdrop-filter: blur(5px);
+}
+.reel-overlay[hidden] { display: none; }
+.reel-card { display: grid; gap: 0.9rem; justify-items: center; text-align: center; }
+.reel-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.reel-window {
+  --reel-item-h: 3.6rem;
+  position: relative;
+  height: calc(var(--reel-item-h) * 3);
+  width: min(74vw, 300px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
+  -webkit-mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
+          mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
+}
+.reel-window::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--reel-item-h);
+  height: var(--reel-item-h);
+  border-block: 2px solid var(--primary);
+  pointer-events: none;
+}
+.reel-strip {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+.reel-item {
+  height: var(--reel-item-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.reel-target { color: var(--primary); }
+.reel-skip { margin: 0; font-size: 0.8rem; color: var(--muted); }

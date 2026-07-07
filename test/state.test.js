@@ -95,12 +95,14 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
     scores: { p1: new Array(11).fill(1), p2: new Array(11).fill(2) },
     variant: 'random',
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
+    revealedCount: 4,
   });
   const round = normalizeState(fiveCrowns, serializeState(fiveCrowns, original));
   assert.deepEqual(round.players, original.players);
   assert.deepEqual(round.scores, original.scores);
   assert.equal(round.variant, 'random');
   assert.deepEqual(round.wildOrder, [...FIVE_CROWNS_WILDS].reverse());
+  assert.equal(round.revealedCount, 4);
 });
 
 test('serialize then normalize round-trips a 500 game', () => {

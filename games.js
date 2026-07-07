@@ -10,7 +10,7 @@
  *   rounds { kind:'fixed', count } | { kind:'open' }
  *   entry 'cell' | 'hand'
  *   allowNegative, minPlayers, maxPlayers, defaultNames()
- *   roundLabel(i, state) -> { num, sub, masked? }
+ *   roundLabel(i, state) -> { num, sub, masked?, ready? }
  *   resolve(players, state) -> { totals, status }
  *   // optional per-game setup variants (see Five Crowns):
  *   variants { field, default, options:[{value,label,hint}] }
@@ -81,7 +81,8 @@ function winnerText(players, leaders, best) {
 /* ---------- Five Crowns ---------- */
 const FIVE_CROWNS_WILDS = ['3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s', 'Jacks', 'Queens', 'Kings'];
 const FIVE_CROWNS_ROUNDS = FIVE_CROWNS_WILDS.length; // 11
-const FIVE_CROWNS_MASK = '\u2014'; // placeholder shown for an unrevealed Random wild
+const FIVE_CROWNS_MASK = '\u2014'; // placeholder shown for a locked Random wild
+const FIVE_CROWNS_READY = '?';     // shown on the glowing round that is ready to spin
 
 function shuffle(arr) {
   const out = arr.slice();
@@ -99,9 +100,9 @@ function fiveCrownsWildOrder(variant) {
   return FIVE_CROWNS_WILDS.slice();
 }
 
-// A Random round is known once the round above it is fully entered; round 0 is
-// always known. Only consulted for the 'random' variant (up/down never mask).
-function fiveCrownsRevealed(i, state) {
+// Whether the round above `i` is fully entered (round 0 has none above it), which
+// is what makes the next Random round eligible to be spun open.
+function fiveCrownsPrevComplete(i, state) {
   if (i <= 0) return true;
   const players = (state && state.players) || [];
   if (players.length === 0) return false;
@@ -136,15 +137,23 @@ const fiveCrowns = {
       { value: 'random', label: 'Random', hint: 'hidden' },
     ],
   },
-  stateFields: ['variant', 'wildOrder'],
+  stateFields: ['variant', 'wildOrder', 'revealedCount'],
   initVariant(variant) {
     const known = this.variants.options.some((o) => o.value === variant);
     const v = known ? variant : this.variants.default;
-    return { variant: v, wildOrder: fiveCrownsWildOrder(v) };
+    const extra = { variant: v, wildOrder: fiveCrownsWildOrder(v) };
+    if (v === 'random') extra.revealedCount = 0;
+    return extra;
   },
+  // Random hides the order behind a spin-to-reveal wheel: a round is revealed
+  // once it has been opened (index < revealedCount), 'ready' (glowing, tappable)
+  // when it is next and the round above is fully entered, else locked.
   roundLabel(i, state) {
     const num = String(i + 1);
-    if (state && state.variant === 'random' && !fiveCrownsRevealed(i, state)) {
+    if (state && state.variant === 'random') {
+      const opened = state.revealedCount || 0;
+      if (i < opened) return { num, sub: (state.wildOrder || FIVE_CROWNS_WILDS)[i] };
+      if (i === opened && fiveCrownsPrevComplete(i, state)) return { num, sub: FIVE_CROWNS_READY, ready: true };
       return { num, sub: FIVE_CROWNS_MASK, masked: true };
     }
     const order = (state && state.wildOrder) || FIVE_CROWNS_WILDS;
