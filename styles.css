@@ -349,6 +349,8 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   font-weight: 600;
   color: var(--muted);
 }
+/* An unrevealed Random wild: dimmed placeholder, hidden until its round opens. */
+.wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
 
 .player-col { padding: 0.35rem 0; width: var(--col-player); }
 .name-input {
@@ -557,6 +559,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 .pick-name {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -567,6 +570,12 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   color: var(--text);
   cursor: pointer;
 }
+.pick-hint {
+  font-size: 0.62rem;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-top: 2px;
+}
 .pick input:checked + .pick-name {
   background: var(--primary);
   color: var(--primary-text);
@@ -575,6 +584,16 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
+
+/* Per-game options (Five Crowns' wild order): a labelled 3-way segmented group. */
+.variant-control {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1.2rem;
+  min-inline-size: 0;
+}
+.variant-control .field-label { display: block; margin-bottom: 0.4rem; }
+.game-picker.cols-3 { grid-template-columns: repeat(3, 1fr); margin: 0; }
 
 .resume-note { color: var(--muted); margin: 0.2rem 0 1rem; }
 #setup-resume .big + .big { margin-top: 0.6rem; }

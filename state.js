@@ -30,6 +30,13 @@ function normalizeState(game, s) {
   base.started = !!s.started;
   base.nextId = Math.max(maxId + 1, (typeof s.nextId === 'number' ? s.nextId : 0), players.length + 1);
 
+  // Copy any extra per-game state fields the game declares (e.g. Five Crowns'
+  // variant + wildOrder), tolerating only strings and arrays from a save.
+  (game.stateFields || []).forEach((f) => {
+    const v = s[f];
+    if (typeof v === 'string' || Array.isArray(v)) base[f] = v;
+  });
+
   if (game.entry === 'cell') {
     const src = (s.scores && typeof s.scores === 'object') ? s.scores : {};
     const fixed = game.rounds.kind === 'fixed' ? game.rounds.count : null;
@@ -82,6 +89,8 @@ function serializeState(game, st) {
   } else {
     out.hands = st.hands || [];
   }
+  // Persist any extra per-game state fields the game declares.
+  (game.stateFields || []).forEach((f) => { if (st[f] !== undefined) out[f] = st[f]; });
   return out;
 }
 

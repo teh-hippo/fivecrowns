@@ -47,6 +47,7 @@ function selectAllOnEdit(input) {
 let activeGame = null;
 let state = null;
 let setupNames = [];
+let setupVariant = null;
 let handEditIndex = null;
 let handDraft = null;
 
@@ -169,6 +170,9 @@ const setupScreen = document.getElementById('setup-screen');
 const gameScreen = document.getElementById('game-screen');
 const picker = document.getElementById('game-picker');
 const setupFresh = document.getElementById('setup-fresh');
+const variantControl = document.getElementById('variant-control');
+const variantLegend = document.getElementById('variant-legend');
+const variantOptions = document.getElementById('variant-options');
 const setupResume = document.getElementById('setup-resume');
 const resumeNote = document.getElementById('resume-note');
 const resumeBtn = document.getElementById('resume-btn');
@@ -253,6 +257,27 @@ function selectGame(id) {
   refreshSetupView();
 }
 
+// Segmented per-game options (e.g. Five Crowns' wild order). Reuses the game
+// picker's radio-group markup; hidden entirely for games without variants.
+function renderVariantControl() {
+  const spec = activeGame.variants;
+  variantControl.hidden = !spec;
+  variantOptions.innerHTML = '';
+  if (!spec) return;
+  variantLegend.textContent = spec.label;
+  spec.options.forEach((opt) => {
+    const label = el('label', { class: 'pick' });
+    const input = el('input', { type: 'radio', name: 'variant', value: opt.value });
+    if (opt.value === setupVariant) input.checked = true;
+    input.addEventListener('change', () => { if (input.checked) setupVariant = opt.value; });
+    label.appendChild(input);
+    const name = el('span', { class: 'pick-name' }, opt.label);
+    if (opt.hint) name.appendChild(el('span', { class: 'pick-hint' }, opt.hint));
+    label.appendChild(name);
+    variantOptions.appendChild(label);
+  });
+}
+
 function refreshSetupView() {
   countLabel.textContent = cap(activeGame.unitLabel);
   if (hasStartedSave(activeGame)) {
@@ -263,6 +288,8 @@ function refreshSetupView() {
     setupResume.hidden = true;
     setupFresh.hidden = false;
     setupNames = recalledNames(activeGame);
+    setupVariant = activeGame.variants ? activeGame.variants.default : null;
+    renderVariantControl();
     renderNameList();
   }
 }
@@ -503,7 +530,9 @@ function advanceFrom(input) {
 }
 
 function scoreCellLabel(name, label) {
-  return name + ', round ' + label.num + (label.sub ? ' (' + label.sub + ')' : '') + ' score';
+  // A masked (unrevealed) wild is not spoken, so screen readers don't spoil it.
+  const wild = label.sub && !label.masked ? ' (' + label.sub + ')' : '';
+  return name + ', round ' + label.num + wild + ' score';
 }
 
 // Keep score-cell aria-labels in sync when a player is renamed (cell games).
@@ -512,7 +541,7 @@ function refreshScoreLabels(pid) {
   if (!p) return;
   scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
     const r = Number(input.getAttribute('data-round'));
-    input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r)));
+    input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r, state)));
   });
 }
 
@@ -545,11 +574,11 @@ function buildBody(st) {
 }
 
 function buildCellRow(r) {
-  const label = activeGame.roundLabel(r);
+  const label = activeGame.roundLabel(r, state);
   const tr = el('tr', { 'data-round': String(r) });
   const rh = el('th', { class: 'round-col', scope: 'row' });
   rh.appendChild(el('span', { class: 'round-num' }, label.num));
-  if (label.sub) rh.appendChild(el('span', { class: 'wild' }, label.sub));
+  if (label.sub) rh.appendChild(el('span', { class: label.masked ? 'wild wild-masked' : 'wild' }, label.sub));
   tr.appendChild(rh);
 
   state.players.forEach((p) => {
@@ -679,12 +708,29 @@ function handleCellChange() {
     && !scoreBody.lastChild.contains(document.activeElement)) {
     scoreBody.removeChild(scoreBody.lastChild);
   }
+  refreshWildLabels();
+}
+
+// Reveal masked wilds as rounds complete (Random variant): recompute each visible
+// round header's sub-label in place, touching only the header, never the inputs.
+function refreshWildLabels() {
+  if (!(activeGame.variants && state.variant === 'random')) return;
+  Array.prototype.forEach.call(scoreBody.children, (tr) => {
+    const r = Number(tr.getAttribute('data-round'));
+    if (Number.isNaN(r)) return;
+    const wild = tr.querySelector('.wild');
+    if (!wild) return;
+    const label = activeGame.roundLabel(r, state);
+    wild.textContent = label.sub;
+    wild.classList.toggle('wild-masked', !!label.masked);
+  });
 }
 
 /* ---------- actions ---------- */
 function startGame() {
   state = defaultState(activeGame);
   state.started = true;
+  if (activeGame.variants) Object.assign(state, activeGame.initVariant(setupVariant));
   setupNames.forEach((n) => addPlayerToState(n, 0));
   save();
   showGame();
@@ -709,6 +755,8 @@ function playAgain() {
   fresh.started = true;
   fresh.players = keep;
   fresh.nextId = state.nextId;
+  // Keep the same wild-order variant, reshuffling Random for a new order.
+  if (activeGame.variants && state.variant) Object.assign(fresh, activeGame.initVariant(state.variant));
   keep.forEach((p) => {
     if (activeGame.entry === 'cell') {
       fresh.scores[p.id] = activeGame.rounds.kind === 'fixed'

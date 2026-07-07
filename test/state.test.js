@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultState, normalizeState, serializeState } from '../state.js';
-import { fiveCrowns, greed, five00 } from '../games.js';
+import { fiveCrowns, greed, five00, FIVE_CROWNS_WILDS } from '../games.js';
 
 test('defaultState is an empty, not-started game', () => {
   assert.deepEqual(defaultState(fiveCrowns), {
@@ -93,10 +93,14 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
     started: true,
     players: [{ id: 'p1', name: 'Zac', seed: 0 }, { id: 'p2', name: 'Xavi', seed: 3 }],
     scores: { p1: new Array(11).fill(1), p2: new Array(11).fill(2) },
+    variant: 'random',
+    wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
   });
   const round = normalizeState(fiveCrowns, serializeState(fiveCrowns, original));
   assert.deepEqual(round.players, original.players);
   assert.deepEqual(round.scores, original.scores);
+  assert.equal(round.variant, 'random');
+  assert.deepEqual(round.wildOrder, [...FIVE_CROWNS_WILDS].reverse());
 });
 
 test('serialize then normalize round-trips a 500 game', () => {

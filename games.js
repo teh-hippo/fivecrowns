@@ -10,8 +10,12 @@
  *   rounds { kind:'fixed', count } | { kind:'open' }
  *   entry 'cell' | 'hand'
  *   allowNegative, minPlayers, maxPlayers, defaultNames()
- *   roundLabel(i) -> { num, sub }
+ *   roundLabel(i, state) -> { num, sub, masked? }
  *   resolve(players, state) -> { totals, status }
+ *   // optional per-game setup variants (see Five Crowns):
+ *   variants { field, default, options:[{value,label,hint}] }
+ *   stateFields []                    // extra state fields state.js persists
+ *   initVariant(variant) -> extra     // extra state fields set when a game starts
  *       status = { phase:'inProgress'|'targetReached'|'complete'|'out',
  *                  best, leaders, text, finalRound? }
  *   // hand games only:
@@ -77,6 +81,35 @@ function winnerText(players, leaders, best) {
 /* ---------- Five Crowns ---------- */
 const FIVE_CROWNS_WILDS = ['3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s', 'Jacks', 'Queens', 'Kings'];
 const FIVE_CROWNS_ROUNDS = FIVE_CROWNS_WILDS.length; // 11
+const FIVE_CROWNS_MASK = '\u2014'; // placeholder shown for an unrevealed Random wild
+
+function shuffle(arr) {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// The wild order for a variant: 'up' as printed, 'down' reversed, 'random' shuffled.
+function fiveCrownsWildOrder(variant) {
+  if (variant === 'down') return FIVE_CROWNS_WILDS.slice().reverse();
+  if (variant === 'random') return shuffle(FIVE_CROWNS_WILDS);
+  return FIVE_CROWNS_WILDS.slice();
+}
+
+// A Random round is known once the round above it is fully entered; round 0 is
+// always known. Only consulted for the 'random' variant (up/down never mask).
+function fiveCrownsRevealed(i, state) {
+  if (i <= 0) return true;
+  const players = (state && state.players) || [];
+  if (players.length === 0) return false;
+  return players.every((p) => {
+    const a = (state.scores && state.scores[p.id]) || [];
+    return a[i - 1] != null;
+  });
+}
 
 const fiveCrowns = {
   id: 'fivecrowns',
@@ -93,7 +126,30 @@ const fiveCrowns = {
   minPlayers: 2,
   maxPlayers: 8,
   defaultNames() { return ['Player 1', 'Player 2', 'Player 3']; },
-  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[i] }; },
+  variants: {
+    field: 'variant',
+    label: 'Wild order',
+    default: 'up',
+    options: [
+      { value: 'up', label: 'Up', hint: '3s \u2192 K' },
+      { value: 'down', label: 'Down', hint: 'K \u2192 3s' },
+      { value: 'random', label: 'Random', hint: 'hidden' },
+    ],
+  },
+  stateFields: ['variant', 'wildOrder'],
+  initVariant(variant) {
+    const known = this.variants.options.some((o) => o.value === variant);
+    const v = known ? variant : this.variants.default;
+    return { variant: v, wildOrder: fiveCrownsWildOrder(v) };
+  },
+  roundLabel(i, state) {
+    const num = String(i + 1);
+    if (state && state.variant === 'random' && !fiveCrownsRevealed(i, state)) {
+      return { num, sub: FIVE_CROWNS_MASK, masked: true };
+    }
+    const order = (state && state.wildOrder) || FIVE_CROWNS_WILDS;
+    return { num, sub: order[i] };
+  },
   resolve(players, state) {
     const totals = {};
     players.forEach((p) => { totals[p.id] = (p.seed || 0) + sumScores(state.scores[p.id] || []); });
@@ -109,17 +165,6 @@ const fiveCrowns = {
     return { totals, status: { phase: 'inProgress', best, leaders: highlight, text: '' } };
   },
 };
-
-/* ---------- Five Crowns (reverse) ---------- */
-// The same game as Five Crowns, but the wild card counts down from Kings to 3s
-// (deal 13 cards in the first round, down to 3 in the last). Only the per-round
-// wild label changes, so this is the base game with roundLabel swapped.
-const fiveCrownsReverse = Object.assign({}, fiveCrowns, {
-  id: 'fivecrownsreverse',
-  name: 'Five Crowns (Reverse)',
-  storageKey: 'fivecrowns-reverse:v1',
-  roundLabel(i) { return { num: String(i + 1), sub: FIVE_CROWNS_WILDS[FIVE_CROWNS_ROUNDS - 1 - i] }; },
-});
 
 /* ---------- Greed (dice) ---------- */
 const GREED_TARGET = 5000;
@@ -485,11 +530,10 @@ five00.hand = {
 /* ---------- registry ---------- */
 const GAMES = {
   fivecrowns: fiveCrowns,
-  fivecrownsreverse: fiveCrownsReverse,
   greed: greed,
   five00: five00,
 };
-const GAME_ORDER = ['fivecrowns', 'fivecrownsreverse', 'greed', 'five00'];
+const GAME_ORDER = ['fivecrowns', 'greed', 'five00'];
 
 export {
   GAMES,
@@ -507,7 +551,7 @@ export {
   bidLabel,
   buildBidOrder,
   fiveCrowns,
-  fiveCrownsReverse,
+  fiveCrownsWildOrder,
   greed,
   five00,
   FIVE_CROWNS_WILDS,

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   contractValue, suitContractValue, bidLabel, buildBidOrder,
   five00, greed, greedRunningTotals,
-  fiveCrowns, fiveCrownsReverse, FIVE_CROWNS_WILDS, FIVE_CROWNS_ROUNDS,
+  fiveCrowns, fiveCrownsWildOrder, FIVE_CROWNS_WILDS, FIVE_CROWNS_ROUNDS,
   leadersOf, sumScores, lastFilledIndex, joinNames, winnerText,
 } from '../games.js';
 
@@ -196,13 +196,49 @@ test('Greed resolve: complete once the final round is filled, highest wins', () 
 });
 
 /* ---------- Five Crowns ---------- */
-test('Five Crowns round labels count the wilds up, reverse counts them down', () => {
+test('Five Crowns round labels count the wilds up by default', () => {
   assert.equal(FIVE_CROWNS_ROUNDS, 11);
   assert.deepEqual(fiveCrowns.roundLabel(0), { num: '1', sub: '3s' });
   assert.deepEqual(fiveCrowns.roundLabel(10), { num: '11', sub: 'Kings' });
-  assert.equal(fiveCrownsReverse.roundLabel(0).sub, 'Kings');
-  assert.equal(fiveCrownsReverse.roundLabel(10).sub, '3s');
   assert.equal(FIVE_CROWNS_WILDS.length, 11);
+});
+
+test('Five Crowns wild order: up as printed, down reversed, random a full shuffle', () => {
+  assert.deepEqual(fiveCrownsWildOrder('up'), FIVE_CROWNS_WILDS);
+  assert.deepEqual(fiveCrownsWildOrder('down'), [...FIVE_CROWNS_WILDS].reverse());
+
+  const up = fiveCrowns.initVariant('up');
+  assert.equal(up.variant, 'up');
+  assert.equal(up.wildOrder[0], '3s');
+
+  const down = fiveCrowns.initVariant('down');
+  assert.equal(down.wildOrder[0], 'Kings');
+  assert.equal(down.wildOrder[10], '3s');
+  assert.deepEqual(fiveCrowns.roundLabel(0, down).sub, 'Kings');
+
+  const random = fiveCrowns.initVariant('random');
+  assert.equal(random.variant, 'random');
+  assert.equal(random.wildOrder.length, 11);
+  assert.deepEqual([...random.wildOrder].sort(), [...FIVE_CROWNS_WILDS].sort());
+
+  // An unknown variant falls back to the default.
+  assert.equal(fiveCrowns.initVariant('nope').variant, 'up');
+});
+
+test('Random wilds reveal one round at a time as the round above is completed', () => {
+  const order = FIVE_CROWNS_WILDS;
+  const st = { variant: 'random', wildOrder: order, players: sides, scores: { p1: [], p2: [] } };
+
+  // Round 0 is known from the start; round 1 is masked until round 0 is full.
+  assert.equal(fiveCrowns.roundLabel(0, st).masked, undefined);
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
+
+  st.scores.p1[0] = 5; // only one player scored round 0
+  assert.equal(fiveCrowns.roundLabel(1, st).masked, true);
+
+  st.scores.p2[0] = 3; // round 0 now complete
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: order[1] });
+  assert.equal(fiveCrowns.roundLabel(2, st).masked, true);
 });
 
 test('Five Crowns resolve: in progress until every round is entered, then lowest wins', () => {
