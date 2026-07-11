@@ -95,16 +95,16 @@ function shuffle(arr, random = Math.random) {
   return out;
 }
 
-// Random orders are permutations, so every wild and card count appears once.
+// Standard variants keep each wild paired with its usual hand size. Super
+// Random alone stores a separately shuffled card-count order.
 function fiveCrownsWildOrder(variant, random = Math.random) {
   if (variant === 'down') return FIVE_CROWNS_WILDS.slice().reverse();
   if (variant === 'random' || variant === 'super-random') return shuffle(FIVE_CROWNS_WILDS, random);
   return FIVE_CROWNS_WILDS.slice();
 }
 
-function fiveCrownsCardOrder(variant, random = Math.random) {
-  if (variant === 'super-random') return shuffle(FIVE_CROWNS_CARD_COUNTS, random);
-  return FIVE_CROWNS_CARD_COUNTS.slice();
+function fiveCrownsSuperRandomCardOrder(random = Math.random) {
+  return shuffle(FIVE_CROWNS_CARD_COUNTS, random);
 }
 
 function fiveCrownsRevealVariant(variant) {
@@ -124,6 +124,12 @@ function fiveCrownsWildsFromState(state) {
 
 function fiveCrownsCardsFromState(state) {
   return validOrder(state && state.cardOrder, FIVE_CROWNS_CARD_COUNTS);
+}
+
+function fiveCrownsCardCount(i, state) {
+  if (state && state.variant === 'super-random') return fiveCrownsCardsFromState(state)[i];
+  const wild = fiveCrownsWildsFromState(state)[i];
+  return FIVE_CROWNS_CARD_COUNTS[FIVE_CROWNS_WILDS.indexOf(wild)];
 }
 
 function fiveCrownsRevealedCount(state) {
@@ -171,7 +177,7 @@ const fiveCrowns = {
     options: [
       { value: 'up', label: 'Up', hint: '3s \u2192 K' },
       { value: 'down', label: 'Down', hint: 'K \u2192 3s' },
-      { value: 'random', label: 'Random', hint: 'wilds only' },
+      { value: 'random', label: 'Random', hint: 'cards follow wilds' },
       { value: 'super-random', label: 'Super Random', hint: 'cards + wilds' },
     ],
   },
@@ -181,9 +187,12 @@ const fiveCrowns = {
     const known = this.variants.options.some((o) => o.value === variant);
     const v = known ? variant : this.variants.default;
     const extra = { variant: v, wildOrder: fiveCrownsWildOrder(v, random) };
-    if (v === 'super-random') extra.cardOrder = fiveCrownsCardOrder(v, random);
+    if (v === 'super-random') extra.cardOrder = fiveCrownsSuperRandomCardOrder(random);
     if (fiveCrownsRevealVariant(v)) extra.revealedCount = 0;
     return extra;
+  },
+  cardCount(i, state) {
+    return fiveCrownsCardCount(i, state);
   },
   revealNoun(state) {
     return state && state.variant === 'super-random' ? 'round' : 'wild';
@@ -191,11 +200,13 @@ const fiveCrowns = {
   revealItems(state) {
     const wilds = fiveCrownsWildsFromState(state);
     if (state && state.variant === 'super-random') {
-      const cards = fiveCrownsCardsFromState(state);
-      return wilds.map((wild, i) => ({
-        label: cardCountText(cards[i]) + ' \u00b7 ' + wild,
-        result: cardCountText(cards[i]) + ' \u00b7 ' + wild + ' wild!',
-      }));
+      return wilds.map((wild, i) => {
+        const cards = cardCountText(fiveCrownsCardCount(i, state));
+        return {
+          label: cards + ' \u00b7 ' + wild,
+          result: cards + ' \u00b7 ' + wild + ' wild!',
+        };
+      });
     }
     return wilds.map((wild) => ({ label: wild, result: wild + ' is wild!' }));
   },
@@ -205,23 +216,25 @@ const fiveCrowns = {
   roundLabel(i, state) {
     const num = String(i + 1);
     const wilds = fiveCrownsWildsFromState(state);
-    const cards = fiveCrownsCardsFromState(state);
-    const cardText = cardCountText(cards[i]);
+    const superRandom = state && state.variant === 'super-random';
+    const cardText = superRandom ? cardCountText(fiveCrownsCardCount(i, state)) : null;
     if (state && fiveCrownsRevealVariant(state.variant)) {
       const opened = fiveCrownsRevealedCount(state);
-      if (i < opened) return { num, cards: cardText, sub: wilds[i] };
+      if (i < opened) {
+        return superRandom ? { num, cards: cardText, sub: wilds[i] } : { num, sub: wilds[i] };
+      }
       if (i === opened && fiveCrownsPrevComplete(i, state)) {
-        if (state.variant === 'super-random') {
+        if (superRandom) {
           return { num, cards: '? cards', cardsReady: true, sub: FIVE_CROWNS_READY, ready: true };
         }
-        return { num, cards: cardText, sub: FIVE_CROWNS_READY, ready: true };
+        return { num, sub: FIVE_CROWNS_READY, ready: true };
       }
-      if (state.variant === 'super-random') {
+      if (superRandom) {
         return { num, cards: FIVE_CROWNS_MASK, cardsMasked: true, sub: FIVE_CROWNS_MASK, masked: true };
       }
-      return { num, cards: cardText, sub: FIVE_CROWNS_MASK, masked: true };
+      return { num, sub: FIVE_CROWNS_MASK, masked: true };
     }
-    return { num, cards: cardText, sub: wilds[i] };
+    return { num, sub: wilds[i] };
   },
   resolve(players, state) {
     const totals = {};
@@ -625,7 +638,6 @@ export {
   buildBidOrder,
   fiveCrowns,
   fiveCrownsWildOrder,
-  fiveCrownsCardOrder,
   greed,
   five00,
   FIVE_CROWNS_WILDS,

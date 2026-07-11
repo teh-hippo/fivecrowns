@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   contractValue, suitContractValue, bidLabel, buildBidOrder,
   five00, greed, greedRunningTotals,
-  fiveCrowns, fiveCrownsWildOrder, fiveCrownsCardOrder,
+  fiveCrowns, fiveCrownsWildOrder,
   FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS, FIVE_CROWNS_ROUNDS,
   leadersOf, sumScores, lastFilledIndex, joinNames, winnerText,
 } from '../games.js';
@@ -197,10 +197,12 @@ test('Greed resolve: complete once the final round is filled, highest wins', () 
 });
 
 /* ---------- Five Crowns ---------- */
-test('Five Crowns round labels count the wilds up by default', () => {
+test('Five Crowns omits redundant card counts outside Super Random', () => {
   assert.equal(FIVE_CROWNS_ROUNDS, 11);
-  assert.deepEqual(fiveCrowns.roundLabel(0), { num: '1', cards: '3 cards', sub: '3s' });
-  assert.deepEqual(fiveCrowns.roundLabel(10), { num: '11', cards: '13 cards', sub: 'Kings' });
+  assert.deepEqual(fiveCrowns.roundLabel(0), { num: '1', sub: '3s' });
+  assert.deepEqual(fiveCrowns.roundLabel(10), { num: '11', sub: 'Kings' });
+  assert.equal(fiveCrowns.cardCount(0), 3);
+  assert.equal(fiveCrowns.cardCount(10), 13);
   assert.equal(FIVE_CROWNS_WILDS.length, 11);
   assert.deepEqual(FIVE_CROWNS_CARD_COUNTS, [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 });
@@ -208,16 +210,17 @@ test('Five Crowns round labels count the wilds up by default', () => {
 test('Five Crowns orders: fixed modes stay aligned and random is a full shuffle', () => {
   assert.deepEqual(fiveCrownsWildOrder('up'), FIVE_CROWNS_WILDS);
   assert.deepEqual(fiveCrownsWildOrder('down'), [...FIVE_CROWNS_WILDS].reverse());
-  assert.deepEqual(fiveCrownsCardOrder('random'), FIVE_CROWNS_CARD_COUNTS);
 
   const up = fiveCrowns.initVariant('up');
   assert.equal(up.variant, 'up');
   assert.equal(up.wildOrder[0], '3s');
+  assert.equal(fiveCrowns.cardCount(0, up), 3);
 
   const down = fiveCrowns.initVariant('down');
   assert.equal(down.wildOrder[0], 'Kings');
   assert.equal(down.wildOrder[10], '3s');
-  assert.deepEqual(fiveCrowns.roundLabel(0, down), { num: '1', cards: '3 cards', sub: 'Kings' });
+  assert.equal(fiveCrowns.cardCount(0, down), 13);
+  assert.deepEqual(fiveCrowns.roundLabel(0, down), { num: '1', sub: 'Kings' });
 
   const random = fiveCrowns.initVariant('random');
   assert.equal(random.variant, 'random');
@@ -232,6 +235,13 @@ test('Five Crowns orders: fixed modes stay aligned and random is a full shuffle'
 
   // An unknown variant falls back to the default.
   assert.equal(fiveCrowns.initVariant('nope').variant, 'up');
+});
+
+test('Random keeps each wild paired with its usual card count', () => {
+  const wildOrder = ['10s', ...FIVE_CROWNS_WILDS.filter((wild) => wild !== '10s')];
+  const st = { variant: 'random', wildOrder, revealedCount: 1 };
+  assert.equal(fiveCrowns.cardCount(0, st), 10);
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: '10s' });
 });
 
 test('Super Random deterministically shuffles every card count and wild exactly once', () => {
@@ -251,25 +261,25 @@ test('Random wilds are gated by a spin: locked, then ready, then revealed', () =
   const st = { variant: 'random', wildOrder: order, revealedCount: 0, players: sides, scores: { p1: [], p2: [] } };
 
   // Round 0 starts ready (glowing, tappable), not yet revealed; round 1 is locked.
-  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', cards: '3 cards', sub: '?', ready: true });
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', cards: '4 cards', sub: '\u2014', masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: '?', ready: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
 
   // Opening round 0 (spin done) reveals its wild; round 1 stays locked until
   // round 0 is fully entered.
   st.revealedCount = 1;
-  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', cards: '3 cards', sub: order[0] });
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', cards: '4 cards', sub: '\u2014', masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: order[0] });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
 
   st.scores.p1[0] = 5; // only one player scored round 0
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', cards: '4 cards', sub: '\u2014', masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
 
   st.scores.p2[0] = 3; // round 0 now complete -> round 1 becomes ready (not auto-revealed)
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', cards: '4 cards', sub: '?', ready: true });
-  assert.deepEqual(fiveCrowns.roundLabel(2, st), { num: '3', cards: '5 cards', sub: '\u2014', masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '?', ready: true });
+  assert.deepEqual(fiveCrowns.roundLabel(2, st), { num: '3', sub: '\u2014', masked: true });
 
   // Spinning round 1 open reveals it.
   st.revealedCount = 2;
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', cards: '4 cards', sub: order[1] });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: order[1] });
 });
 
 test('Super Random hides and reveals the paired card count and wild', () => {
