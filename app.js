@@ -10,6 +10,7 @@ import { defaultState, normalizeState, serializeState } from './state.js';
 
 const LAST_GAME_KEY = 'scorer:lastGame';
 const NAMES_KEY = 'scorer:names';
+const CARD_GLYPH = '\u{1F0A0}';
 
 // Hidden round-reveal wheel: idles quickly until tapped, then a long decelerating
 // spin lands on the target, which is only highlighted once it stops.
@@ -621,7 +622,8 @@ function applyRoundHeader(th, label) {
       if (num) num.insertAdjacentElement('afterend', cards);
       else th.appendChild(cards);
     }
-    cards.textContent = label.cards;
+    cards.textContent = label.cards.replace(/ cards$/, ' ' + CARD_GLYPH);
+    cards.setAttribute('aria-label', label.cards);
     cards.classList.toggle('cards-masked', !!label.cardsMasked);
     cards.classList.toggle('cards-ready', !!label.cardsReady);
   } else if (cards) {
