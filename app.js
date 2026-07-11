@@ -11,14 +11,18 @@ import { defaultState, normalizeState, serializeState } from './state.js';
 const LAST_GAME_KEY = 'scorer:lastGame';
 const NAMES_KEY = 'scorer:names';
 
-// Random wild-reveal wheel: idles quickly until tapped, then a long decelerating
+// Hidden round-reveal wheel: idles quickly until tapped, then a long decelerating
 // spin lands on the target, which is only highlighted once it stops.
-const REEL_SPIN_MS = 7200;       // the selection spin, once tapped
-const REEL_STRIP_CYCLES = 14;    // repeats of the remaining wilds down the strip
-const REEL_LAND_CYCLE = 2;       // which repeat the wheel rests on
-const REEL_IDLE_CYCLES = 7;      // repeats the selection spin travels through
-const REEL_IDLE_PXPS = 260;      // idle scroll speed (px per second)
+const REEL_SPIN_MS = 7200;              // the selection spin, once tapped
+const REEL_STRIP_BASE_CYCLES = 14;      // full-set passes worth of rendered rows
+const REEL_LAND_CYCLE = 2;              // which repeat the wheel rests on
+const REEL_SPIN_BASE_CYCLES = 7;        // full-set passes worth of spin travel
+const REEL_IDLE_PXPS = 260;             // idle scroll speed (px per second)
 const REEL_DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)'; // smooth deceleration
+const REEL_FAKEOUT_CHANCE = 0.15;
+const REEL_FAKEOUT_HOLD_MS = 300;
+const REEL_FAKEOUT_BURST_MS = 850;
+const REEL_FAKEOUT_BURST_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)';
 
 /* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
@@ -60,6 +64,7 @@ let setupVariant = null;
 let handEditIndex = null;
 let handDraft = null;
 let reelSpinning = false;
+let reelAnimationUnavailable = false;
 
 function loadGame(game) {
   try {
@@ -175,6 +180,17 @@ function resolve() {
   return activeGame.resolve(state.players, state);
 }
 
+function usesRoundReveal() {
+  return !!(activeGame && state && Array.isArray(activeGame.revealVariants)
+    && activeGame.revealVariants.indexOf(state.variant) !== -1);
+}
+
+function revealNoun() {
+  return activeGame && typeof activeGame.revealNoun === 'function'
+    ? activeGame.revealNoun(state)
+    : 'round';
+}
+
 /* ---------- DOM refs ---------- */
 const setupScreen = document.getElementById('setup-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -236,7 +252,7 @@ const reelOverlay = document.getElementById('reel-overlay');
 const reelStrip = document.getElementById('reel-strip');
 const reelTitle = document.getElementById('reel-title');
 const reelAction = document.getElementById('reel-action');
-const reelConfetti = document.getElementById('reel-confetti');
+const reelEffects = document.getElementById('reel-effects');
 const revealWildBtn = document.getElementById('reveal-wild-btn');
 
 /* ---------- screen switching ---------- */
@@ -549,10 +565,11 @@ function advanceFrom(input) {
 }
 
 function scoreCellLabel(name, label) {
-  // Neither a locked (masked) nor a ready (?) wild is spoken, so screen readers
-  // don't spoil the reveal; only a revealed round names its wild.
-  const wild = label.sub && !label.masked && !label.ready ? ' (' + label.sub + ')' : '';
-  return name + ', round ' + label.num + wild + ' score';
+  // Hidden details are not spoken, so screen readers do not spoil the reveal.
+  const details = [];
+  if (label.cards && !label.cardsMasked && !label.cardsReady) details.push(label.cards);
+  if (label.sub && !label.masked && !label.ready) details.push(label.sub + ' wild');
+  return name + ', round ' + label.num + (details.length ? ', ' + details.join(', ') : '') + ' score';
 }
 
 // Keep score-cell aria-labels in sync when a player is renamed (cell games).
@@ -593,9 +610,24 @@ function buildBody(st) {
   }
 }
 
-// Set a round header's wild sub-label and its ready-to-spin affordance from the
-// game's roundLabel. Reused on build and on every in-place refresh.
+// Set a round header's details and ready-to-spin affordance from roundLabel.
+// Reused on build and on every in-place refresh.
 function applyRoundHeader(th, label) {
+  let cards = th.querySelector('.cards');
+  if (label.cards) {
+    if (!cards) {
+      cards = el('span', { class: 'cards' });
+      const num = th.querySelector('.round-num');
+      if (num) num.insertAdjacentElement('afterend', cards);
+      else th.appendChild(cards);
+    }
+    cards.textContent = label.cards;
+    cards.classList.toggle('cards-masked', !!label.cardsMasked);
+    cards.classList.toggle('cards-ready', !!label.cardsReady);
+  } else if (cards) {
+    cards.remove();
+  }
+
   let wild = th.querySelector('.wild');
   if (label.sub) {
     if (!wild) { wild = el('span', { class: 'wild' }); th.appendChild(wild); }
@@ -611,7 +643,7 @@ function applyRoundHeader(th, label) {
     th.dataset.ready = '1';
     th.setAttribute('role', 'button');
     th.setAttribute('tabindex', '0');
-    th.setAttribute('aria-label', 'Reveal the wild for round ' + label.num);
+    th.setAttribute('aria-label', 'Reveal the ' + revealNoun() + ' for round ' + label.num);
   } else {
     delete th.dataset.ready;
     th.removeAttribute('role');
@@ -767,14 +799,13 @@ function handleCellChange() {
     && !scoreBody.lastChild.contains(document.activeElement)) {
     scoreBody.removeChild(scoreBody.lastChild);
   }
-  refreshRandomRows();
+  refreshRevealRows();
 }
 
-// Refresh Random round headers and cell-locking in place as rounds complete or
-// are revealed: recompute each visible row from the game's roundLabel. Touches
-// headers and input.disabled only, never the values.
-function refreshRandomRows() {
-  if (!(activeGame.variants && state.variant === 'random')) return;
+// Refresh hidden round headers and cell-locking in place as rounds complete or
+// are revealed. This touches headers and input.disabled only, never the values.
+function refreshRevealRows() {
+  if (!usesRoundReveal()) return;
   Array.prototype.forEach.call(scoreBody.children, (tr) => {
     const r = Number(tr.getAttribute('data-round'));
     if (!Number.isNaN(r)) applyRoundRow(tr, r);
@@ -782,7 +813,7 @@ function refreshRandomRows() {
   updateRevealButton();
 }
 
-/* ---------- Random wild-reveal wheel ---------- */
+/* ---------- Hidden round-reveal wheel ---------- */
 function shuffleArr(arr) {
   const out = arr.slice();
   for (let i = out.length - 1; i > 0; i--) {
@@ -796,39 +827,48 @@ function reduceMotion() {
   return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
-// Commit a reveal: mark the round opened, persist, and refresh the grid so the
-// wild shows and its cells unlock (and the next round can start glowing).
+// Commit a reveal: mark the round opened, persist, and refresh the grid so its
+// details show, its cells unlock and the next round can start glowing.
 function commitReveal(r) {
-  state.revealedCount = Math.max(state.revealedCount || 0, r + 1);
+  const opened = Math.max(0, Math.floor(state.revealedCount || 0));
+  state.revealedCount = Math.max(opened, r + 1);
   save();
-  refreshRandomRows();
+  refreshRevealRows();
 }
 
-// Open the wheel for round r if it is the ready (next, unlocked) Random round.
-function openRandomReveal(r) {
+// Open the wheel for round r if it is the ready (next, unlocked) hidden round.
+function openRoundReveal(r) {
   if (reelSpinning) return;
-  if (!(activeGame.variants && state.variant === 'random')) return;
+  if (!usesRoundReveal()) return;
   const label = activeGame.roundLabel(r, state);
   if (!label.ready) return;
-  const order = state.wildOrder || [];
-  const target = order[r];
-  if (target == null) return;
-  if (reduceMotion() || !reelStrip.animate) { commitReveal(r); return; }
-  showReel(order.slice(r), target, r);
+  const items = typeof activeGame.revealItems === 'function' ? activeGame.revealItems(state) : [];
+  const target = items[r];
+  if (!target || typeof target.label !== 'string') return;
+  if (reduceMotion() || !hasAnimationMethod(reelStrip) || reelAnimationUnavailable) {
+    commitReveal(r);
+    return;
+  }
+  const shown = showReel(items.slice(r).map((item) => item.label), target.label, target.result, r, items.length);
+  if (!shown) commitReveal(r);
 }
 
 // The round whose wheel can currently be opened, or -1. Drives the header button.
 function readyRoundIndex() {
-  if (!(activeGame.variants && state && state.variant === 'random')) return -1;
+  if (!usesRoundReveal()) return -1;
   const count = activeGame.rounds.kind === 'fixed' ? activeGame.rounds.count : 0;
-  const r = state.revealedCount || 0;
+  const r = Math.max(0, Math.min(count, Math.floor(state.revealedCount || 0)));
   if (r >= count) return -1;
   return activeGame.roundLabel(r, state).ready ? r : -1;
 }
 
 function updateRevealButton() {
   const rr = readyRoundIndex();
-  revealWildBtn.hidden = rr < 0 || reelSpinning || gameScreen.hidden;
+  const available = rr >= 0 && !reelSpinning && !gameScreen.hidden;
+  revealWildBtn.textContent = 'Reveal ' + revealNoun();
+  revealWildBtn.hidden = !usesRoundReveal();
+  revealWildBtn.disabled = !available;
+  revealWildBtn.classList.toggle('reveal-unavailable', !available);
 }
 
 function currentTranslateY() {
@@ -837,109 +877,497 @@ function currentTranslateY() {
   try { return new DOMMatrixReadOnly(t).m42; } catch (_) { return 0; }
 }
 
-// Build the reel: one shuffled pass of the remaining wilds, repeated down a tall
-// strip so it can loop seamlessly. The target is NOT highlighted here (only once
-// it stops). The strip scrolls downward (numbers descend), resting at `landY`
-// after travelling up from the deeper `idleBase`.
-function buildReelStrip(remaining, target) {
-  reelStrip.getAnimations().forEach((a) => a.cancel());
+function animationObject(animation) {
+  return animation != null && (typeof animation === 'object' || typeof animation === 'function');
+}
+
+function hasAnimationMethod(node) {
+  try { return !!node && typeof node.animate === 'function'; } catch (_) { return false; }
+}
+
+function createAnimation(node, keyframes, options) {
+  let animate;
+  try { animate = node && node.animate; } catch (_) { return null; }
+  if (typeof animate !== 'function') return null;
+  try { return animate.call(node, keyframes, options); } catch (_) { return null; }
+}
+
+function usableAnimation(animation) {
+  if (!animationObject(animation)) return false;
+  try {
+    return typeof animation.cancel === 'function'
+      && typeof animation.play === 'function'
+      && 'onfinish' in animation;
+  } catch (_) {
+    return false;
+  }
+}
+
+function setAnimationHandler(animation, name, handler) {
+  if (!animationObject(animation)) return false;
+  try {
+    if (!(name in animation)) return false;
+    animation[name] = handler;
+    return animation[name] === handler;
+  } catch (_) {
+    return false;
+  }
+}
+
+function clearAnimationHandler(animation, name) {
+  if (!animationObject(animation)) return;
+  try {
+    if (name in animation) animation[name] = null;
+  } catch (_) { /* broken animation event handler */ }
+}
+
+function neutralizeAnimation(animation) {
+  if (!animationObject(animation)) return false;
+  try {
+    if (typeof animation.pause === 'function') animation.pause();
+  } catch (_) { /* continue detaching the effect */ }
+  try {
+    if (!('effect' in animation)) return false;
+    animation.effect = null;
+    return animation.effect == null;
+  } catch (_) {
+    return false;
+  }
+}
+
+function cancelAnimationResult(animation) {
+  if (animation == null) return { stopped: true, capabilityFailed: false };
+  clearAnimationHandler(animation, 'onfinish');
+  clearAnimationHandler(animation, 'oncancel');
+  let cancel;
+  try {
+    cancel = animation.cancel;
+  } catch (_) {
+    return { stopped: neutralizeAnimation(animation), capabilityFailed: true };
+  }
+  if (typeof cancel !== 'function') {
+    return { stopped: neutralizeAnimation(animation), capabilityFailed: true };
+  }
+  try {
+    cancel.call(animation);
+    return { stopped: true, capabilityFailed: false };
+  } catch (_) {
+    return { stopped: neutralizeAnimation(animation), capabilityFailed: true };
+  }
+}
+
+function cancelAnimation(animation) {
+  return cancelAnimationResult(animation).stopped;
+}
+
+function cancelElementAnimations(node) {
+  let getAnimations;
+  try {
+    getAnimations = node && node.getAnimations;
+  } catch (_) {
+    return { stopped: false, capabilityFailed: true };
+  }
+  if (typeof getAnimations !== 'function') return { stopped: true, capabilityFailed: false };
+  let animations;
+  try {
+    animations = Array.from(getAnimations.call(node));
+  } catch (_) {
+    return { stopped: false, capabilityFailed: true };
+  }
+  let stopped = true;
+  let capabilityFailed = false;
+  animations.forEach((animation) => {
+    const result = cancelAnimationResult(animation);
+    if (!result.stopped) stopped = false;
+    if (result.capabilityFailed) capabilityFailed = true;
+  });
+  return { stopped, capabilityFailed };
+}
+
+function setReelTranslate(y, forceStatic) {
+  reelStrip.style.setProperty('transform', 'translateY(' + y + 'px)', forceStatic ? 'important' : '');
+}
+
+function rejectReelAnimation(animation) {
+  cancelAnimation(animation);
+  cancelElementAnimations(reelStrip);
+  reelAnimationUnavailable = true;
+}
+
+function startReelAnimation(keyframes, options) {
+  if (reelAnimationUnavailable) return null;
+  const animation = createAnimation(reelStrip, keyframes, options);
+  if (!usableAnimation(animation)) {
+    rejectReelAnimation(animation);
+    return null;
+  }
+  return animation;
+}
+
+function stopReelAnimation(animation) {
+  if (animation == null) return true;
+  const result = cancelAnimationResult(animation);
+  if (result.capabilityFailed) reelAnimationUnavailable = true;
+  if (result.stopped) return true;
+  const remaining = cancelElementAnimations(reelStrip);
+  if (remaining.capabilityFailed) reelAnimationUnavailable = true;
+  return remaining.stopped;
+}
+
+// Build the reel: one shuffled pass of the remaining choices, repeated enough to
+// keep the rendered rows and spin travel near their full-set sizes. The target is
+// NOT highlighted here (only once it stops). The strip scrolls downward (numbers
+// descend), resting at `landY` after travelling up from the deeper `idleBase`.
+function buildReelStrip(remaining, target, fullSetSize) {
   reelStrip.innerHTML = '';
   const reel = shuffleArr(remaining);
   const len = reel.length;
+  const fullLen = Math.max(len, Math.floor(fullSetSize) || len);
+  const stripCycles = Math.ceil(REEL_STRIP_BASE_CYCLES * fullLen / len);
+  const travelCycles = Math.ceil(REEL_SPIN_BASE_CYCLES * fullLen / len);
   const tIdx = reel.indexOf(target);
   const landIdx = tIdx + REEL_LAND_CYCLE * len; // the resting occurrence of the target
-  for (let c = 0; c < REEL_STRIP_CYCLES; c++) {
+  for (let c = 0; c < stripCycles; c++) {
     reel.forEach((w) => reelStrip.appendChild(el('div', { class: 'reel-item' }, w)));
   }
   const h = reelStrip.children[0] ? reelStrip.children[0].getBoundingClientRect().height : 0;
   const cycleH = len * h;
   const landY = -(landIdx - 1) * h;                 // centres the target in the window
-  const idleBase = landY - REEL_IDLE_CYCLES * cycleH; // deeper start for a downward spin
-  return { cycleH, landY, idleBase, landIdx };
+  const idleBase = landY - travelCycles * cycleH;   // deeper start for a downward spin
+  let fakeOutRows = fullLen + 1;
+  if (fakeOutRows % len === 0) fakeOutRows += 1;     // the decoy must not repeat the target
+  const fakeOutY = landY - fakeOutRows * h;
+  return { itemH: h, cycleH, landY, idleBase, landIdx, fakeOutY };
 }
 
-const CONFETTI_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
-function burstConfetti() {
-  if (reduceMotion() || !reelConfetti.animate) return;
-  const rect = reelConfetti.getBoundingClientRect();
-  const cx = rect.width / 2;
-  const cy = rect.height * 0.4;
-  for (let i = 0; i < 90; i++) {
+const LANDING_EFFECTS = ['confetti', 'explosion', 'lasers'];
+const EFFECT_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
+const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d'];
+const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa'];
+const EFFECT_NODE_LIMIT = 140;
+
+// Choose only when the reel enters confirm. This visual choice is uniform,
+// session-only and completely separate from persisted card/wild order.
+function chooseLandingEffect() {
+  return LANDING_EFFECTS[Math.floor(Math.random() * LANDING_EFFECTS.length)];
+}
+
+function effectBounds() {
+  const rect = reelEffects.getBoundingClientRect();
+  const windowRect = reelStrip.parentElement.getBoundingClientRect();
+  return {
+    width: rect.width || window.innerWidth,
+    height: rect.height || window.innerHeight,
+    cx: windowRect.width ? windowRect.left - rect.left + windowRect.width / 2 : (rect.width || window.innerWidth) / 2,
+    cy: windowRect.height ? windowRect.top - rect.top + windowRect.height / 2 : (rect.height || window.innerHeight) * 0.4,
+  };
+}
+
+function emitConfetti(animateNode) {
+  const bounds = effectBounds();
+  const cx = bounds.cx;
+  const cy = bounds.cy;
+  let started = false;
+  for (let i = 0; i < 44; i++) {
     const bit = el('div', { class: 'confetti-bit' });
-    bit.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
-    reelConfetti.appendChild(bit);
+    bit.style.background = EFFECT_COLORS[i % EFFECT_COLORS.length];
     const ang = Math.random() * Math.PI * 2;
-    const dist = 80 + Math.random() * 210;
+    const dist = 80 + Math.random() * Math.min(240, bounds.width * 0.55);
     const dx = Math.cos(ang) * dist;
     const dy = Math.sin(ang) * dist - 40;
     const rot = Math.random() * 900 - 450;
-    const anim = bit.animate([
-      { transform: 'translate(' + cx + 'px,' + cy + 'px) rotate(0deg)', opacity: 1 },
-      { transform: 'translate(' + (cx + dx) + 'px,' + (cy + dy) + 'px) rotate(' + (rot * 0.6) + 'deg)', opacity: 1, offset: 0.6 },
-      { transform: 'translate(' + (cx + dx) + 'px,' + (cy + dy + 280) + 'px) rotate(' + rot + 'deg)', opacity: 0 },
-    ], { duration: 1300 + Math.random() * 1100, easing: 'cubic-bezier(0.2,0.7,0.3,1)', fill: 'forwards' });
-    anim.onfinish = () => bit.remove();
+    if (animateNode(bit, [
+      { transform: 'translate3d(' + cx + 'px,' + cy + 'px,0) rotate(0deg)', opacity: 1 },
+      { transform: 'translate3d(' + (cx + dx) + 'px,' + (cy + dy) + 'px,0) rotate(' + (rot * 0.6) + 'deg)', opacity: 1, offset: 0.6 },
+      { transform: 'translate3d(' + (cx + dx) + 'px,' + (cy + dy + 280) + 'px,0) rotate(' + rot + 'deg)', opacity: 0 },
+    ], { duration: 1400 + Math.random() * 700, easing: 'cubic-bezier(0.2,0.7,0.3,1)', fill: 'forwards' })) started = true;
   }
+  return started;
 }
-function clearConfetti() { reelConfetti.innerHTML = ''; }
+
+function emitExplosion(animateNode) {
+  const bounds = effectBounds();
+  const cx = bounds.cx;
+  const cy = bounds.cy;
+  const centre = 'translate3d(' + cx + 'px,' + cy + 'px,0) translate(-50%,-50%)';
+  let started = false;
+  const core = el('div', { class: 'explosion-core' });
+  if (animateNode(core, [
+    { transform: centre + ' scale(0.15)', opacity: 0 },
+    { transform: centre + ' scale(2.2)', opacity: 1, offset: 0.28 },
+    { transform: centre + ' scale(4.8)', opacity: 0 },
+  ], { duration: 820, easing: 'cubic-bezier(0.15,0.7,0.2,1)', fill: 'forwards' })) started = true;
+
+  for (let i = 0; i < 3; i++) {
+    const ring = el('div', { class: 'explosion-ring' });
+    ring.style.borderColor = EXPLOSION_COLORS[i + 1];
+    if (animateNode(ring, [
+      { transform: centre + ' scale(0.2)', opacity: 0.95 },
+      { transform: centre + ' scale(' + (7 + i * 2) + ')', opacity: 0 },
+    ], { duration: 850 + i * 180, delay: i * 90, easing: 'cubic-bezier(0.12,0.72,0.25,1)', fill: 'forwards' })) started = true;
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const spark = el('div', { class: 'explosion-spark' });
+    const color = EXPLOSION_COLORS[i % EXPLOSION_COLORS.length];
+    spark.style.background = color;
+    spark.style.boxShadow = '0 0 8px ' + color;
+    const ang = (Math.PI * 2 * i / 30) + (Math.random() - 0.5) * 0.24;
+    const dist = 90 + Math.random() * Math.min(230, bounds.width * 0.5);
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist;
+    if (animateNode(spark, [
+      { transform: 'translate3d(' + cx + 'px,' + cy + 'px,0) scale(1.4)', opacity: 1 },
+      { transform: 'translate3d(' + (cx + dx) + 'px,' + (cy + dy) + 'px,0) scale(0.9)', opacity: 1, offset: 0.65 },
+      { transform: 'translate3d(' + (cx + dx) + 'px,' + (cy + dy + 75) + 'px,0) scale(0.2)', opacity: 0 },
+    ], { duration: 800 + Math.random() * 450, delay: Math.random() * 90, easing: 'cubic-bezier(0.18,0.75,0.25,1)', fill: 'forwards' })) started = true;
+  }
+  return started;
+}
+
+function emitLasers(animateNode) {
+  const bounds = effectBounds();
+  const length = Math.hypot(bounds.width, bounds.height) * 1.25;
+  const cx = bounds.cx;
+  const cy = bounds.cy;
+  let started = false;
+  for (let i = 0; i < 5; i++) {
+    const beam = el('div', { class: 'laser-beam' });
+    const color = LASER_COLORS[i % LASER_COLORS.length];
+    const angle = -58 + Math.random() * 116;
+    const sweep = (i % 2 ? -1 : 1) * (18 + Math.random() * 12);
+    const offset = (i - 2) * Math.min(34, bounds.height * 0.04);
+    const x = cx - length / 2;
+    const y = cy + offset;
+    beam.style.width = length + 'px';
+    beam.style.background = color;
+    beam.style.boxShadow = '0 0 6px ' + color + ', 0 0 18px ' + color;
+    if (animateNode(beam, [
+      { transform: 'translate3d(' + x + 'px,' + (y - 18) + 'px,0) rotate(' + (angle - sweep) + 'deg)', opacity: 0 },
+      { opacity: 0.92, offset: 0.14 },
+      { transform: 'translate3d(' + x + 'px,' + (y + 18) + 'px,0) rotate(' + (angle + sweep) + 'deg)', opacity: 0.92, offset: 0.86 },
+      { transform: 'translate3d(' + x + 'px,' + (y + 24) + 'px,0) rotate(' + (angle + sweep * 1.15) + 'deg)', opacity: 0 },
+    ], { duration: 1300 + Math.random() * 250, delay: i * 130, easing: 'ease-in-out', fill: 'forwards' })) started = true;
+  }
+  return started;
+}
+
+const landingEffectController = (() => {
+  let cleanup = null;
+
+  function stop() {
+    const current = cleanup;
+    cleanup = null;
+    try {
+      if (current) current();
+    } catch (_) {
+      // Effect cleanup is best-effort and must never block Confirm or persistence.
+    } finally {
+      reelEffects.textContent = '';
+      delete reelEffects.dataset.effect;
+    }
+  }
+
+  function start(type) {
+    stop();
+    if (reduceMotion() || !hasAnimationMethod(reelEffects)) return;
+    const animations = new Set();
+    let repeatTimer = null;
+    let stopped = false;
+
+    const animateNode = (node, keyframes, options) => {
+      if (reelEffects.childElementCount >= EFFECT_NODE_LIMIT || !hasAnimationMethod(node)) {
+        node.remove();
+        return false;
+      }
+      reelEffects.appendChild(node);
+      const animation = createAnimation(node, keyframes, options);
+      if (!usableAnimation(animation)) {
+        cancelAnimation(animation);
+        node.remove();
+        return false;
+      }
+      const discard = () => {
+        animations.delete(animation);
+        node.remove();
+      };
+      if (!setAnimationHandler(animation, 'onfinish', discard)
+        || !setAnimationHandler(animation, 'oncancel', discard)) {
+        cancelAnimation(animation);
+        node.remove();
+        return false;
+      }
+      animations.add(animation);
+      return true;
+    };
+
+    const emit = type === 'explosion' ? emitExplosion : type === 'lasers' ? emitLasers : emitConfetti;
+    const interval = type === 'explosion' ? 950 : type === 'lasers' ? 1050 : 1000;
+    const repeat = () => {
+      if (stopped) return;
+      if (!emit(animateNode)) {
+        stop();
+        return;
+      }
+      repeatTimer = setTimeout(repeat, interval);
+    };
+
+    reelEffects.dataset.effect = type;
+    cleanup = () => {
+      stopped = true;
+      if (repeatTimer != null) {
+        clearTimeout(repeatTimer);
+        repeatTimer = null;
+      }
+      Array.from(animations).forEach((animation) => {
+        cancelAnimation(animation);
+      });
+      animations.clear();
+    };
+    repeat();
+  }
+
+  return { start, stop };
+})();
 
 // Show the wheel: it idles with a quick downward loop until tapped (Spin), then a
-// long decelerating spin lands on the target, which is highlighted with a confetti
-// burst only once it stops. A final tap (Confirm) commits the reveal and closes.
-function showReel(remaining, target, r) {
+// long decelerating spin lands on the target, which is highlighted with one
+// repeating landing effect only once it stops. Confirm commits and clears it.
+function showReel(remaining, target, resultText, r, fullSetSize) {
+  landingEffectController.stop();
+  if (reelAnimationUnavailable) return false;
+  const initialCleanup = cancelElementAnimations(reelStrip);
+  if (!initialCleanup.stopped || initialCleanup.capabilityFailed) {
+    reelAnimationUnavailable = true;
+    return false;
+  }
   reelSpinning = true;
   updateRevealButton();
   reelTitle.textContent = 'Round ' + (r + 1);
   reelAction.textContent = 'Spin';
-  clearConfetti();
   reelOverlay.hidden = false;
-  const geo = buildReelStrip(remaining, target);
-
-  reelStrip.style.transform = 'translateY(' + geo.idleBase + 'px)';
-  const idleMs = Math.max(400, (geo.cycleH / REEL_IDLE_PXPS) * 1000);
-  let idle = reelStrip.animate(
-    [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
-    { duration: idleMs, iterations: Infinity, easing: 'linear' },
-  );
+  const geo = buildReelStrip(remaining, target, fullSetSize);
+  // On occasional spins, decelerate onto an unmarked display-strip decoy, pause,
+  // then continue through roughly a full-set pass to the real target. This never
+  // changes the persisted target/order or identifies a later round's result.
+  const fakeOut = remaining.length > 1 && geo.cycleH > 0 && Math.random() < REEL_FAKEOUT_CHANCE;
+  const decoyY = geo.fakeOutY;
+  const selectedMs = REEL_SPIN_MS
+    + (fakeOut ? REEL_FAKEOUT_HOLD_MS + REEL_FAKEOUT_BURST_MS : 0);
 
   let phase = 'idle';
+  let idle = null;
   let sel = null;
+  let fakeOutTimer = null;
+  let safetyTimer = null;
 
-  const spin = () => {
-    phase = 'spin';
-    reelAction.textContent = 'Skip';
-    const current = currentTranslateY();
-    if (idle) { idle.cancel(); idle = null; }
-    reelStrip.style.transform = 'translateY(' + current + 'px)';
-    sel = reelStrip.animate(
-      [{ transform: 'translateY(' + current + 'px)' }, { transform: 'translateY(' + geo.landY + 'px)' }],
-      { duration: REEL_SPIN_MS, easing: REEL_DECEL, fill: 'forwards' },
-    );
-    sel.onfinish = land;
-    setTimeout(() => { if (phase === 'spin') land(); }, REEL_SPIN_MS + 800); // safety net
+  const clearReelTimers = () => {
+    if (fakeOutTimer != null) {
+      clearTimeout(fakeOutTimer);
+      fakeOutTimer = null;
+    }
+    if (safetyTimer != null) {
+      clearTimeout(safetyTimer);
+      safetyTimer = null;
+    }
   };
 
   const land = () => {
-    if (phase === 'confirm') return;
+    if (phase === 'confirm' || phase === 'closed') return;
     phase = 'confirm';
-    if (sel) { sel.cancel(); sel = null; }
-    reelStrip.style.transform = 'translateY(' + geo.landY + 'px)';
+    clearReelTimers();
+    const idleAnimation = idle;
+    const selectionAnimation = sel;
+    idle = null;
+    sel = null;
+    stopReelAnimation(idleAnimation);
+    stopReelAnimation(selectionAnimation);
+    setReelTranslate(geo.landY, true);
     const winner = reelStrip.children[geo.landIdx];
     if (winner) winner.classList.add('reel-target');
-    reelTitle.textContent = winner ? winner.textContent + ' is wild!' : 'Round ' + (r + 1);
+    reelTitle.textContent = winner ? (resultText || winner.textContent) : 'Round ' + (r + 1);
     reelAction.textContent = 'Confirm';
-    burstConfetti();
+    landingEffectController.start(chooseLandingEffect());
   };
 
   const confirm = () => {
+    if (phase === 'closed') return;
+    phase = 'closed';
     reelOverlay.removeEventListener('click', onTap);
-    if (idle) idle.cancel();
-    if (sel) sel.cancel();
-    clearConfetti();
+    clearReelTimers();
+    const idleAnimation = idle;
+    const selectionAnimation = sel;
+    idle = null;
+    sel = null;
+    stopReelAnimation(idleAnimation);
+    stopReelAnimation(selectionAnimation);
+    landingEffectController.stop();
     commitReveal(r);          // reveal behind the overlay, then drop it
     reelOverlay.hidden = true;
     reelSpinning = false;
     updateRevealButton();
+  };
+
+  const startSelection = (fromY, toY, duration, easing, onfinish) => {
+    const animation = startReelAnimation(
+      [{ transform: 'translateY(' + fromY + 'px)' }, { transform: 'translateY(' + toY + 'px)' }],
+      { duration, easing, fill: 'forwards' },
+    );
+    if (!animation) {
+      land();
+      return false;
+    }
+    sel = animation;
+    if (!setAnimationHandler(animation, 'onfinish', onfinish)) {
+      sel = null;
+      reelAnimationUnavailable = true;
+      stopReelAnimation(animation);
+      land();
+      return false;
+    }
+    return true;
+  };
+
+  const finishFakeOut = () => {
+    if (phase !== 'spin') return;
+    const selectionAnimation = sel;
+    sel = null;
+    if (!stopReelAnimation(selectionAnimation) || reelAnimationUnavailable) {
+      land();
+      return;
+    }
+    setReelTranslate(decoyY, false);
+    fakeOutTimer = setTimeout(() => {
+      fakeOutTimer = null;
+      if (phase !== 'spin') return;
+      startSelection(decoyY, geo.landY, REEL_FAKEOUT_BURST_MS, REEL_FAKEOUT_BURST_EASE, land);
+    }, REEL_FAKEOUT_HOLD_MS);
+  };
+
+  const spin = () => {
+    if (phase !== 'idle') return;
+    phase = 'spin';
+    reelAction.textContent = 'Skip';
+    safetyTimer = setTimeout(() => {
+      safetyTimer = null;
+      if (phase === 'spin') land();
+    }, selectedMs + 800);
+    const current = currentTranslateY();
+    const idleAnimation = idle;
+    idle = null;
+    if (!stopReelAnimation(idleAnimation) || reelAnimationUnavailable) {
+      land();
+      return;
+    }
+    setReelTranslate(current, false);
+    const firstLandY = fakeOut ? decoyY : geo.landY;
+    if (!startSelection(
+      current,
+      firstLandY,
+      REEL_SPIN_MS,
+      REEL_DECEL,
+      fakeOut ? finishFakeOut : land,
+    )) return;
   };
 
   const onTap = () => {
@@ -949,15 +1377,23 @@ function showReel(remaining, target, r) {
   };
   reelOverlay.addEventListener('click', onTap);
   reelAction.focus();
+  setReelTranslate(geo.idleBase, false);
+  const idleMs = Math.max(400, (geo.cycleH / REEL_IDLE_PXPS) * 1000);
+  idle = startReelAnimation(
+    [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
+    { duration: idleMs, iterations: Infinity, easing: 'linear' },
+  );
+  if (!idle) land();
+  return true;
 }
 
-// Round 1 of a Random game reveals on its own: spin the wheel as soon as the game
-// is shown with nothing revealed yet (covers start, resume and play again).
+// Round 1 of a hidden game reveals on its own as soon as the game is shown with
+// nothing revealed yet. This covers start, resume and play again.
 function maybeAutoReveal() {
   if (gameScreen.hidden || reelSpinning) return;
-  if (!(activeGame.variants && state.variant === 'random')) return;
-  if ((state.revealedCount || 0) !== 0) return;
-  openRandomReveal(0);
+  if (!usesRoundReveal()) return;
+  if (readyRoundIndex() !== 0) return;
+  openRoundReveal(0);
 }
 
 /* ---------- actions ---------- */
@@ -989,7 +1425,7 @@ function playAgain() {
   fresh.started = true;
   fresh.players = keep;
   fresh.nextId = state.nextId;
-  // Keep the same wild-order variant, reshuffling Random for a new order.
+  // Keep the same variant, reshuffling Random and Super Random for a new order.
   if (activeGame.variants && state.variant) Object.assign(fresh, activeGame.initVariant(state.variant));
   keep.forEach((p) => {
     if (activeGame.entry === 'cell') {
@@ -1152,22 +1588,22 @@ newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''
 // onsubmit, so swallow it here.)
 scoreForm.addEventListener('submit', (e) => e.preventDefault());
 
-// Tap or keyboard-activate a glowing "ready" round header to spin its wild open.
+// Tap or keyboard-activate a glowing "ready" round header to spin it open.
 scoreBody.addEventListener('click', (e) => {
   const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null;
   if (!th) return;
-  openRandomReveal(Number(th.closest('tr').getAttribute('data-round')));
+  openRoundReveal(Number(th.closest('tr').getAttribute('data-round')));
 });
 scoreBody.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
   const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null;
   if (!th) return;
   e.preventDefault();
-  openRandomReveal(Number(th.closest('tr').getAttribute('data-round')));
+  openRoundReveal(Number(th.closest('tr').getAttribute('data-round')));
 });
 revealWildBtn.addEventListener('click', () => {
   const rr = readyRoundIndex();
-  if (rr >= 0) openRandomReveal(rr);
+  if (rr >= 0) openRoundReveal(rr);
 });
 
 addBtn.addEventListener('click', openAddDialog);

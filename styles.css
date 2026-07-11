@@ -343,29 +343,42 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+.cards {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+}
 .wild {
   display: block;
   font-size: 0.66rem;
   font-weight: 600;
   color: var(--muted);
 }
-/* A locked Random wild: dimmed placeholder, hidden until its round opens. */
-.wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
+/* Locked random details are dimmed until their round opens. */
+.cards-masked, .wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
 /* The next round, ready to spin open: a glowing, tappable hint. */
 .round-ready { cursor: pointer; }
-.wild-ready {
+.cards-ready, .wild-ready {
   color: var(--primary);
   font-weight: 800;
-  font-size: 1rem;
   animation: wild-glow 1.4s ease-in-out infinite;
 }
+.wild-ready { font-size: 1rem; }
 .round-ready:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 6px; }
 @keyframes wild-glow {
   0%, 100% { opacity: 0.55; text-shadow: none; }
   50% { opacity: 1; text-shadow: 0 0 9px var(--primary); }
 }
-/* Dedicated header button to open the wheel: a pulsing ring makes it obvious. */
-.reveal-wild { animation: reveal-pulse 1.5s ease-in-out infinite; }
+/* Keep the reveal button's header slot stable while it is temporarily unavailable. */
+.reveal-wild { white-space: nowrap; }
+.reveal-wild:not(.reveal-unavailable) { animation: reveal-pulse 1.5s ease-in-out infinite; }
+.reveal-wild.reveal-unavailable {
+  visibility: hidden;
+  pointer-events: none;
+  animation: none;
+}
 @keyframes reveal-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); }
   50% { box-shadow: 0 0 0 7px rgba(167, 139, 250, 0); }
@@ -376,7 +389,7 @@ thead .round-col, tfoot .round-col { z-index: 3; }
   background: repeating-linear-gradient(-45deg, transparent, transparent 5px, var(--line) 5px, var(--line) 6px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .wild-ready, .reveal-wild { animation: none; }
+  .cards-ready, .wild-ready, .reveal-wild:not(.reveal-unavailable) { animation: none; }
 }
 
 .player-col { padding: 0.35rem 0; width: var(--col-player); }
@@ -612,7 +625,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   outline-offset: 1px;
 }
 
-/* Per-game options (Five Crowns' wild order): a labelled 3-way segmented group. */
+/* Per-game options (Five Crowns' round order): a labelled segmented group. */
 .variant-control {
   border: 0;
   padding: 0;
@@ -620,7 +633,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   min-inline-size: 0;
 }
 .variant-control .field-label { display: block; margin-bottom: 0.4rem; }
-.game-picker.cols-3 { grid-template-columns: repeat(3, 1fr); margin: 0; }
+.game-picker.variant-options { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 
 .resume-note { color: var(--muted); margin: 0.2rem 0 1rem; }
 #setup-resume .big + .big { margin-top: 0.6rem; }
@@ -749,7 +762,7 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   .winner-banner:not([hidden]) { animation: none; }
 }
 
-/* ---------- Random wild-reveal wheel ---------- */
+/* ---------- Hidden round-reveal wheel ---------- */
 .reel-overlay {
   position: fixed;
   inset: 0;
@@ -762,7 +775,14 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
           backdrop-filter: blur(5px);
 }
 .reel-overlay[hidden] { display: none; }
-.reel-card { display: grid; gap: 0.9rem; justify-items: center; text-align: center; }
+.reel-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.9rem;
+  justify-items: center;
+  text-align: center;
+}
 .reel-title {
   margin: 0;
   font-size: 1rem;
@@ -819,9 +839,10 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
 }
 .reel-action { margin-top: 0.2rem; min-width: 9rem; }
 
-.reel-confetti {
+.reel-effects {
   position: absolute;
   inset: 0;
+  z-index: 2;
   overflow: hidden;
   pointer-events: none;
 }
@@ -833,6 +854,39 @@ dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
   height: 14px;
   border-radius: 2px;
   will-change: transform, opacity;
+}
+.explosion-core,
+.explosion-ring,
+.explosion-spark,
+.laser-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.explosion-core {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff8c5;
+  box-shadow: 0 0 18px 8px #ffd166, 0 0 44px 18px #ff6b35;
+}
+.explosion-ring {
+  width: 28px;
+  height: 28px;
+  border: 3px solid;
+  border-radius: 50%;
+}
+.explosion-spark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.laser-beam {
+  height: 3px;
+  border-radius: 999px;
+  transform-origin: center;
 }
 @media (prefers-reduced-motion: reduce) {
   .reel-target { animation: none; text-shadow: 0 0 10px var(--primary); }

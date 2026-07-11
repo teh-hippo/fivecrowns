@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultState, normalizeState, serializeState } from '../state.js';
-import { fiveCrowns, greed, five00, FIVE_CROWNS_WILDS } from '../games.js';
+import {
+  fiveCrowns, greed, five00, FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS,
+} from '../games.js';
 
 test('defaultState is an empty, not-started game', () => {
   assert.deepEqual(defaultState(fiveCrowns), {
@@ -103,6 +105,26 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
   assert.equal(round.variant, 'random');
   assert.deepEqual(round.wildOrder, [...FIVE_CROWNS_WILDS].reverse());
   assert.equal(round.revealedCount, 4);
+});
+
+test('serialize then normalize round-trips Super Random card and wild orders', () => {
+  const original = normalizeState(fiveCrowns, {
+    started: true,
+    players: [{ id: 'p1', name: 'Zac', seed: 0 }, { id: 'p2', name: 'Xavi', seed: 0 }],
+    scores: { p1: [1], p2: [2] },
+    variant: 'super-random',
+    wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
+    cardOrder: [...FIVE_CROWNS_CARD_COUNTS].reverse(),
+    revealedCount: 1,
+  });
+  const saved = serializeState(fiveCrowns, original);
+  const round = normalizeState(fiveCrowns, saved);
+
+  assert.equal(round.variant, 'super-random');
+  assert.deepEqual(round.wildOrder, original.wildOrder);
+  assert.deepEqual(round.cardOrder, original.cardOrder);
+  assert.equal(round.revealedCount, 1);
+  assert.notStrictEqual(round.cardOrder, saved.cardOrder);
 });
 
 test('serialize then normalize round-trips a 500 game', () => {

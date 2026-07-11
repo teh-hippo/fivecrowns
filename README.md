@@ -12,13 +12,17 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 
 - **Five Crowns** — 11 rounds, each with its own wild card (3s through Kings).
   Lowest total wins. Complete once the final round is entered for everyone. Setup
-  offers a wild-order choice: **Up** (3s to Kings), **Down** (Kings to 3s), or
-  **Random**. In Random the order is hidden and revealed a round at a time by a
-  spinning wheel. Round 1's wheel appears at the start; each later round unlocks a
-  **Reveal wild** button (and a glowing hint) once the round above it is fully
-  entered. The wheel idles until you spin it, lands on the wild with a confetti
-  burst, and waits for you to confirm. A round's scores stay locked until its wild
-  has been revealed.
+  offers a round-order choice: **Up** (3s to Kings), **Down** (Kings to 3s), or
+  **Random**, plus **Super Random**. Random shuffles the wilds. Super Random
+  independently shuffles both the 3-to-13 card counts and the wilds, using every
+  count and every wild exactly once. Both random modes hide the order and reveal
+  it a round at a time with a spinning wheel. Round 1's wheel appears at the
+  start; each later round unlocks a reveal button (and a glowing hint) once the
+  round above it is fully entered. The wheel idles until you spin it, lands on the
+  round details, then chooses equally between repeating confetti, explosion, and
+  lasers. The selected effect stays active until you confirm. Occasionally it
+  pauses briefly on an unmarked decoy, then bursts forward to the same saved
+  result. A round's scores stay locked until its details have been revealed.
 - **Greed** (dice) — open-ended rounds where each player banks a turn total.
   You need 500 in a single turn to get on the board; a bust scores 0. Highest
   total wins, racing to 5000. When a player reaches 5000 there is exactly one

@@ -31,11 +31,12 @@ function normalizeState(game, s) {
   base.nextId = Math.max(maxId + 1, (typeof s.nextId === 'number' ? s.nextId : 0), players.length + 1);
 
   // Copy any extra per-game state fields the game declares (e.g. Five Crowns'
-  // variant, wildOrder and revealedCount), tolerating only strings, finite
-  // numbers and arrays from a save.
+  // variant, wildOrder, cardOrder and revealedCount), tolerating only strings,
+  // finite numbers and arrays from a save.
   (game.stateFields || []).forEach((f) => {
     const v = s[f];
-    if (typeof v === 'string' || Array.isArray(v) || (typeof v === 'number' && Number.isFinite(v))) base[f] = v;
+    if (typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))) base[f] = v;
+    else if (Array.isArray(v)) base[f] = v.slice();
   });
 
   if (game.entry === 'cell') {
@@ -91,7 +92,9 @@ function serializeState(game, st) {
     out.hands = st.hands || [];
   }
   // Persist any extra per-game state fields the game declares.
-  (game.stateFields || []).forEach((f) => { if (st[f] !== undefined) out[f] = st[f]; });
+  (game.stateFields || []).forEach((f) => {
+    if (st[f] !== undefined) out[f] = Array.isArray(st[f]) ? st[f].slice() : st[f];
+  });
   return out;
 }
 

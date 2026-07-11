@@ -17,6 +17,14 @@ test('storage keys are unique across games', () => {
   assert.equal(new Set(keys).size, keys.length);
 });
 
+test('Five Crowns registers Super Random and its persisted card order', () => {
+  const game = GAMES.fivecrowns;
+  const option = game.variants.options.find((o) => o.value === 'super-random');
+  assert.equal(option.label, 'Super Random');
+  assert.ok(game.revealVariants.includes('super-random'));
+  assert.ok(game.stateFields.includes('cardOrder'));
+});
+
 test('every game implements the engine contract', () => {
   for (const game of Object.values(GAMES)) {
     for (const field of ['id', 'name', 'storageKey', 'unitLabel', 'winDirection', 'rounds', 'entry']) {
