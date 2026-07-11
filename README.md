@@ -75,9 +75,9 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 
 Everything is plain HTML, CSS and JavaScript loaded as native ES modules, so
 there is no build step and no bundler. The code is split into small modules:
-`games.js` holds the game definitions and pure scoring helpers, `state.js` the
-pure save and restore logic, and `app.js` the rendering and wiring. The page
-loads `app.js`, which imports the other two.
+`games.js` is the facade for the pure rules in `rules/`, `state.js` handles save
+shapes, `reel.js` owns reveal animation, and `lib/` contains browser utilities.
+`app.js` composes them, while the ordered stylesheets in `css/` own presentation.
 
 Because browsers do not allow ES modules over `file://`, serve the folder with
 any static server rather than opening `index.html` directly:

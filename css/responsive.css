@@ -1,0 +1,22 @@
+@media (max-width:480px) {
+  .game-header {gap:0.25rem; padding-inline:max(0.5rem,env(safe-area-inset-left)) max(0.5rem,env(safe-area-inset-right));}
+  .header-actions {gap:0.25rem;}
+  .header-actions .ghost,.header-actions .primary {padding-inline:0.45rem; font-size:0.875rem; white-space:nowrap;}
+}
+@media (max-width:480px) and (pointer:coarse) {
+  dialog.sheet {width:100%; max-width:none; margin:0; inset:auto 0 var(--keyboard-height,0px); border-radius:var(--radius) var(--radius) 0 0; padding-bottom:max(1.2rem,env(safe-area-inset-bottom)); transform:translateY(100%);}
+  dialog.sheet[open] {transform:translateY(0);}
+  @starting-style {
+    dialog.sheet[open] {transform:translateY(100%);}
+  }
+  .no-dialog dialog.sheet[open] {top:auto; right:0; bottom:var(--keyboard-height,0px); left:0; inset:auto 0 var(--keyboard-height,0px); transform:none;}
+}
+@media (min-width:700px) {
+  .game-header {padding-inline:1.4rem;}
+}
+@media (prefers-reduced-motion:reduce) {
+  button,dialog.sheet,dialog.sheet::backdrop {transition:none;}
+  button:active {transform:none;}
+  .winner-banner:not([hidden]),.cards-ready,.wild-ready,.reveal-wild:not(.reveal-unavailable),.reel-target {animation:none;}
+  .reel-target {text-shadow:0 0 10px var(--primary);}
+}

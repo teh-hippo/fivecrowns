@@ -1,0 +1,60 @@
+.game {display:flex; flex-direction:column; /* Keep the layout viewport stable while the iOS keyboard overlays the grid. */ height:100vh; height:100dvh; padding-bottom:env(safe-area-inset-bottom);}
+.game-header {flex:0 0 auto; gap:0.4rem; background:var(--surface); border-bottom:1px solid var(--line); padding:max(0.7rem,env(safe-area-inset-top)) max(0.9rem,env(safe-area-inset-right)) 0.7rem max(0.9rem,env(safe-area-inset-left));}
+.header-actions {flex:0 0 auto; flex-wrap:nowrap; justify-content:flex-end; gap:0.4rem;}
+.header-actions .ghost,.header-actions .primary {padding:0 0.7rem; font-size:0.9rem;}
+.winner-banner {flex:0 0 auto; margin:0.6rem 0 0; margin-inline:max(0.9rem,env(safe-area-inset-left)) max(0.9rem,env(safe-area-inset-right)); padding:0.7rem 1rem; border-radius:12px; background:var(--leader-bg); color:var(--leader-text); font-weight:700; text-align:center;}
+.winner-banner:not([hidden]) {animation:winner-in 0.28s ease both;}
+.winner-banner.phase-targetReached {background:var(--target-bg); color:var(--target-text);}
+@keyframes winner-in {
+  from {opacity:0; transform:translateY(-6px);}
+  to {opacity:1; transform:translateY(0);}
+}
+.table-wrap {flex:1 1 auto; overflow:auto; overscroll-behavior:contain; padding:0; /* Inline margins keep the sticky first column flush with its scrollport. */ margin-inline:env(safe-area-inset-left) env(safe-area-inset-right); scroll-padding-top:var(--row-h); scroll-padding-bottom:calc(var(--row-h) + var(--keyboard-height,0px));}
+table {width:min-content; border-collapse:separate; border-spacing:0; table-layout:fixed; /* Fixed layout prevents score edits from resizing columns. */}
+#score-table[data-entry="hand"] {width:max-content;}
+#score-table {margin-bottom:var(--keyboard-height,0px);}
+caption {text-align:left;}
+th,td {white-space:nowrap; border-bottom:1px solid var(--line); border-right:1px solid var(--line);}
+th:first-child,td:first-child {border-left:1px solid var(--line);}
+thead th {position:sticky; top:0; z-index:2; padding:0.35rem 0.4rem; border-top:1px solid var(--line);}
+thead th,.round-col,tfoot td,tfoot th {background:var(--table-bg);}
+.round-col {position:sticky; left:0; z-index:1; width:var(--col-round); padding:0.4rem; text-align:left;}
+thead .round-col,tfoot .round-col {z-index:3;}
+.round-num {display:inline-block; font-weight:700; font-variant-numeric:tabular-nums;}
+.cards,.wild {color:var(--muted); font-size:0.66rem; font-weight:600;}
+.cards {display:inline-block; margin-left:0.25rem;}
+.wild {display:block;}
+.cards-masked,.wild-masked {opacity:0.4; letter-spacing:0.15em;}
+.round-ready {cursor:pointer;}
+.cards-ready,.wild-ready {color:var(--primary); font-weight:800; animation:wild-glow 1.4s ease-in-out infinite;}
+.wild-ready {font-size:1rem;}
+.round-ready:focus-visible,.hand-edit:focus-visible {outline:2px solid var(--primary); outline-offset:-2px;}
+.round-ready:focus-visible {border-radius:6px;}
+@keyframes wild-glow {
+  0%,100% {opacity:0.55; text-shadow:none;}
+  50% {opacity:1; text-shadow:0 0 9px var(--primary);}
+}
+.reveal-wild {white-space:nowrap;}
+.reveal-wild:not(.reveal-unavailable) {animation:reveal-pulse 1.5s ease-in-out infinite;}
+.reveal-wild.reveal-unavailable {visibility:hidden; pointer-events:none; animation:none;}
+@keyframes reveal-pulse {
+  0%,100% {box-shadow:0 0 0 0 rgba(167,139,250,0.55);}
+  50% {box-shadow:0 0 0 7px rgba(167,139,250,0);}
+}
+.score-input:disabled {opacity:0.3; cursor:not-allowed; background:repeating-linear-gradient(-45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px);}
+.player-col {width:var(--col-player); padding:0.35rem 0;}
+.name-input,.score-input,.hand-edit {width:100%; min-height:var(--row-h); border:none; color:var(--text);}
+.name-input,.score-input {min-width:0; padding:0.4rem 0.25rem; text-align:center;}
+.name-input {background:transparent; font-size:16px; font-weight:700; text-overflow:ellipsis;}
+.name-input:focus-visible {outline:2px solid var(--primary); border-radius:6px;}
+.score-cell,.hand-head {padding:0;}
+.score-input {background:var(--table-bg); font-size:17px; font-variant-numeric:tabular-nums;}
+.score-input:focus {outline:none; background:color-mix(in srgb,var(--primary) 12%,var(--table-bg)); box-shadow:inset 0 0 0 2px var(--primary);}
+tfoot td,tfoot th {position:sticky; bottom:0; z-index:2; border-top:2px solid var(--line); box-shadow:0 -8px 14px -8px var(--lift);}
+tfoot .round-col {z-index:4;}
+.total-cell,.delta-cell {text-align:center; font-variant-numeric:tabular-nums;}
+.total-cell {padding:0.5rem 0.25rem; font-size:1.05rem; font-weight:800;}
+.total-cell.leader {background:var(--leader-bg); color:var(--leader-text);}
+.total-cell .leader-mark {position:absolute; top:2px; right:3px; color:var(--accent); font-size:0.7rem; line-height:1;}
+.total-cell.neg,.delta-cell.neg {color:var(--danger);}
+.total-cell .needs {display:block; margin-top:0.1rem; color:var(--muted); font-size:0.6rem; font-weight:600; line-height:1.1; text-transform:uppercase; letter-spacing:0.04em; white-space:normal;}
