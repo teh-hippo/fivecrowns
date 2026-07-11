@@ -20,7 +20,7 @@ thead th {position:sticky; top:0; z-index:2; padding:0.35rem 0.4rem; border-top:
 thead th,.round-col,tfoot td,tfoot th {background:var(--table-bg);}
 .round-col {position:sticky; left:0; z-index:1; width:var(--col-round); padding:0.4rem; text-align:left;}
 thead .round-col,tfoot .round-col {z-index:3;}
-.round-num {display:inline-block; font-weight:700; font-variant-numeric:tabular-nums;}
+.round-num {display:inline-block; font-weight:700;}
 .cards,.wild {color:var(--muted); font-size:0.66rem; font-weight:600;}
 .cards {display:inline-block; margin-left:0.25rem;}
 .wild {display:block;}
@@ -28,7 +28,7 @@ thead .round-col,tfoot .round-col {z-index:3;}
 .round-ready {cursor:pointer;}
 .cards-ready,.wild-ready {color:var(--primary); font-weight:800; animation:wild-glow 1.4s ease-in-out infinite;}
 .wild-ready {font-size:1rem;}
-.round-ready:focus-visible,.hand-edit:focus-visible {outline:2px solid var(--primary); outline-offset:-2px;}
+.round-ready:focus-visible,.hand-edit:focus-visible {outline:var(--focus-ring); outline-offset:-2px;}
 .round-ready:focus-visible {border-radius:6px;}
 @keyframes wild-glow {
   0%,100% {opacity:0.55; text-shadow:none;}
@@ -46,13 +46,13 @@ thead .round-col,tfoot .round-col {z-index:3;}
 .name-input,.score-input,.hand-edit {width:100%; min-height:var(--row-h); border:none; color:var(--text);}
 .name-input,.score-input {min-width:0; padding:0.4rem 0.25rem; text-align:center;}
 .name-input {background:transparent; font-size:16px; font-weight:700; text-overflow:ellipsis;}
-.name-input:focus-visible {outline:2px solid var(--primary); border-radius:6px;}
+.name-input:focus-visible {outline:var(--focus-ring); border-radius:6px;}
 .score-cell,.hand-head {padding:0;}
-.score-input {background:var(--table-bg); font-size:17px; font-variant-numeric:tabular-nums;}
+.score-input {background:var(--table-bg); font-size:17px;}
 .score-input:focus {outline:none; background:color-mix(in srgb,var(--primary) 12%,var(--table-bg)); box-shadow:inset 0 0 0 2px var(--primary);}
 tfoot td,tfoot th {position:sticky; bottom:0; z-index:2; border-top:2px solid var(--line); box-shadow:0 -8px 14px -8px var(--lift);}
 tfoot .round-col {z-index:4;}
-.total-cell,.delta-cell {text-align:center; font-variant-numeric:tabular-nums;}
+.total-cell,.delta-cell {text-align:center;}
 .total-cell {padding:0.5rem 0.25rem; font-size:1.05rem; font-weight:800;}
 .total-cell.leader {background:var(--leader-bg); color:var(--leader-text);}
 .total-cell .leader-mark {position:absolute; top:2px; right:3px; color:var(--accent); font-size:0.7rem; line-height:1;}

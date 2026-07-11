@@ -35,9 +35,7 @@ function usesRoundReveal() {
     && activeGame.revealVariants.indexOf(state.variant) !== -1);
 }
 function revealNoun() {
-  return activeGame && typeof activeGame.revealNoun === 'function'
-    ? activeGame.revealNoun(state)
-    : 'round';
+  return typeof activeGame.revealNoun === 'function' ? activeGame.revealNoun(state) : 'round';
 }
 const {
   setupScreen, gameScreen, debugScreen, gamePicker: picker, setupFresh, variantControl, variantLegend,
@@ -65,7 +63,7 @@ const reel = createReel({
 });
 function showOnly(screen) { screens.forEach((node) => { node.hidden = node !== screen; }); }
 function showSetup() { fiveCrownsDebugTaps = 0; showOnly(setupScreen); window.scrollTo(0, 0); renderPicker(); refreshSetupView(); }
-function showGame() { showOnly(gameScreen); gameName.textContent = activeGame.name; renderGame(); }
+function showGame() { showOnly(gameScreen); renderGame(); }
 function showDebug() { showOnly(debugScreen); window.scrollTo(0, 0); syncDebugControls(); debugStatus.textContent = 'Ready.'; }
 function renderChoices(container, group, options, selected, onChange, onTap) {
   container.innerHTML = '';
@@ -95,13 +93,11 @@ function renderVariantControl() {
   renderChoices(variantOptions, 'variant', spec.options, setupVariant, (value) => { setupVariant = value; });
 }
 function refreshSetupView() {
-  countLabel.textContent = cap(activeGame.unitLabel);
-  if (hasStartedSave(activeGame)) {
-    setupResume.hidden = false; setupFresh.hidden = true; resumeNote.textContent = 'You have a ' + activeGame.name + ' game in progress.';
-  } else {
-    setupResume.hidden = true; setupFresh.hidden = false; setupNames = recalledNames(activeGame); setupVariant = activeGame.variants ? activeGame.variants.default : null;
-    renderVariantControl(); renderNameList();
-  }
+  countLabel.textContent = cap(activeGame.unitLabel); const resumable = hasStartedSave(activeGame);
+  setupResume.hidden = !resumable; setupFresh.hidden = resumable;
+  if (resumable) { resumeNote.textContent = 'You have a ' + activeGame.name + ' game in progress.'; return; }
+  setupNames = recalledNames(activeGame); setupVariant = activeGame.variants ? activeGame.variants.default : null;
+  renderVariantControl(); renderNameList();
 }
 function renderNameList() {
   playersCount.textContent = setupNames.length; playersDec.disabled = setupNames.length <= activeGame.minPlayers; playersInc.disabled = setupNames.length >= activeGame.maxPlayers;
@@ -261,15 +257,15 @@ function applyRoundHeader(th, label) {
     th.setAttribute('aria-label', 'Reveal the ' + revealNoun() + ' for round ' + label.num);
   } else { delete th.dataset.ready; th.removeAttribute('role'); th.removeAttribute('tabindex'); th.removeAttribute('aria-label'); }
 }
-function applyRoundRow(tr, r) {
-  const label = activeGame.roundLabel(r, state); const th = tr.querySelector('.round-col'); if (th) applyRoundHeader(th, label); const lock = !!label.masked || !!label.ready;
+function applyRoundRow(tr, r, label = activeGame.roundLabel(r, state)) {
+  const th = tr.querySelector('.round-col'); if (th) applyRoundHeader(th, label); const lock = !!label.masked || !!label.ready;
   tr.querySelectorAll('.score-input').forEach((inp) => {
     inp.disabled = lock; const p = playerById(inp.getAttribute('data-pid')); if (p) inp.setAttribute('aria-label', scoreCellLabel(p.name, label));
   });
 }
 function buildCellRow(r) {
-  const tr = el('tr', { 'data-round': String(r) }); const rh = el('th', { class: 'round-col', scope: 'row' });
-  rh.appendChild(el('span', { class: 'round-num' }, activeGame.roundLabel(r, state).num)); tr.appendChild(rh);
+  const label = activeGame.roundLabel(r, state); const tr = el('tr', { 'data-round': String(r) }); const rh = el('th', { class: 'round-col', scope: 'row' });
+  rh.appendChild(el('span', { class: 'round-num' }, label.num)); tr.appendChild(rh);
   state.players.forEach((p) => {
     const td = el('td', { class: 'score-cell' });
     const input = el('input', {
@@ -287,14 +283,14 @@ function buildCellRow(r) {
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return; e.preventDefault(); advanceFrom(input);
     }); selectAllOnEdit(input); td.appendChild(input); tr.appendChild(td);
-  }); applyRoundRow(tr, r); return tr;
+  }); applyRoundRow(tr, r, label); return tr;
 }
 function buildHandRows() {
   const hands = state.hands || [];
   hands.forEach((hand, i) => {
-    const tr = el('tr', { 'data-hand': String(i) }); const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
-    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) + ', ' + activeGame.handSummary(hand, state.players) });
-    btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1))); btn.appendChild(el('span', { class: 'wild' }, activeGame.handSummary(hand, state.players)));
+    const summary = activeGame.handSummary(hand, state.players); const tr = el('tr', { 'data-hand': String(i) }); const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
+    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) + ', ' + summary });
+    btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1))); btn.appendChild(el('span', { class: 'wild' }, summary));
     btn.addEventListener('click', () => openHandDialog(i)); rh.appendChild(btn); tr.appendChild(rh);
     state.players.forEach((p) => {
       const td = el('td', { class: 'score-cell delta-cell' }); const d = hand.deltas ? hand.deltas[p.id] : undefined;
@@ -445,24 +441,18 @@ function playAgain() {
     }
   }); state = fresh; save(); renderGame();
 }
-function addPlayer(name, seed) { addPlayerToState(name, seed); save(); renderGame(); }
 
 /* ---------- add-player dialog ---------- */
 function validateSeed() {
-  const seed = parseInt(onlyDigits(addSeed.value), 10) || 0;
-  if (activeGame.target != null && seed >= activeGame.target) {
-    addHint.hidden = false; addHint.textContent = 'Starting score must be less than ' + activeGame.target + '.'; addHint.classList.add('error'); addConfirm.disabled = true;
-    return false;
-  }
-  addHint.classList.remove('error');
-  if (activeGame.target != null) {
-    addHint.hidden = false; addHint.textContent = 'Must be less than ' + activeGame.target + '.';
-  } else { addHint.hidden = true; }
-  addConfirm.disabled = false; return true;
+  const seed = parseInt(onlyDigits(addSeed.value), 10) || 0; const target = activeGame.target; const invalid = target != null && seed >= target;
+  addHint.hidden = target == null; addHint.classList.toggle('error', invalid);
+  if (target != null) addHint.textContent = (invalid ? 'Starting score must' : 'Must') + ' be less than ' + target + '.';
+  addConfirm.disabled = invalid; return !invalid;
 }
+function showDialog(dialog, focus) { dialog.returnValue = ''; dialog.showModal(); if (focus) focus.focus(); }
 function openAddDialog() {
   addTitle.textContent = 'Add ' + unitSingular(activeGame); addName.value = nextRecalledName(state.players.map((p) => p.name)); addSeed.value = '0'; validateSeed();
-  addDialog.returnValue = ''; addDialog.showModal(); addName.focus();
+  showDialog(addDialog, addName);
 }
 
 /* ---------- generic UI helpers ---------- */
@@ -489,7 +479,7 @@ function openHandDialog(index) {
     ? activeGame.hand.draftFromRecord(state.hands[index])
     : activeGame.hand.newDraft(state.players);
   handTitle.textContent = index != null ? 'Edit hand ' + (index + 1) : 'Score hand'; handDeleteBtn.hidden = index == null; renderHandForm(); updateHandPreview();
-  handDialog.returnValue = ''; handDialog.showModal(); const firstChip = handBody.querySelector('.chip'); if (firstChip) firstChip.focus();
+  showDialog(handDialog, handBody.querySelector('.chip'));
 }
 function saveHand() {
   const id = handEditIndex != null ? state.hands[handEditIndex].id : null; const record = activeGame.hand.toRecord(handDraft, state.players, id);
@@ -514,7 +504,7 @@ playersInc.addEventListener('click', () => {
 playersDec.addEventListener('click', () => {
   if (setupNames.length > activeGame.minPlayers) { setupNames.pop(); renderNameList(); }
 }); startBtn.addEventListener('click', startGame); resumeBtn.addEventListener('click', resumeGame);
-newFromSetupBtn.addEventListener('click', () => { confirmDialog.returnValue = ''; confirmDialog.showModal(); });
+newFromSetupBtn.addEventListener('click', () => showDialog(confirmDialog));
 // The form exists for iOS Previous/Next controls and must never submit.
 scoreForm.addEventListener('submit', (e) => e.preventDefault());
 scoreBody.addEventListener('click', (e) => {
@@ -527,28 +517,29 @@ scoreBody.addEventListener('keydown', (e) => {
 revealWildBtn.addEventListener('click', () => {
   const rr = readyRoundIndex(); if (rr >= 0) openRoundReveal(rr);
 }); addBtn.addEventListener('click', openAddDialog); playAgainBtn.addEventListener('click', playAgain); headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
-addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); }); addCancel.addEventListener('click', () => addDialog.close('cancel'));
-addDialog.addEventListener('close', () => {
-  if (addDialog.returnValue === 'add') {
-    const seed = parseInt(onlyDigits(addSeed.value), 10) || 0; if (activeGame.target != null && seed >= activeGame.target) return; addPlayer(addName.value, seed);
-  }
-}); menuBtn.addEventListener('click', () => { menuDialog.returnValue = ''; menuDialog.showModal(); }); menuClose.addEventListener('click', () => menuDialog.close('cancel'));
+addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); });
+menuBtn.addEventListener('click', () => showDialog(menuDialog));
 switchBtn.addEventListener('click', () => { menuDialog.close('cancel'); save(); showSetup(); });
 newgameBtn.addEventListener('click', () => {
-  menuDialog.close('cancel'); confirmDialog.returnValue = ''; confirmDialog.showModal();
-}); confirmCancel.addEventListener('click', () => confirmDialog.close('cancel')); confirmOk.addEventListener('click', () => confirmDialog.close('ok'));
-confirmDialog.addEventListener('close', () => { if (confirmDialog.returnValue === 'ok') newGame(); }); handCancel.addEventListener('click', () => handDialog.close('cancel'));
+  menuDialog.close('cancel'); showDialog(confirmDialog);
+}); confirmOk.addEventListener('click', () => confirmDialog.close('ok'));
 handDeleteBtn.addEventListener('click', () => handDialog.close('delete'));
-handDialog.addEventListener('close', () => {
-  if (handDialog.returnValue === 'save') saveHand(); else if (handDialog.returnValue === 'delete') deleteHand();
-});
-function closeOnBackdropTap(dialog) {
-  dialog.addEventListener('click', (e) => {
+function bindDialog(dialog, cancel, onClose, backdrop) {
+  cancel.addEventListener('click', () => dialog.close('cancel'));
+  if (onClose) dialog.addEventListener('close', () => onClose(dialog.returnValue));
+  if (backdrop) dialog.addEventListener('click', (e) => {
     if (e.target !== dialog) return; const r = dialog.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { dialog.close('cancel'); }
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close('cancel');
   });
 }
-[addDialog, menuDialog, handDialog].forEach(closeOnBackdropTap);
+bindDialog(addDialog, addCancel, (value) => {
+  if (value !== 'add' || !validateSeed()) return; addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0); save(); renderGame();
+}, true);
+bindDialog(menuDialog, menuClose, null, true);
+bindDialog(confirmDialog, confirmCancel, (value) => { if (value === 'ok') newGame(); }, false);
+bindDialog(handDialog, handCancel, (value) => {
+  if (value === 'save') saveHand(); else if (value === 'delete') deleteHand();
+}, true);
 
 installViewport(revealScoreInput); installDialogFallback();
 function init() {

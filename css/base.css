@@ -1,4 +1,4 @@
-:root {color-scheme:dark; --bg:#000; --table-bg:#000; --surface:#181a26; --surface-2:#1e2030; --text:#ececf3; --muted:#9a9eb3; --line:#2a2c3c; --primary:#a78bfa; --primary-text:#160d2b; --accent:#e3c14e; --leader-bg:#123524; --leader-text:#5fe39a; --target-bg:#3a2c10; --target-text:#f3c45c; --danger:#ff6b5e; --shadow:0 6px 24px rgba(0,0,0,0.4); --lift:rgba(0,0,0,0.55); --radius:14px; --row-h:46px; --col-round:4.5rem; --col-player:3.75rem;}
+:root {color-scheme:dark; --bg:#000; --table-bg:#000; --surface:#181a26; --surface-2:#1e2030; --text:#ececf3; --muted:#9a9eb3; --line:#2a2c3c; --primary:#a78bfa; --primary-text:#160d2b; --accent:#e3c14e; --leader-bg:#123524; --leader-text:#5fe39a; --target-bg:#3a2c10; --target-text:#f3c45c; --danger:#ff6b5e; --shadow:0 6px 24px rgba(0,0,0,0.4); --lift:rgba(0,0,0,0.55); --radius:14px; --control-radius:10px; --tap-target:44px; --focus-ring:2px solid var(--primary); --row-h:46px; --col-round:4.5rem; --col-player:3.75rem;}
 * {box-sizing:border-box;}
 html,body {margin:0; padding:0; height:100%; overscroll-behavior-y:contain;}
 body {font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%;}
@@ -8,7 +8,7 @@ body {font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; backgrou
 .brand.small {flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1.15rem;}
 .crown {color:var(--accent);}
 .tagline {margin:0.15rem 0 1.6rem; color:var(--muted); font-size:0.95rem; letter-spacing:0.12em; text-transform:uppercase;}
-button {min-height:44px; padding:0 1rem; border:1px solid transparent; border-radius:10px; font:inherit; cursor:pointer; transition:transform 0.04s ease,background 0.15s ease,border-color 0.15s ease;}
+button {min-height:var(--tap-target); padding:0 1rem; border:1px solid transparent; border-radius:var(--control-radius); font:inherit; cursor:pointer; transition:transform 0.04s ease,background 0.15s ease,border-color 0.15s ease;}
 button:active {transform:translateY(1px);}
 button,.chip,.pick-name,.name-input {touch-action:manipulation;}
 button:disabled {opacity:0.45; cursor:default;}
@@ -26,16 +26,17 @@ button:disabled:active {transform:none;}
 .field {margin:0.5rem 0 1rem;}
 .field-label,.debug-control > span,.hand-stepper-label {font-weight:600;}
 .stepper {display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;}
-.step-btn {min-width:44px; background:transparent; color:var(--text); font-size:1.3rem; font-weight:700;}
-#players-count {min-width:2.2rem; text-align:center; font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums;}
+.step-btn {min-width:var(--tap-target); background:transparent; color:var(--text); font-size:1.3rem; font-weight:700;}
+#players-count {min-width:2.2rem; text-align:center; font-size:1.15rem; font-weight:700;}
 .name-list {display:grid; gap:0.55rem; margin:0 0 1.4rem; padding:0; list-style:none;}
 .name-row {gap:0.5rem;}
-.name-drag,.name-remove {flex:0 0 auto; min-width:44px; padding:0; color:var(--muted);}
-.name-drag {display:inline-flex; align-items:center; justify-content:center; min-height:44px; border-radius:10px; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;}
+.name-drag,.name-remove {flex:0 0 auto; min-width:var(--tap-target); padding:0; color:var(--muted);}
+.name-drag {display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap-target); border-radius:var(--control-radius); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;}
 .name-drag:active {cursor:grabbing;}
 .name-drag svg {display:block; fill:currentColor;}
-.name-row.dragging {background:var(--surface); border-radius:10px; box-shadow:var(--shadow); opacity:0.9;}
-.name-row input,.dialog-field input {width:100%; padding:0.7rem 0.8rem; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); color:var(--text); font-size:16px;}
+.name-row.dragging {background:var(--surface); border-radius:var(--control-radius); box-shadow:var(--shadow); opacity:0.9;}
+.name-row input,.dialog-field input {width:100%; padding:0.7rem 0.8rem; border:1px solid var(--line); border-radius:var(--control-radius); background:var(--surface-2); color:var(--text); font-size:16px;}
 .name-row input {flex:1; min-width:0;}
 .name-remove {font-size:1.4rem; line-height:1;}
-.name-drag:focus-visible,.name-row input:focus-visible,.pick input:focus-visible + .pick-name,.chip:focus-visible {outline:2px solid var(--primary); outline-offset:1px;}
+.name-drag:focus-visible,.name-row input:focus-visible,.pick input:focus-visible + .pick-name,.chip:focus-visible {outline:var(--focus-ring); outline-offset:1px;}
+#players-count,.debug-control output,.hand-stepper .stepper output,.round-num,.score-input,.total-cell,.delta-cell {font-variant-numeric:tabular-nums;}

@@ -21,38 +21,40 @@ dialog h2 {margin:0 0 0.9rem; font-size:1.15rem;}
 .game-picker {display:grid; grid-template-columns:repeat(2,1fr); gap:0.3rem; margin:0 0 1.2rem; padding:0.25rem; border:1px solid var(--line); border-radius:12px; background:var(--surface-2);}
 .pick {display:flex; margin:0;}
 .pick input {position:absolute; width:1px; height:1px; opacity:0;}
-.pick-name {display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; min-height:44px; padding:0.55rem 0.3rem; border-radius:9px; color:var(--text); font-weight:700; text-align:center; cursor:pointer;}
+.pick-name {display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; min-height:var(--tap-target); padding:0.55rem 0.3rem; border-radius:9px; color:var(--text); font-weight:700; text-align:center; cursor:pointer;}
 .pick-hint {margin-top:2px; font-size:0.62rem; font-weight:600; opacity:0.7;}
 .variant-control {min-inline-size:0; margin:0 0 1.2rem; padding:0; border:0;}
 .variant-control .field-label {display:block; margin-bottom:0.4rem;}
 .game-picker.variant-options {grid-template-columns:repeat(2,minmax(0,1fr)); margin:0;}
-.resume-note {margin:0.2rem 0 1rem; color:var(--muted);}
+.resume-note {margin:0.2rem 0 1rem;}
 #setup-resume .big + .big {margin-top:0.6rem;}
 .debug-screen {place-items:start center; overflow:auto;}
 .debug-card {max-width:520px; text-align:left;}
 .debug-header {gap:1rem;}
 .debug-kicker {margin:0 0 0.15rem; color:var(--accent); font-size:0.72rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;}
-.debug-note {margin:0.8rem 0 1.1rem; color:var(--muted); line-height:1.4;}
-.debug-controls,.debug-actions {display:grid;}
+.debug-note {margin:0.8rem 0 1.1rem; line-height:1.4;}
+.debug-controls,.debug-actions,.menu-list {display:grid;}
 .debug-controls {gap:0.65rem;}
-.debug-control {display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0.45rem 0.8rem; padding:0.7rem 0.8rem; border:1px solid var(--line); border-radius:10px; background:var(--surface-2);}
-.debug-control output {color:var(--muted); font-variant-numeric:tabular-nums;}
+.debug-control {display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0.45rem 0.8rem; padding:0.7rem 0.8rem; border:1px solid var(--line); border-radius:var(--control-radius); background:var(--surface-2);}
+.debug-control output {color:var(--muted);}
 .debug-control input[type="range"],.debug-control select {grid-column:1 / -1; width:100%;}
 .debug-control input[type="range"] {min-height:28px; margin:0; accent-color:var(--primary);}
-.debug-control select {min-height:44px; padding:0 0.75rem; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--text); font:inherit;}
+.debug-control select {min-height:var(--tap-target); padding:0 0.75rem; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--text); font:inherit;}
 .debug-actions {gap:0.6rem; margin-top:1rem;}
-.debug-status {min-height:1.3em; margin:0.8rem 0 0; color:var(--muted); text-align:center;}
+.debug-status {margin:0.8rem 0 0; text-align:center;}
 .hand-edit {flex-direction:column; align-items:flex-start; gap:0.05rem; padding:0.35rem 0.6rem; border-radius:0; background:transparent; text-align:left;}
 .delta-cell {padding:0.5rem 0.25rem; font-weight:600;}
 .empty-hint {padding:1.2rem 0.8rem; color:var(--muted); text-align:center;}
 .hand-sheet {width:min(94vw,420px); max-height:90vh; max-height:90dvh; overflow:auto;}
 .hand-section {margin:0.7rem 0 0.4rem; color:var(--muted); font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase;}
 .chips {display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.5rem;}
-.chip {min-height:44px; padding:0 0.85rem; border:1px solid var(--line); border-radius:999px; background:var(--surface-2); color:var(--text); font-weight:600;}
+.chip {min-height:var(--tap-target); padding:0 0.85rem; border:1px solid var(--line); border-radius:999px; background:var(--surface-2); color:var(--text); font-weight:600;}
 .chip.selected {border-color:var(--primary);}
 .hand-stepper {gap:0.6rem; margin-bottom:0.55rem;}
-.hand-stepper .stepper output {min-width:2rem; text-align:center; font-weight:700; font-variant-numeric:tabular-nums;}
-.hand-hint {margin:0.1rem 0 0.5rem; color:var(--muted); font-size:0.85rem;}
-.hand-preview {min-height:1.3em; margin:0.7rem 0 0.2rem; font-weight:700;}
-.menu-list {display:grid; gap:0.6rem; margin:0.4rem 0 1rem;}
+.hand-stepper .stepper output {min-width:2rem; text-align:center; font-weight:700;}
+.hand-hint {margin:0.1rem 0 0.5rem; font-size:0.85rem;}
+.hand-preview {margin:0.7rem 0 0.2rem; font-weight:700;}
+.menu-list {gap:0.6rem; margin:0.4rem 0 1rem;}
+.dialog-note,.resume-note,.debug-note,.debug-status,.hand-hint {color:var(--muted);}
+.debug-status,.hand-preview {min-height:1.3em;}
 .danger-text {color:var(--danger);}
