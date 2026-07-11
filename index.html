@@ -59,6 +59,82 @@
     </div>
   </section>
 
+  <!-- Secret reel tuning screen, opened by tapping Five Crowns five times. -->
+  <section id="debug-screen" class="screen setup debug-screen" hidden>
+    <div class="setup-card debug-card">
+      <header class="debug-header">
+        <div>
+          <p class="debug-kicker">Secret tools</p>
+          <h1 class="brand">Reel lab</h1>
+        </div>
+        <button id="debug-back" type="button" class="ghost">Back</button>
+      </header>
+
+      <p class="debug-note">Tune the real reveal reel, then run a spin to compare timing and landing effects.</p>
+
+      <div class="debug-controls">
+        <label class="debug-control" for="debug-spin-ms">
+          <span>Spin duration</span>
+          <output id="debug-spin-ms-value" for="debug-spin-ms">7200 ms</output>
+          <input id="debug-spin-ms" type="range" min="250" max="12000" step="50" value="7200">
+        </label>
+
+        <label class="debug-control" for="debug-spin-cycles">
+          <span>Travel</span>
+          <output id="debug-spin-cycles-value" for="debug-spin-cycles">7 passes</output>
+          <input id="debug-spin-cycles" type="range" min="1" max="12" step="1" value="7">
+        </label>
+
+        <label class="debug-control" for="debug-idle-speed">
+          <span>Idle speed</span>
+          <output id="debug-idle-speed-value" for="debug-idle-speed">260 px/s</output>
+          <input id="debug-idle-speed" type="range" min="50" max="600" step="10" value="260">
+        </label>
+
+        <label class="debug-control" for="debug-fakeout-chance">
+          <span>Fake-out chance</span>
+          <output id="debug-fakeout-chance-value" for="debug-fakeout-chance">15%</output>
+          <input id="debug-fakeout-chance" type="range" min="0" max="100" step="5" value="15">
+        </label>
+
+        <label class="debug-control" for="debug-fakeout-hold">
+          <span>Fake-out pause</span>
+          <output id="debug-fakeout-hold-value" for="debug-fakeout-hold">300 ms</output>
+          <input id="debug-fakeout-hold" type="range" min="0" max="1500" step="50" value="300">
+        </label>
+
+        <label class="debug-control" for="debug-fakeout-burst">
+          <span>Fake-out finish</span>
+          <output id="debug-fakeout-burst-value" for="debug-fakeout-burst">850 ms</output>
+          <input id="debug-fakeout-burst" type="range" min="100" max="2500" step="50" value="850">
+        </label>
+
+        <label class="debug-control" for="debug-effect">
+          <span>Landing effect</span>
+          <select id="debug-effect">
+            <option value="random">Random</option>
+            <option value="confetti">Confetti</option>
+            <option value="explosion">Explosion</option>
+            <option value="lasers">Lasers</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+
+        <label class="debug-control" for="debug-effect-amount">
+          <span>Effect amount</span>
+          <output id="debug-effect-amount-value" for="debug-effect-amount">44</output>
+          <input id="debug-effect-amount" type="range" min="1" max="120" step="1" value="44">
+        </label>
+      </div>
+
+      <div class="debug-actions">
+        <button id="debug-spin" type="button" class="primary big">Run spin</button>
+        <button id="debug-reset" type="button" class="ghost big">Reset defaults</button>
+      </div>
+      <p id="debug-status" class="debug-status" role="status" aria-live="polite">Ready.</p>
+    </div>
+  </section>
+
   <!-- Game screen -->
   <section id="game-screen" class="screen game" hidden>
     <header class="game-header">

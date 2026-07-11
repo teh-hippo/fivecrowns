@@ -12,18 +12,23 @@ const LAST_GAME_KEY = 'scorer:lastGame';
 const NAMES_KEY = 'scorer:names';
 const CARD_GLYPH = '\u{1F0A0}';
 
-// Hidden round-reveal wheel: idles quickly until tapped, then a long decelerating
-// spin lands on the target, which is only highlighted once it stops.
-const REEL_SPIN_MS = 7200;              // the selection spin, once tapped
+// Hidden round-reveal wheel: production defaults are also the starting values in
+// the secret tuning screen.
+const DEFAULT_REEL_OPTIONS = Object.freeze({
+  spinMs: 7200,
+  spinCycles: 7,
+  idlePxps: 260,
+  fakeOutChance: 0.15,
+  fakeOutHoldMs: 300,
+  fakeOutBurstMs: 850,
+  effect: 'random',
+  effectAmount: 44,
+});
 const REEL_STRIP_BASE_CYCLES = 14;      // full-set passes worth of rendered rows
 const REEL_LAND_CYCLE = 2;              // which repeat the wheel rests on
-const REEL_SPIN_BASE_CYCLES = 7;        // full-set passes worth of spin travel
-const REEL_IDLE_PXPS = 260;             // idle scroll speed (px per second)
 const REEL_DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)'; // smooth deceleration
-const REEL_FAKEOUT_CHANCE = 0.15;
-const REEL_FAKEOUT_HOLD_MS = 300;
-const REEL_FAKEOUT_BURST_MS = 850;
 const REEL_FAKEOUT_BURST_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)';
+const DEBUG_TAP_TARGET = 5;
 
 /* ---------- small helpers ---------- */
 function el(tag, attrs, text) {
@@ -40,6 +45,10 @@ function el(tag, attrs, text) {
 }
 function onlyDigits(value) { return String(value).replace(/[^0-9]/g, ''); }
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+function numberOr(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 // Select the whole value when a field is activated so a tap overwrites the
 // existing name. iOS Safari collapses a selection made during the focus event,
@@ -66,6 +75,7 @@ let handEditIndex = null;
 let handDraft = null;
 let reelSpinning = false;
 let reelAnimationUnavailable = false;
+let fiveCrownsDebugTaps = 0;
 
 function loadGame(game) {
   try {
@@ -195,6 +205,7 @@ function revealNoun() {
 /* ---------- DOM refs ---------- */
 const setupScreen = document.getElementById('setup-screen');
 const gameScreen = document.getElementById('game-screen');
+const debugScreen = document.getElementById('debug-screen');
 const picker = document.getElementById('game-picker');
 const setupFresh = document.getElementById('setup-fresh');
 const variantControl = document.getElementById('variant-control');
@@ -210,6 +221,26 @@ const playersDec = document.getElementById('players-dec');
 const playersInc = document.getElementById('players-inc');
 const nameList = document.getElementById('name-list');
 const startBtn = document.getElementById('start-btn');
+
+const debugBack = document.getElementById('debug-back');
+const debugSpinBtn = document.getElementById('debug-spin');
+const debugReset = document.getElementById('debug-reset');
+const debugStatus = document.getElementById('debug-status');
+const debugSpinMs = document.getElementById('debug-spin-ms');
+const debugSpinMsValue = document.getElementById('debug-spin-ms-value');
+const debugSpinCycles = document.getElementById('debug-spin-cycles');
+const debugSpinCyclesValue = document.getElementById('debug-spin-cycles-value');
+const debugIdleSpeed = document.getElementById('debug-idle-speed');
+const debugIdleSpeedValue = document.getElementById('debug-idle-speed-value');
+const debugFakeOutChance = document.getElementById('debug-fakeout-chance');
+const debugFakeOutChanceValue = document.getElementById('debug-fakeout-chance-value');
+const debugFakeOutHold = document.getElementById('debug-fakeout-hold');
+const debugFakeOutHoldValue = document.getElementById('debug-fakeout-hold-value');
+const debugFakeOutBurst = document.getElementById('debug-fakeout-burst');
+const debugFakeOutBurstValue = document.getElementById('debug-fakeout-burst-value');
+const debugEffect = document.getElementById('debug-effect');
+const debugEffectAmount = document.getElementById('debug-effect-amount');
+const debugEffectAmountValue = document.getElementById('debug-effect-amount-value');
 
 const gameName = document.getElementById('game-name');
 const headerScoreHandBtn = document.getElementById('score-hand-btn');
@@ -258,8 +289,11 @@ const revealWildBtn = document.getElementById('reveal-wild-btn');
 
 /* ---------- screen switching ---------- */
 function showSetup() {
+  fiveCrownsDebugTaps = 0;
   setupScreen.hidden = false;
   gameScreen.hidden = true;
+  debugScreen.hidden = true;
+  window.scrollTo(0, 0);
   renderPicker();
   refreshSetupView();
 }
@@ -267,8 +301,18 @@ function showSetup() {
 function showGame() {
   setupScreen.hidden = true;
   gameScreen.hidden = false;
+  debugScreen.hidden = true;
   gameName.textContent = activeGame.name;
   renderGame();
+}
+
+function showDebug() {
+  setupScreen.hidden = true;
+  gameScreen.hidden = true;
+  debugScreen.hidden = false;
+  window.scrollTo(0, 0);
+  updateDebugControlOutputs();
+  debugStatus.textContent = 'Ready.';
 }
 
 /* ---------- picker + setup ---------- */
@@ -280,8 +324,20 @@ function renderPicker() {
     const input = el('input', { type: 'radio', name: 'game', value: id });
     if (id === activeGame.id) input.checked = true;
     input.addEventListener('change', () => { if (input.checked) selectGame(id); });
+    const name = el('span', { class: 'pick-name' }, g.name);
+    name.addEventListener('click', (e) => {
+      if (id !== 'fivecrowns') {
+        fiveCrownsDebugTaps = 0;
+        return;
+      }
+      fiveCrownsDebugTaps++;
+      if (fiveCrownsDebugTaps < DEBUG_TAP_TARGET) return;
+      fiveCrownsDebugTaps = 0;
+      e.preventDefault();
+      showDebug();
+    });
     label.appendChild(input);
-    label.appendChild(el('span', { class: 'pick-name' }, g.name));
+    label.appendChild(name);
     picker.appendChild(label);
   });
 }
@@ -1020,13 +1076,16 @@ function stopReelAnimation(animation) {
 // keep the rendered rows and spin travel near their full-set sizes. The target is
 // NOT highlighted here (only once it stops). The strip scrolls downward (numbers
 // descend), resting at `landY` after travelling up from the deeper `idleBase`.
-function buildReelStrip(remaining, target, fullSetSize) {
+function buildReelStrip(remaining, target, fullSetSize, spinCycles) {
   reelStrip.innerHTML = '';
   const reel = shuffleArr(remaining);
   const len = reel.length;
   const fullLen = Math.max(len, Math.floor(fullSetSize) || len);
-  const stripCycles = Math.ceil(REEL_STRIP_BASE_CYCLES * fullLen / len);
-  const travelCycles = Math.ceil(REEL_SPIN_BASE_CYCLES * fullLen / len);
+  const travelCycles = Math.ceil(spinCycles * fullLen / len);
+  const stripCycles = Math.max(
+    Math.ceil(REEL_STRIP_BASE_CYCLES * fullLen / len),
+    travelCycles + REEL_LAND_CYCLE + 2,
+  );
   const tIdx = reel.indexOf(target);
   const landIdx = tIdx + REEL_LAND_CYCLE * len; // the resting occurrence of the target
   for (let c = 0; c < stripCycles; c++) {
@@ -1054,6 +1113,11 @@ function chooseLandingEffect() {
   return LANDING_EFFECTS[Math.floor(Math.random() * LANDING_EFFECTS.length)];
 }
 
+function resolveLandingEffect(type) {
+  if (type === 'none') return null;
+  return LANDING_EFFECTS.indexOf(type) !== -1 ? type : chooseLandingEffect();
+}
+
 function effectBounds() {
   const rect = reelEffects.getBoundingClientRect();
   const windowRect = reelStrip.parentElement.getBoundingClientRect();
@@ -1065,12 +1129,12 @@ function effectBounds() {
   };
 }
 
-function emitConfetti(animateNode) {
+function emitConfetti(animateNode, amount) {
   const bounds = effectBounds();
   const cx = bounds.cx;
   const cy = bounds.cy;
   let started = false;
-  for (let i = 0; i < 44; i++) {
+  for (let i = 0; i < amount; i++) {
     const bit = el('div', { class: 'confetti-bit' });
     bit.style.background = EFFECT_COLORS[i % EFFECT_COLORS.length];
     const ang = Math.random() * Math.PI * 2;
@@ -1087,7 +1151,7 @@ function emitConfetti(animateNode) {
   return started;
 }
 
-function emitExplosion(animateNode) {
+function emitExplosion(animateNode, amount) {
   const bounds = effectBounds();
   const cx = bounds.cx;
   const cy = bounds.cy;
@@ -1109,12 +1173,13 @@ function emitExplosion(animateNode) {
     ], { duration: 850 + i * 180, delay: i * 90, easing: 'cubic-bezier(0.12,0.72,0.25,1)', fill: 'forwards' })) started = true;
   }
 
-  for (let i = 0; i < 30; i++) {
+  const sparkCount = Math.max(6, Math.round(amount * 30 / DEFAULT_REEL_OPTIONS.effectAmount));
+  for (let i = 0; i < sparkCount; i++) {
     const spark = el('div', { class: 'explosion-spark' });
     const color = EXPLOSION_COLORS[i % EXPLOSION_COLORS.length];
     spark.style.background = color;
     spark.style.boxShadow = '0 0 8px ' + color;
-    const ang = (Math.PI * 2 * i / 30) + (Math.random() - 0.5) * 0.24;
+    const ang = (Math.PI * 2 * i / sparkCount) + (Math.random() - 0.5) * 0.24;
     const dist = 90 + Math.random() * Math.min(230, bounds.width * 0.5);
     const dx = Math.cos(ang) * dist;
     const dy = Math.sin(ang) * dist;
@@ -1127,18 +1192,20 @@ function emitExplosion(animateNode) {
   return started;
 }
 
-function emitLasers(animateNode) {
+function emitLasers(animateNode, amount) {
   const bounds = effectBounds();
   const length = Math.hypot(bounds.width, bounds.height) * 1.25;
   const cx = bounds.cx;
   const cy = bounds.cy;
+  const beamCount = Math.max(1, Math.round(amount * 5 / DEFAULT_REEL_OPTIONS.effectAmount));
+  const middle = (beamCount - 1) / 2;
   let started = false;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < beamCount; i++) {
     const beam = el('div', { class: 'laser-beam' });
     const color = LASER_COLORS[i % LASER_COLORS.length];
     const angle = -58 + Math.random() * 116;
     const sweep = (i % 2 ? -1 : 1) * (18 + Math.random() * 12);
-    const offset = (i - 2) * Math.min(34, bounds.height * 0.04);
+    const offset = (i - middle) * Math.min(34, bounds.height * 0.04);
     const x = cx - length / 2;
     const y = cy + offset;
     beam.style.width = length + 'px';
@@ -1170,9 +1237,14 @@ const landingEffectController = (() => {
     }
   }
 
-  function start(type) {
+  function start(type, amount) {
     stop();
-    if (reduceMotion() || !hasAnimationMethod(reelEffects)) return;
+    if (!type || reduceMotion() || !hasAnimationMethod(reelEffects)) return;
+    const effectAmount = clamp(
+      Math.round(numberOr(amount, DEFAULT_REEL_OPTIONS.effectAmount)),
+      1,
+      120,
+    );
     const animations = new Set();
     let repeatTimer = null;
     let stopped = false;
@@ -1207,7 +1279,7 @@ const landingEffectController = (() => {
     const interval = type === 'explosion' ? 950 : type === 'lasers' ? 1050 : 1000;
     const repeat = () => {
       if (stopped) return;
-      if (!emit(animateNode)) {
+      if (!emit(animateNode, effectAmount)) {
         stop();
         return;
       }
@@ -1235,7 +1307,23 @@ const landingEffectController = (() => {
 // Show the wheel: it idles with a quick downward loop until tapped (Spin), then a
 // long decelerating spin lands on the target, which is highlighted with one
 // repeating landing effect only once it stops. Confirm commits and clears it.
-function showReel(remaining, target, resultText, r, fullSetSize) {
+function showReel(remaining, target, resultText, r, fullSetSize, options) {
+  const supplied = options || {};
+  const settings = {
+    spinMs: clamp(numberOr(supplied.spinMs, DEFAULT_REEL_OPTIONS.spinMs), 100, 30000),
+    spinCycles: clamp(Math.round(numberOr(supplied.spinCycles, DEFAULT_REEL_OPTIONS.spinCycles)), 1, 30),
+    idlePxps: clamp(numberOr(supplied.idlePxps, DEFAULT_REEL_OPTIONS.idlePxps), 20, 2000),
+    fakeOutChance: clamp(numberOr(supplied.fakeOutChance, DEFAULT_REEL_OPTIONS.fakeOutChance), 0, 1),
+    fakeOutHoldMs: clamp(numberOr(supplied.fakeOutHoldMs, DEFAULT_REEL_OPTIONS.fakeOutHoldMs), 0, 5000),
+    fakeOutBurstMs: clamp(numberOr(supplied.fakeOutBurstMs, DEFAULT_REEL_OPTIONS.fakeOutBurstMs), 50, 10000),
+    effect: supplied.effect || DEFAULT_REEL_OPTIONS.effect,
+    effectAmount: clamp(
+      Math.round(numberOr(supplied.effectAmount, DEFAULT_REEL_OPTIONS.effectAmount)),
+      1,
+      120,
+    ),
+    title: supplied.title || 'Round ' + (r + 1),
+  };
   landingEffectController.stop();
   if (reelAnimationUnavailable) return false;
   const initialCleanup = cancelElementAnimations(reelStrip);
@@ -1245,17 +1333,17 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
   }
   reelSpinning = true;
   updateRevealButton();
-  reelTitle.textContent = 'Round ' + (r + 1);
+  reelTitle.textContent = settings.title;
   reelAction.textContent = 'Spin';
   reelOverlay.hidden = false;
-  const geo = buildReelStrip(remaining, target, fullSetSize);
+  const geo = buildReelStrip(remaining, target, fullSetSize, settings.spinCycles);
   // On occasional spins, decelerate onto an unmarked display-strip decoy, pause,
   // then continue through roughly a full-set pass to the real target. This never
   // changes the persisted target/order or identifies a later round's result.
-  const fakeOut = remaining.length > 1 && geo.cycleH > 0 && Math.random() < REEL_FAKEOUT_CHANCE;
+  const fakeOut = remaining.length > 1 && geo.cycleH > 0 && Math.random() < settings.fakeOutChance;
   const decoyY = geo.fakeOutY;
-  const selectedMs = REEL_SPIN_MS
-    + (fakeOut ? REEL_FAKEOUT_HOLD_MS + REEL_FAKEOUT_BURST_MS : 0);
+  const selectedMs = settings.spinMs
+    + (fakeOut ? settings.fakeOutHoldMs + settings.fakeOutBurstMs : 0);
 
   let phase = 'idle';
   let idle = null;
@@ -1287,9 +1375,11 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
     setReelTranslate(geo.landY, true);
     const winner = reelStrip.children[geo.landIdx];
     if (winner) winner.classList.add('reel-target');
-    reelTitle.textContent = winner ? (resultText || winner.textContent) : 'Round ' + (r + 1);
+    reelTitle.textContent = winner ? (resultText || winner.textContent) : settings.title;
     reelAction.textContent = 'Confirm';
-    landingEffectController.start(chooseLandingEffect());
+    const effect = resolveLandingEffect(settings.effect);
+    landingEffectController.start(effect, settings.effectAmount);
+    if (typeof supplied.onLand === 'function') supplied.onLand(effect, fakeOut);
   };
 
   const confirm = () => {
@@ -1304,10 +1394,12 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
     stopReelAnimation(idleAnimation);
     stopReelAnimation(selectionAnimation);
     landingEffectController.stop();
-    commitReveal(r);          // reveal behind the overlay, then drop it
+    if (typeof supplied.onConfirm === 'function') supplied.onConfirm();
+    else commitReveal(r);     // reveal behind the overlay, then drop it
     reelOverlay.hidden = true;
     reelSpinning = false;
     updateRevealButton();
+    if (typeof supplied.onClose === 'function') supplied.onClose();
   };
 
   const startSelection = (fromY, toY, duration, easing, onfinish) => {
@@ -1342,8 +1434,8 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
     fakeOutTimer = setTimeout(() => {
       fakeOutTimer = null;
       if (phase !== 'spin') return;
-      startSelection(decoyY, geo.landY, REEL_FAKEOUT_BURST_MS, REEL_FAKEOUT_BURST_EASE, land);
-    }, REEL_FAKEOUT_HOLD_MS);
+      startSelection(decoyY, geo.landY, settings.fakeOutBurstMs, REEL_FAKEOUT_BURST_EASE, land);
+    }, settings.fakeOutHoldMs);
   };
 
   const spin = () => {
@@ -1366,7 +1458,7 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
     if (!startSelection(
       current,
       firstLandY,
-      REEL_SPIN_MS,
+      settings.spinMs,
       REEL_DECEL,
       fakeOut ? finishFakeOut : land,
     )) return;
@@ -1380,7 +1472,7 @@ function showReel(remaining, target, resultText, r, fullSetSize) {
   reelOverlay.addEventListener('click', onTap);
   reelAction.focus();
   setReelTranslate(geo.idleBase, false);
-  const idleMs = Math.max(400, (geo.cycleH / REEL_IDLE_PXPS) * 1000);
+  const idleMs = Math.max(400, (geo.cycleH / settings.idlePxps) * 1000);
   idle = startReelAnimation(
     [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
     { duration: idleMs, iterations: Infinity, easing: 'linear' },
@@ -1396,6 +1488,80 @@ function maybeAutoReveal() {
   if (!usesRoundReveal()) return;
   if (readyRoundIndex() !== 0) return;
   openRoundReveal(0);
+}
+
+/* ---------- Secret reel tuning screen ---------- */
+function updateDebugControlOutputs() {
+  const cycles = Number(debugSpinCycles.value);
+  debugSpinMsValue.textContent = debugSpinMs.value + ' ms';
+  debugSpinCyclesValue.textContent = cycles + (cycles === 1 ? ' pass' : ' passes');
+  debugIdleSpeedValue.textContent = debugIdleSpeed.value + ' px/s';
+  debugFakeOutChanceValue.textContent = debugFakeOutChance.value + '%';
+  debugFakeOutHoldValue.textContent = debugFakeOutHold.value + ' ms';
+  debugFakeOutBurstValue.textContent = debugFakeOutBurst.value + ' ms';
+  debugEffectAmountValue.textContent = debugEffectAmount.value;
+}
+
+function resetDebugControls() {
+  debugSpinMs.value = String(DEFAULT_REEL_OPTIONS.spinMs);
+  debugSpinCycles.value = String(DEFAULT_REEL_OPTIONS.spinCycles);
+  debugIdleSpeed.value = String(DEFAULT_REEL_OPTIONS.idlePxps);
+  debugFakeOutChance.value = String(DEFAULT_REEL_OPTIONS.fakeOutChance * 100);
+  debugFakeOutHold.value = String(DEFAULT_REEL_OPTIONS.fakeOutHoldMs);
+  debugFakeOutBurst.value = String(DEFAULT_REEL_OPTIONS.fakeOutBurstMs);
+  debugEffect.value = DEFAULT_REEL_OPTIONS.effect;
+  debugEffectAmount.value = String(DEFAULT_REEL_OPTIONS.effectAmount);
+  updateDebugControlOutputs();
+  debugStatus.textContent = 'Defaults restored.';
+}
+
+function debugReelOptions() {
+  return {
+    spinMs: Number(debugSpinMs.value),
+    spinCycles: Number(debugSpinCycles.value),
+    idlePxps: Number(debugIdleSpeed.value),
+    fakeOutChance: Number(debugFakeOutChance.value) / 100,
+    fakeOutHoldMs: Number(debugFakeOutHold.value),
+    fakeOutBurstMs: Number(debugFakeOutBurst.value),
+    effect: debugEffect.value,
+    effectAmount: Number(debugEffectAmount.value),
+  };
+}
+
+function runDebugSpin() {
+  if (reelSpinning) return;
+  const debugGame = GAMES.fivecrowns;
+  const previewState = debugGame.initVariant('random');
+  const items = debugGame.revealItems(previewState);
+  const targetIndex = Math.floor(Math.random() * items.length);
+  const target = items[targetIndex];
+  const options = debugReelOptions();
+  debugSpinBtn.disabled = true;
+  debugStatus.textContent = 'Reel open. Tap Spin.';
+  const shown = showReel(
+    items.map((item) => item.label),
+    target.label,
+    target.result,
+    targetIndex,
+    items.length,
+    {
+      ...options,
+      title: 'Debug spin',
+      onConfirm() {},
+      onLand(effect, fakeOut) {
+        debugStatus.textContent = target.result + ' Effect: ' + (effect || 'none')
+          + (fakeOut ? ' with fake-out.' : '.');
+      },
+      onClose() {
+        debugSpinBtn.disabled = false;
+        debugSpinBtn.focus();
+      },
+    },
+  );
+  if (!shown) {
+    debugSpinBtn.disabled = false;
+    debugStatus.textContent = 'Reel animation is unavailable in this browser.';
+  }
 }
 
 /* ---------- actions ---------- */
@@ -1568,6 +1734,19 @@ function focusHandRow(i) {
 }
 
 /* ---------- wiring ---------- */
+[
+  debugSpinMs,
+  debugSpinCycles,
+  debugIdleSpeed,
+  debugFakeOutChance,
+  debugFakeOutHold,
+  debugFakeOutBurst,
+  debugEffectAmount,
+].forEach((input) => input.addEventListener('input', updateDebugControlOutputs));
+debugBack.addEventListener('click', showSetup);
+debugSpinBtn.addEventListener('click', runDebugSpin);
+debugReset.addEventListener('click', resetDebugControls);
+
 playersInc.addEventListener('click', () => {
   if (setupNames.length < activeGame.maxPlayers) {
     setupNames.push(nextRecalledName(setupNames));
@@ -1718,6 +1897,7 @@ syncViewport();
 
 /* ---------- init ---------- */
 function init() {
+  resetDebugControls();
   let lastId = null;
   try { lastId = localStorage.getItem(LAST_GAME_KEY); } catch (e) { /* storage unavailable */ }
   if (!lastId || !GAMES[lastId]) lastId = 'fivecrowns'; // first-run / migration default
