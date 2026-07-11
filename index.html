@@ -20,23 +20,17 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <main>
-  <!-- Setup screen -->
+<main>
   <section id="setup-screen" class="screen setup" hidden>
     <div class="setup-card">
       <h1 class="brand"><span class="crown">♛</span> Five Crowns</h1>
       <p class="tagline">Scorekeeper</p>
-
-      <fieldset id="game-picker" class="game-picker">
-        <legend class="visually-hidden">Choose a game</legend>
-      </fieldset>
-
+      <fieldset id="game-picker" class="game-picker"><legend class="visually-hidden">Choose a game</legend></fieldset>
       <div id="setup-fresh" class="setup-section">
         <fieldset id="variant-control" class="variant-control" hidden>
           <legend id="variant-legend" class="field-label">Round order</legend>
           <div id="variant-options" class="game-picker variant-options"></div>
         </fieldset>
-
         <div class="field">
           <span class="field-label" id="count-label">Players</span>
           <div class="stepper">
@@ -45,12 +39,9 @@
             <button id="players-inc" type="button" class="step-btn" aria-label="More">+</button>
           </div>
         </div>
-
         <ul id="name-list" class="name-list"></ul>
-
         <button id="start-btn" type="button" class="primary big">Start game</button>
       </div>
-
       <div id="setup-resume" class="setup-section" hidden>
         <p id="resume-note" class="resume-note">You have a game in progress.</p>
         <button id="resume-btn" type="button" class="primary big">Resume game</button>
@@ -59,74 +50,14 @@
     </div>
   </section>
 
-  <!-- Secret reel tuning screen, opened by tapping Five Crowns five times. -->
   <section id="debug-screen" class="screen setup debug-screen" hidden>
     <div class="setup-card debug-card">
       <header class="debug-header">
-        <div>
-          <p class="debug-kicker">Secret tools</p>
-          <h1 class="brand">Reel lab</h1>
-        </div>
+        <div><p class="debug-kicker">Secret tools</p><h1 class="brand">Reel lab</h1></div>
         <button id="debug-back" type="button" class="ghost">Back</button>
       </header>
-
       <p class="debug-note">Tune the real reveal reel, then run a spin to compare timing and landing effects.</p>
-
-      <div class="debug-controls">
-        <label class="debug-control" for="debug-spin-ms">
-          <span>Spin duration</span>
-          <output id="debug-spin-ms-value" for="debug-spin-ms">7200 ms</output>
-          <input id="debug-spin-ms" type="range" min="250" max="12000" step="50" value="7200">
-        </label>
-
-        <label class="debug-control" for="debug-spin-cycles">
-          <span>Travel</span>
-          <output id="debug-spin-cycles-value" for="debug-spin-cycles">7 passes</output>
-          <input id="debug-spin-cycles" type="range" min="1" max="12" step="1" value="7">
-        </label>
-
-        <label class="debug-control" for="debug-idle-speed">
-          <span>Idle speed</span>
-          <output id="debug-idle-speed-value" for="debug-idle-speed">260 px/s</output>
-          <input id="debug-idle-speed" type="range" min="50" max="600" step="10" value="260">
-        </label>
-
-        <label class="debug-control" for="debug-fakeout-chance">
-          <span>Fake-out chance</span>
-          <output id="debug-fakeout-chance-value" for="debug-fakeout-chance">15%</output>
-          <input id="debug-fakeout-chance" type="range" min="0" max="100" step="5" value="15">
-        </label>
-
-        <label class="debug-control" for="debug-fakeout-hold">
-          <span>Fake-out pause</span>
-          <output id="debug-fakeout-hold-value" for="debug-fakeout-hold">300 ms</output>
-          <input id="debug-fakeout-hold" type="range" min="0" max="1500" step="50" value="300">
-        </label>
-
-        <label class="debug-control" for="debug-fakeout-burst">
-          <span>Fake-out finish</span>
-          <output id="debug-fakeout-burst-value" for="debug-fakeout-burst">850 ms</output>
-          <input id="debug-fakeout-burst" type="range" min="100" max="2500" step="50" value="850">
-        </label>
-
-        <label class="debug-control" for="debug-effect">
-          <span>Landing effect</span>
-          <select id="debug-effect">
-            <option value="random">Random</option>
-            <option value="confetti">Confetti</option>
-            <option value="explosion">Explosion</option>
-            <option value="lasers">Lasers</option>
-            <option value="none">None</option>
-          </select>
-        </label>
-
-        <label class="debug-control" for="debug-effect-amount">
-          <span>Effect amount</span>
-          <output id="debug-effect-amount-value" for="debug-effect-amount">44</output>
-          <input id="debug-effect-amount" type="range" min="1" max="120" step="1" value="44">
-        </label>
-      </div>
-
+      <div id="debug-controls" class="debug-controls"></div>
       <div class="debug-actions">
         <button id="debug-spin" type="button" class="primary big">Run spin</button>
         <button id="debug-reset" type="button" class="ghost big">Reset defaults</button>
@@ -135,7 +66,6 @@
     </div>
   </section>
 
-  <!-- Game screen -->
   <section id="game-screen" class="screen game" hidden>
     <header class="game-header">
       <h1 class="brand small"><span class="crown">♛</span> <span id="game-name">Five Crowns</span></h1>
@@ -147,14 +77,8 @@
         <button id="menu-btn" type="button" class="ghost">Menu</button>
       </div>
     </header>
-
     <div id="winner-banner" class="winner-banner" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-
-    <!-- The grid lives in a <form> (which is also the scroll wrapper) only so
-         iOS Safari shows its native Previous/Next keyboard accessory bar; those
-         arrows step between the score inputs in DOM order. The form never
-         submits (see app.js), so the sticky header/footer and horizontal
-         scrolling behave exactly as a plain .table-wrap div would. -->
+    <!-- A form gives iOS numeric inputs its native Previous/Next accessory bar. -->
     <form id="score-form" class="table-wrap" novalidate autocomplete="off">
       <table id="score-table">
         <caption id="table-caption" class="visually-hidden"></caption>
@@ -164,74 +88,65 @@
       </table>
     </form>
   </section>
-  </main>
+</main>
 
-  <!-- Add player / side dialog -->
-  <dialog id="add-dialog" class="sheet">
-    <form id="add-form" method="dialog">
-      <h2 id="add-title">Add player</h2>
-      <label class="dialog-field">Name
-        <input id="add-name" type="text" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Name" autofocus>
-      </label>
-      <label class="dialog-field">Starting score
-        <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" value="0">
-      </label>
-      <p id="add-hint" class="dialog-note" hidden></p>
-      <menu class="dialog-actions">
-        <button id="add-cancel" type="button" class="ghost">Cancel</button>
-        <button id="add-confirm" type="submit" value="add" class="primary">Add</button>
-      </menu>
-    </form>
-  </dialog>
+<dialog id="add-dialog" class="sheet">
+  <form id="add-form" method="dialog">
+    <h2 id="add-title">Add player</h2>
+    <label class="dialog-field">Name
+      <input id="add-name" type="text" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Name" autofocus>
+    </label>
+    <label class="dialog-field">Starting score
+      <input id="add-seed" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" value="0">
+    </label>
+    <p id="add-hint" class="dialog-note" hidden></p>
+    <menu class="dialog-actions">
+      <button id="add-cancel" type="button" class="ghost">Cancel</button>
+      <button id="add-confirm" type="submit" value="add" class="primary">Add</button>
+    </menu>
+  </form>
+</dialog>
 
-  <!-- New game confirm dialog -->
-  <dialog id="confirm-dialog" class="sheet">
-    <form method="dialog">
-      <h2>Start a new game?</h2>
-      <p class="dialog-note">This clears the current game's scores.</p>
-      <menu class="dialog-actions">
-        <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
-        <button id="confirm-ok" type="button" class="danger">New game</button>
-      </menu>
-    </form>
-  </dialog>
+<dialog id="confirm-dialog" class="sheet">
+  <form method="dialog">
+    <h2>Start a new game?</h2><p class="dialog-note">This clears the current game's scores.</p>
+    <menu class="dialog-actions">
+      <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
+      <button id="confirm-ok" type="button" class="danger">New game</button>
+    </menu>
+  </form>
+</dialog>
 
-  <!-- In-game menu dialog -->
-  <dialog id="menu-dialog" class="sheet">
-    <form method="dialog">
-      <h2>Menu</h2>
-      <div class="menu-list">
-        <button id="switch-btn" type="button" class="ghost big">Switch game</button>
-        <button id="newgame-btn" type="button" class="danger big">New game</button>
-      </div>
-      <menu class="dialog-actions">
-        <button id="menu-close" type="button" class="ghost">Close</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <!-- Score-a-hand dialog (500) -->
-  <dialog id="hand-dialog" class="sheet hand-sheet">
-    <form id="hand-form" method="dialog">
-      <h2 id="hand-title">Score hand</h2>
-      <div id="hand-body"></div>
-      <p id="hand-preview" class="hand-preview" aria-live="polite"></p>
-      <menu class="dialog-actions">
-        <button id="hand-delete" type="button" class="ghost danger-text" hidden>Delete</button>
-        <button id="hand-cancel" type="button" class="ghost">Cancel</button>
-        <button id="hand-save" type="submit" value="save" class="primary">Save</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <!-- Hidden round-reveal wheel (Five Crowns): a full-screen vertical spinner. -->
-  <div id="reel-overlay" class="reel-overlay" hidden>
-    <div class="reel-card">
-      <p id="reel-title" class="reel-title" aria-live="polite" aria-atomic="true"></p>
-      <div class="reel-window"><div id="reel-strip" class="reel-strip" aria-hidden="true"></div></div>
-      <button id="reel-action" type="button" class="primary big reel-action">Spin</button>
+<dialog id="menu-dialog" class="sheet">
+  <form method="dialog">
+    <h2>Menu</h2>
+    <div class="menu-list">
+      <button id="switch-btn" type="button" class="ghost big">Switch game</button>
+      <button id="newgame-btn" type="button" class="danger big">New game</button>
     </div>
-    <div id="reel-effects" class="reel-effects" aria-hidden="true"></div>
+    <menu class="dialog-actions"><button id="menu-close" type="button" class="ghost">Close</button></menu>
+  </form>
+</dialog>
+
+<dialog id="hand-dialog" class="sheet hand-sheet">
+  <form id="hand-form" method="dialog">
+    <h2 id="hand-title">Score hand</h2><div id="hand-body"></div>
+    <p id="hand-preview" class="hand-preview" aria-live="polite"></p>
+    <menu class="dialog-actions">
+      <button id="hand-delete" type="button" class="ghost danger-text" hidden>Delete</button>
+      <button id="hand-cancel" type="button" class="ghost">Cancel</button>
+      <button id="hand-save" type="submit" value="save" class="primary">Save</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="reel-overlay" class="reel-overlay" hidden>
+  <div class="reel-card">
+    <p id="reel-title" class="reel-title" aria-live="polite" aria-atomic="true"></p>
+    <div class="reel-window"><div id="reel-strip" class="reel-strip" aria-hidden="true"></div></div>
+    <button id="reel-action" type="button" class="primary big reel-action">Spin</button>
   </div>
+  <div id="reel-effects" class="reel-effects" aria-hidden="true"></div>
+</div>
 </body>
 </html>

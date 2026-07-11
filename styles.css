@@ -1,269 +1,370 @@
 :root {
   color-scheme: dark;
-  --bg: #000000;
-  --table-bg: #000000;
-  --surface: #181a26;
-  --surface-2: #1e2030;
-  --text: #ececf3;
-  --muted: #9a9eb3;
-  --line: #2a2c3c;
-  --primary: #a78bfa;
-  --primary-text: #160d2b;
-  --accent: #e3c14e;
-  --leader-bg: #123524;
-  --leader-text: #5fe39a;
-  --target-bg: #3a2c10;
-  --target-text: #f3c45c;
-  --danger: #ff6b5e;
-  --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-  --lift: rgba(0, 0, 0, 0.55);
-  --radius: 14px;
-  --row-h: 46px;
-  --col-round: 4.5rem;
-  --col-player: 3.75rem;
+  --bg: #000; --table-bg: #000;
+  --surface: #181a26; --surface-2: #1e2030;
+  --text: #ececf3; --muted: #9a9eb3; --line: #2a2c3c;
+  --primary: #a78bfa; --primary-text: #160d2b; --accent: #e3c14e;
+  --leader-bg: #123524; --leader-text: #5fe39a;
+  --target-bg: #3a2c10; --target-text: #f3c45c; --danger: #ff6b5e;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.4); --lift: rgba(0, 0, 0, 0.55);
+  --radius: 14px; --row-h: 46px; --col-round: 4.5rem; --col-player: 3.75rem;
 }
 
 * { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overscroll-behavior-y: contain;
-}
-
+html, body { margin: 0; padding: 0; height: 100%; overscroll-behavior-y: contain; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-text-size-adjust: 100%;
+  background: var(--bg); color: var(--text); -webkit-text-size-adjust: 100%;
 }
-
-.screen[hidden] { display: none; }
-
+.screen[hidden], .winner-banner[hidden], .reel-overlay[hidden] { display: none; }
 .visually-hidden {
-  position: absolute;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0; border: 0;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  overflow: hidden;
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; overflow: hidden;
 }
 
-/* ---------- Brand ---------- */
-.brand {
-  margin: 0;
-  font-size: 1.9rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
+.brand { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; }
 .brand.small {
-  flex: 1 1 0;
-  font-size: 1.15rem;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 1.15rem;
 }
 .crown { color: var(--accent); }
 .tagline {
-  margin: 0.15rem 0 1.6rem;
-  color: var(--muted);
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: 0.15rem 0 1.6rem; color: var(--muted); font-size: 0.95rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
 }
 
-/* ---------- Buttons ---------- */
 button {
-  font: inherit;
-  cursor: pointer;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  min-height: 44px;
-  padding: 0 1rem;
+  min-height: 44px; padding: 0 1rem; border: 1px solid transparent; border-radius: 10px;
+  font: inherit; cursor: pointer;
   transition: transform 0.04s ease, background 0.15s ease, border-color 0.15s ease;
 }
 button:active { transform: translateY(1px); }
 button, .chip, .pick-name, .name-input { touch-action: manipulation; }
-/* Disabled controls (e.g. Save until a hand is valid, +/- at min/max) keep their
-   colour otherwise, so dim them to read as inactive. */
 button:disabled { opacity: 0.45; cursor: default; }
 button:disabled:active { transform: none; }
-@media (prefers-reduced-motion: reduce) {
-  button { transition: none; }
-  button:active { transform: none; }
+.primary, .pick input:checked + .pick-name, .chip.selected {
+  background: var(--primary); color: var(--primary-text);
 }
+.primary, .danger { font-weight: 700; }
+.ghost, .name-drag, .name-remove { background: var(--surface); color: var(--text); border-color: var(--line); }
+.danger { background: var(--danger); color: #fff; }
+.big { width: 100%; min-height: 52px; font-size: 1.05rem; }
 
-.primary {
-  background: var(--primary);
-  color: var(--primary-text);
-  font-weight: 700;
-}
-.ghost {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--line);
-}
-.danger {
-  background: var(--danger);
-  color: #fff;
-  font-weight: 700;
-}
-.big {
-  width: 100%;
-  min-height: 52px;
-  font-size: 1.05rem;
-}
-
-/* ---------- Setup screen ---------- */
 .setup {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+  min-height: 100vh; min-height: 100dvh; display: grid; place-items: center;
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+}
+.setup-card, dialog.sheet, .reel-window {
+  border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
 }
 .setup-card {
-  width: 100%;
-  max-width: 420px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.6rem 1.4rem;
-  text-align: center;
+  width: 100%; max-width: 420px; padding: 1.6rem 1.4rem;
+  background: var(--surface); text-align: center;
 }
-.field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0.5rem 0 1rem;
+.field, .name-row, .game-header, .header-actions, .debug-header, .hand-stepper, .hand-edit {
+  display: flex; align-items: center;
 }
-.field-label { font-weight: 600; }
+.field, .game-header, .debug-header, .hand-stepper { justify-content: space-between; }
+.field { margin: 0.5rem 0 1rem; }
+.field-label, .debug-control > span, .hand-stepper-label { font-weight: 600; }
 .stepper {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0.2rem;
+  display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
 }
-.step-btn {
-  min-width: 44px;
-  background: transparent;
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--text);
-}
+.step-btn { min-width: 44px; background: transparent; color: var(--text); font-size: 1.3rem; font-weight: 700; }
 #players-count {
-  min-width: 2.2rem;
-  text-align: center;
-  font-size: 1.15rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem; text-align: center; font-size: 1.15rem;
+  font-weight: 700; font-variant-numeric: tabular-nums;
 }
-
-.name-list {
-  list-style: none;
-  margin: 0 0 1.4rem;
-  padding: 0;
-  display: grid;
-  gap: 0.55rem;
-}
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+.name-list { display: grid; gap: 0.55rem; margin: 0 0 1.4rem; padding: 0; list-style: none; }
+.name-row { gap: 0.5rem; }
+.name-drag, .name-remove { flex: 0 0 auto; min-width: 44px; padding: 0; color: var(--muted); }
 .name-drag {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  cursor: grab;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  border-radius: 10px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .name-drag:active { cursor: grabbing; }
-.name-drag svg { fill: currentColor; display: block; }
-.name-drag:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-}
+.name-drag svg { display: block; fill: currentColor; }
 .name-row.dragging {
-  background: var(--surface);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  opacity: 0.9;
+  background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); opacity: 0.9;
 }
-.name-row input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  font-size: 16px;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--text);
+.name-row input, .dialog-field input {
+  width: 100%; padding: 0.7rem 0.8rem; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--surface-2); color: var(--text); font-size: 16px;
 }
-.name-remove {
-  flex: 0 0 auto;
-  min-width: 44px;
-  padding: 0;
-  font-size: 1.4rem;
-  line-height: 1;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-.name-row input:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
+.name-row input { flex: 1; min-width: 0; }
+.name-remove { font-size: 1.4rem; line-height: 1; }
+.name-drag:focus-visible, .name-row input:focus-visible,
+.pick input:focus-visible + .pick-name, .chip:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 1px;
 }
 
-/* ---------- Game screen ---------- */
 .game {
-  display: flex;
-  flex-direction: column;
-  /* Stay full height so the on-screen keyboard overlays the lower edge instead
-     of reflowing the grid. Do NOT re-tie this to the visual viewport (e.g. an
-     --app-height custom property): that shrinks the whole screen as the keyboard
-     animates in. The focused cell is kept visible by revealScoreInput. */
-  height: 100vh;
-  height: 100dvh;
-  padding-bottom: env(safe-area-inset-bottom);
+  display: flex; flex-direction: column;
+  /* Keep the layout viewport stable while the iOS keyboard overlays the grid. */
+  height: 100vh; height: 100dvh; padding-bottom: env(safe-area-inset-bottom);
 }
 .game-header {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  padding: max(0.7rem, env(safe-area-inset-top)) max(0.9rem, env(safe-area-inset-right)) 0.7rem max(0.9rem, env(safe-area-inset-left));
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto; gap: 0.4rem; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding: max(0.7rem, env(safe-area-inset-top)) max(0.9rem, env(safe-area-inset-right))
+    0.7rem max(0.9rem, env(safe-area-inset-left));
 }
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  gap: 0.4rem;
-}
+.header-actions { flex: 0 0 auto; flex-wrap: nowrap; justify-content: flex-end; gap: 0.4rem; }
 .header-actions .ghost, .header-actions .primary { padding: 0 0.7rem; font-size: 0.9rem; }
+.winner-banner {
+  flex: 0 0 auto; margin: 0.6rem 0 0;
+  margin-inline: max(0.9rem, env(safe-area-inset-left)) max(0.9rem, env(safe-area-inset-right));
+  padding: 0.7rem 1rem; border-radius: 12px; background: var(--leader-bg);
+  color: var(--leader-text); font-weight: 700; text-align: center;
+}
+.winner-banner:not([hidden]) { animation: winner-in 0.28s ease both; }
+.winner-banner.phase-targetReached { background: var(--target-bg); color: var(--target-text); }
+@keyframes winner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.table-wrap {
+  flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; padding: 0;
+  /* Inline margins keep the sticky first column flush with its scrollport. */
+  margin-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  scroll-padding-top: var(--row-h);
+  scroll-padding-bottom: calc(var(--row-h) + var(--keyboard-height, 0px));
+}
+table {
+  width: min-content; border-collapse: separate; border-spacing: 0; table-layout: fixed;
+  /* Fixed layout prevents score edits from resizing columns. */
+}
+#score-table[data-entry="hand"] { width: max-content; }
+#score-table { margin-bottom: var(--keyboard-height, 0px); }
+caption { text-align: left; }
+th, td { white-space: nowrap; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); }
+th:first-child, td:first-child { border-left: 1px solid var(--line); }
+thead th { position: sticky; top: 0; z-index: 2; padding: 0.35rem 0.4rem; border-top: 1px solid var(--line); }
+thead th, .round-col, tfoot td, tfoot th { background: var(--table-bg); }
+.round-col {
+  position: sticky; left: 0; z-index: 1; width: var(--col-round);
+  padding: 0.4rem; text-align: left;
+}
+thead .round-col, tfoot .round-col { z-index: 3; }
+.round-num { display: inline-block; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cards, .wild { color: var(--muted); font-size: 0.66rem; font-weight: 600; }
+.cards { display: inline-block; margin-left: 0.25rem; }
+.wild { display: block; }
+.cards-masked, .wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
+.round-ready { cursor: pointer; }
+.cards-ready, .wild-ready { color: var(--primary); font-weight: 800; animation: wild-glow 1.4s ease-in-out infinite; }
+.wild-ready { font-size: 1rem; }
+.round-ready:focus-visible, .hand-edit:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: -2px;
+}
+.round-ready:focus-visible { border-radius: 6px; }
+@keyframes wild-glow {
+  0%, 100% { opacity: 0.55; text-shadow: none; }
+  50% { opacity: 1; text-shadow: 0 0 9px var(--primary); }
+}
+.reveal-wild { white-space: nowrap; }
+.reveal-wild:not(.reveal-unavailable) { animation: reveal-pulse 1.5s ease-in-out infinite; }
+.reveal-wild.reveal-unavailable { visibility: hidden; pointer-events: none; animation: none; }
+@keyframes reveal-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(167, 139, 250, 0); }
+}
+.score-input:disabled {
+  opacity: 0.3; cursor: not-allowed;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 5px, var(--line) 5px, var(--line) 6px);
+}
+.player-col { width: var(--col-player); padding: 0.35rem 0; }
+.name-input, .score-input, .hand-edit { width: 100%; min-height: var(--row-h); border: none; color: var(--text); }
+.name-input, .score-input { min-width: 0; padding: 0.4rem 0.25rem; text-align: center; }
+.name-input {
+  background: transparent; font-size: 16px; font-weight: 700; text-overflow: ellipsis;
+}
+.name-input:focus-visible { outline: 2px solid var(--primary); border-radius: 6px; }
+.score-cell, .hand-head { padding: 0; }
+.score-input {
+  background: var(--table-bg); font-size: 17px; font-variant-numeric: tabular-nums;
+}
+.score-input:focus {
+  outline: none; background: color-mix(in srgb, var(--primary) 12%, var(--table-bg));
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+tfoot td, tfoot th {
+  position: sticky; bottom: 0; z-index: 2; border-top: 2px solid var(--line);
+  box-shadow: 0 -8px 14px -8px var(--lift);
+}
+tfoot .round-col { z-index: 4; }
+.total-cell, .delta-cell { text-align: center; font-variant-numeric: tabular-nums; }
+.total-cell { padding: 0.5rem 0.25rem; font-size: 1.05rem; font-weight: 800; }
+.total-cell.leader { background: var(--leader-bg); color: var(--leader-text); }
+.total-cell .leader-mark {
+  position: absolute; top: 2px; right: 3px; color: var(--accent); font-size: 0.7rem; line-height: 1;
+}
+.total-cell.neg, .delta-cell.neg { color: var(--danger); }
+.total-cell .needs {
+  display: block; margin-top: 0.1rem; color: var(--muted); font-size: 0.6rem;
+  font-weight: 600; line-height: 1.1; text-transform: uppercase;
+  letter-spacing: 0.04em; white-space: normal;
+}
+
+dialog.sheet {
+  width: min(92vw, 380px); padding: 1.2rem; background: var(--surface); color: var(--text);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease,
+    overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
+}
+dialog.sheet[open] { opacity: 1; transform: translateY(0); }
+@starting-style { dialog.sheet[open] { opacity: 0; transform: translateY(8px); } }
+dialog.sheet::backdrop {
+  background: rgba(10, 8, 20, 0);
+  transition: background 0.2s ease, overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
+}
+dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0.5); }
+@starting-style { dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0); } }
+.no-dialog dialog:not([open]) { display: none; }
+.no-dialog dialog[open] {
+  display: block; position: fixed; top: 50%; right: auto; bottom: auto; left: 50%;
+  inset: 50% auto auto 50%; z-index: 1000;
+  max-height: 90vh; margin: 0; overflow: auto; transform: translate(-50%, -50%);
+}
+.no-dialog.has-open-dialog { overflow: hidden; }
+.no-dialog.has-open-dialog::before {
+  content: ''; position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  inset: 0; z-index: 999; background: rgba(10, 8, 20, 0.5);
+}
+dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
+.dialog-field { display: block; margin-bottom: 0.8rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.dialog-field input { display: block; margin-top: 0.3rem; }
+.dialog-note { margin: 0 0 1rem; color: var(--muted); }
+.dialog-note.error { color: var(--danger); }
+.dialog-actions {
+  display: flex; justify-content: flex-end; gap: 0.5rem; margin: 0.4rem 0 0; padding: 0;
+}
+
+.game-picker {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.3rem;
+  margin: 0 0 1.2rem; padding: 0.25rem; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--surface-2);
+}
+.pick { display: flex; margin: 0; }
+.pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.pick-name {
+  display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0.55rem 0.3rem; border-radius: 9px;
+  color: var(--text); font-weight: 700; text-align: center; cursor: pointer;
+}
+.pick-hint { margin-top: 2px; font-size: 0.62rem; font-weight: 600; opacity: 0.7; }
+.variant-control { min-inline-size: 0; margin: 0 0 1.2rem; padding: 0; border: 0; }
+.variant-control .field-label { display: block; margin-bottom: 0.4rem; }
+.game-picker.variant-options { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.resume-note { margin: 0.2rem 0 1rem; color: var(--muted); }
+#setup-resume .big + .big { margin-top: 0.6rem; }
+
+.debug-screen { place-items: start center; overflow: auto; }
+.debug-card { max-width: 520px; text-align: left; }
+.debug-header { gap: 1rem; }
+.debug-kicker {
+  margin: 0 0 0.15rem; color: var(--accent); font-size: 0.72rem;
+  font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.debug-note { margin: 0.8rem 0 1.1rem; color: var(--muted); line-height: 1.4; }
+.debug-controls, .debug-actions { display: grid; }
+.debug-controls { gap: 0.65rem; }
+.debug-control {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.45rem 0.8rem;
+  padding: 0.7rem 0.8rem; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--surface-2);
+}
+.debug-control output { color: var(--muted); font-variant-numeric: tabular-nums; }
+.debug-control input[type="range"], .debug-control select { grid-column: 1 / -1; width: 100%; }
+.debug-control input[type="range"] { min-height: 28px; margin: 0; accent-color: var(--primary); }
+.debug-control select {
+  min-height: 44px; padding: 0 0.75rem; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--surface); color: var(--text); font: inherit;
+}
+.debug-actions { gap: 0.6rem; margin-top: 1rem; }
+.debug-status { min-height: 1.3em; margin: 0.8rem 0 0; color: var(--muted); text-align: center; }
+
+.hand-edit {
+  flex-direction: column; align-items: flex-start; gap: 0.05rem;
+  padding: 0.35rem 0.6rem; border-radius: 0; background: transparent; text-align: left;
+}
+.delta-cell { padding: 0.5rem 0.25rem; font-weight: 600; }
+.empty-hint { padding: 1.2rem 0.8rem; color: var(--muted); text-align: center; }
+.hand-sheet { width: min(94vw, 420px); max-height: 90vh; max-height: 90dvh; overflow: auto; }
+.hand-section {
+  margin: 0.7rem 0 0.4rem; color: var(--muted); font-size: 0.78rem;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.chip {
+  min-height: 44px; padding: 0 0.85rem; border: 1px solid var(--line);
+  border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 600;
+}
+.chip.selected { border-color: var(--primary); }
+.hand-stepper { gap: 0.6rem; margin-bottom: 0.55rem; }
+.hand-stepper .stepper output {
+  min-width: 2rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.hand-hint { margin: 0.1rem 0 0.5rem; color: var(--muted); font-size: 0.85rem; }
+.hand-preview { min-height: 1.3em; margin: 0.7rem 0 0.2rem; font-weight: 700; }
+.menu-list { display: grid; gap: 0.6rem; margin: 0.4rem 0 1rem; }
+.danger-text { color: var(--danger); }
+
+.reel-overlay {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  padding: 1.5rem; background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+}
+.reel-card {
+  position: relative; z-index: 1; display: grid; justify-items: center;
+  gap: 0.9rem; text-align: center;
+}
+.reel-title {
+  margin: 0; color: var(--muted); font-size: 1rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.reel-window {
+  --reel-item-h: 3.6rem;
+  position: relative; width: min(74vw, 300px); height: calc(var(--reel-item-h) * 3);
+  overflow: hidden; background: var(--surface-2);
+  mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
+  -webkit-mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
+}
+.reel-window::after {
+  content: ""; position: absolute; top: var(--reel-item-h); right: 0; left: 0;
+  inset: var(--reel-item-h) 0 auto;
+  height: var(--reel-item-h); border-block: 2px solid var(--primary); pointer-events: none;
+}
+.reel-strip { display: flex; flex-direction: column; will-change: transform; }
+.reel-item {
+  display: flex; align-items: center; justify-content: center; height: var(--reel-item-h);
+  color: var(--text); font-size: 1.5rem; font-weight: 800;
+}
+.reel-target { color: var(--primary); animation: reel-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes reel-pop {
+  0% { transform: scale(1); text-shadow: none; }
+  55% { transform: scale(1.4); text-shadow: 0 0 16px var(--primary); }
+  100% { transform: scale(1.18); text-shadow: 0 0 10px var(--primary); }
+}
+.reel-action { min-width: 9rem; margin-top: 0.2rem; }
+.reel-effects { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.confetti-bit {
+  position: absolute; top: 0; left: 0; width: 9px; height: 14px;
+  border-radius: 2px; will-change: transform, opacity;
+}
+.explosion-core, .explosion-ring, .explosion-spark, .laser-beam {
+  position: absolute; top: 0; left: 0; opacity: 0; will-change: transform, opacity;
+}
+.explosion-core, .explosion-ring, .explosion-spark { border-radius: 50%; }
+.explosion-core {
+  width: 34px; height: 34px; background: #fff8c5;
+  box-shadow: 0 0 18px 8px #ffd166, 0 0 44px 18px #ff6b35;
+}
+.explosion-ring { width: 28px; height: 28px; border: 3px solid; }
+.explosion-spark { width: 8px; height: 8px; }
+.laser-beam { height: 3px; border-radius: 999px; transform-origin: center; }
 
 @media (max-width: 480px) {
   .game-header {
@@ -272,719 +373,27 @@ button:disabled:active { transform: none; }
   }
   .header-actions { gap: 0.25rem; }
   .header-actions .ghost, .header-actions .primary {
-    padding-inline: 0.45rem;
-    font-size: 0.875rem;
-    white-space: nowrap;
+    padding-inline: 0.45rem; font-size: 0.875rem; white-space: nowrap;
   }
 }
-
-.winner-banner {
-  flex: 0 0 auto;
-  margin: 0.6rem 0 0;
-  margin-inline: max(0.9rem, env(safe-area-inset-left)) max(0.9rem, env(safe-area-inset-right));
-  padding: 0.7rem 1rem;
-  border-radius: 12px;
-  background: var(--leader-bg);
-  color: var(--leader-text);
-  font-weight: 700;
-  text-align: center;
-}
-.winner-banner[hidden] { display: none; }
-@keyframes winner-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.winner-banner:not([hidden]) { animation: winner-in 0.28s ease both; }
-
-.table-wrap {
-  flex: 1 1 auto;
-  overflow: auto;
-  overscroll-behavior: contain;
-  /* No inline padding: a sticky `left: 0` column pins to the scroll container's
-     padding edge, so inline padding would become a gutter that horizontally
-     scrolled cells peek through, left of the frozen Round column. Safe-area insets
-     are taken as margins, which sit outside the scrollport. scroll-padding keeps a
-     focused cell clear of the sticky header/footer, and above the on-screen
-     keyboard (its height is reserved at the bottom) when the grid can scroll. */
-  padding: 0;
-  margin-inline: env(safe-area-inset-left) env(safe-area-inset-right);
-  scroll-padding-top: var(--row-h);
-  scroll-padding-bottom: calc(var(--row-h) + var(--keyboard-height, 0px));
-}
-
-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
-  /* Fixed layout takes column widths from the rules below, not cell content, so
-     typing a score never reflows the grid. Cell-entry games (Five Crowns, Greed)
-     keep every column strict via min-content. Hand games (500) override to
-     max-content so the first column grows to fit the variable hand summary; their
-     cells are display-only, so nothing reflows there. */
-  width: min-content;
-}
-#score-table[data-entry="hand"] { width: max-content; }
-/* Scroll room below the footer, equal to the keyboard height, so the last rows can
-   scroll clear of the on-screen keyboard (the grid often fits the screen and can't
-   otherwise scroll). It sits below the sticky footer, so unlike bottom padding on
-   the scroll container it never lifts the footer off the foot of the grid. */
-#score-table { margin-bottom: var(--keyboard-height, 0px); }
-caption { text-align: left; }
-
-th, td {
-  white-space: nowrap;
-  border-bottom: 1px solid var(--line);
-  border-right: 1px solid var(--line);
-}
-th:first-child, td:first-child { border-left: 1px solid var(--line); }
-thead th { border-top: 1px solid var(--line); }
-
-/* sticky header row */
-thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--table-bg);
-  padding: 0.35rem 0.4rem;
-}
-/* sticky round (first) column */
-.round-col {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--table-bg);
-  text-align: left;
-  padding: 0.4rem 0.4rem;
-  width: var(--col-round);
-}
-thead .round-col, tfoot .round-col { z-index: 3; }
-
-.round-num {
-  display: inline-block;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.cards {
-  display: inline-block;
-  margin-left: 0.25rem;
-  font-size: 0.66rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-.wild {
-  display: block;
-  font-size: 0.66rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-/* Locked random details are dimmed until their round opens. */
-.cards-masked, .wild-masked { opacity: 0.4; letter-spacing: 0.15em; }
-/* The next round, ready to spin open: a glowing, tappable hint. */
-.round-ready { cursor: pointer; }
-.cards-ready, .wild-ready {
-  color: var(--primary);
-  font-weight: 800;
-  animation: wild-glow 1.4s ease-in-out infinite;
-}
-.wild-ready { font-size: 1rem; }
-.round-ready:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 6px; }
-@keyframes wild-glow {
-  0%, 100% { opacity: 0.55; text-shadow: none; }
-  50% { opacity: 1; text-shadow: 0 0 9px var(--primary); }
-}
-/* Keep the reveal button's header slot stable while it is temporarily unavailable. */
-.reveal-wild { white-space: nowrap; }
-.reveal-wild:not(.reveal-unavailable) { animation: reveal-pulse 1.5s ease-in-out infinite; }
-.reveal-wild.reveal-unavailable {
-  visibility: hidden;
-  pointer-events: none;
-  animation: none;
-}
-@keyframes reveal-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55); }
-  50% { box-shadow: 0 0 0 7px rgba(167, 139, 250, 0); }
-}
-.score-input:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  background: repeating-linear-gradient(-45deg, transparent, transparent 5px, var(--line) 5px, var(--line) 6px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .cards-ready, .wild-ready, .reveal-wild:not(.reveal-unavailable) { animation: none; }
-}
-
-.player-col { padding: 0.35rem 0; width: var(--col-player); }
-.name-input {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--row-h);
-  font-size: 16px;
-  font-weight: 700;
-  text-align: center;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  padding: 0.4rem 0.25rem;
-  text-overflow: ellipsis;
-}
-.name-input:focus-visible {
-  outline: 2px solid var(--primary);
-  border-radius: 6px;
-}
-
-.score-cell { padding: 0; }
-.score-input {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--row-h);
-  font-size: 17px;
-  text-align: center;
-  border: none;
-  background: var(--table-bg);
-  color: var(--text);
-  padding: 0.4rem 0.25rem;
-  font-variant-numeric: tabular-nums;
-}
-.score-input:focus {
-  outline: none;
-  background: color-mix(in srgb, var(--primary) 12%, var(--table-bg));
-  box-shadow: inset 0 0 0 2px var(--primary);
-}
-
-tfoot td, tfoot th {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  background: var(--table-bg);
-  border-top: 2px solid var(--line);
-  box-shadow: 0 -8px 14px -8px var(--lift);
-}
-tfoot .round-col { z-index: 4; }
-.total-cell {
-  text-align: center;
-  font-weight: 800;
-  font-size: 1.05rem;
-  padding: 0.5rem 0.25rem;
-  font-variant-numeric: tabular-nums;
-}
-.total-cell.leader {
-  background: var(--leader-bg);
-  color: var(--leader-text);
-}
-.total-cell .leader-mark {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  font-size: 0.7rem;
-  line-height: 1;
-  color: var(--accent);
-}
-
-/* ---------- Dialogs ---------- */
-dialog.sheet {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 1.2rem;
-  width: min(92vw, 380px);
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
-  /* Ease in on open and out on close. overlay/display are discrete properties,
-     so allow-discrete keeps the box painted through the close transition. On
-     browsers without @starting-style/allow-discrete this degrades to an instant
-     open (the end state still applies). */
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease,
-              overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
-}
-dialog.sheet[open] {
-  opacity: 1;
-  transform: translateY(0);
-}
-@starting-style {
-  dialog.sheet[open] { opacity: 0; transform: translateY(8px); }
-}
-dialog.sheet::backdrop {
-  background: rgba(10, 8, 20, 0);
-  transition: background 0.2s ease,
-              overlay 0.2s ease allow-discrete, display 0.2s ease allow-discrete;
-}
-dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0.5); }
-@starting-style {
-  dialog.sheet[open]::backdrop { background: rgba(10, 8, 20, 0); }
-}
-
-/* On phones, present dialogs as bottom sheets: actions land in the thumb zone
-   and a centred box can no longer be hidden behind the on-screen keyboard. They
-   also slide up from the bottom edge rather than the small desktop rise. */
 @media (max-width: 480px) and (pointer: coarse) {
   dialog.sheet {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    inset: auto 0 var(--keyboard-height, 0px) 0;
+    width: 100%; max-width: none; margin: 0; inset: auto 0 var(--keyboard-height, 0px);
     border-radius: var(--radius) var(--radius) 0 0;
-    padding-bottom: max(1.2rem, env(safe-area-inset-bottom));
-    transform: translateY(100%);
+    padding-bottom: max(1.2rem, env(safe-area-inset-bottom)); transform: translateY(100%);
   }
   dialog.sheet[open] { transform: translateY(0); }
-  @starting-style {
-    dialog.sheet[open] { transform: translateY(100%); }
-  }
+  @starting-style { dialog.sheet[open] { transform: translateY(100%); } }
   .no-dialog dialog.sheet[open] {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: var(--keyboard-height, 0px);
-    transform: none;
-    max-width: none;
+    top: auto; right: 0; bottom: var(--keyboard-height, 0px); left: 0;
+    inset: auto 0 var(--keyboard-height, 0px); transform: none;
   }
 }
-
-/* Fallback presentation for browsers without native modal <dialog>
-   (iOS Safari < 15.4). Scoped to .no-dialog, which the JS fallback adds only
-   when showModal is unavailable, so it is inert on current browsers. */
-.no-dialog dialog:not([open]) { display: none; }
-.no-dialog dialog[open] {
-  display: block;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
-  z-index: 1000;
-  max-height: 90vh;
-  overflow: auto;
-}
-.no-dialog.has-open-dialog { overflow: hidden; }
-.no-dialog.has-open-dialog::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  background: rgba(10, 8, 20, 0.5);
-  z-index: 999;
-}
-dialog h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
-.dialog-field {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 0.8rem;
-}
-.dialog-field input {
-  display: block;
-  width: 100%;
-  margin-top: 0.3rem;
-  font-size: 16px;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--text);
-}
-.dialog-note { color: var(--muted); margin: 0 0 1rem; }
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin: 0.4rem 0 0;
-  padding: 0;
-}
-
-@media (min-width: 700px) {
-  .game-header { padding-inline: 1.4rem; }
-}
-
-/* ---------- Game picker ---------- */
-.game-picker {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.3rem;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  border-radius: 12px;
-  padding: 0.25rem;
-  margin: 0 0 1.2rem;
-}
-.pick { margin: 0; display: flex; }
-.pick input {
-  position: absolute;
-  opacity: 0;
-  width: 1px; height: 1px;
-}
-.pick-name {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 44px;
-  padding: 0.55rem 0.3rem;
-  border-radius: 9px;
-  font-weight: 700;
-  color: var(--text);
-  cursor: pointer;
-}
-.pick-hint {
-  font-size: 0.62rem;
-  font-weight: 600;
-  opacity: 0.7;
-  margin-top: 2px;
-}
-.pick input:checked + .pick-name {
-  background: var(--primary);
-  color: var(--primary-text);
-}
-.pick input:focus-visible + .pick-name {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-}
-
-/* Per-game options (Five Crowns' round order): a labelled segmented group. */
-.variant-control {
-  border: 0;
-  padding: 0;
-  margin: 0 0 1.2rem;
-  min-inline-size: 0;
-}
-.variant-control .field-label { display: block; margin-bottom: 0.4rem; }
-.game-picker.variant-options { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
-
-.resume-note { color: var(--muted); margin: 0.2rem 0 1rem; }
-#setup-resume .big + .big { margin-top: 0.6rem; }
-
-/* ---------- Secret reel tuning screen ---------- */
-.debug-screen {
-  place-items: start center;
-  overflow: auto;
-}
-.debug-card {
-  max-width: 520px;
-  text-align: left;
-}
-.debug-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.debug-kicker {
-  margin: 0 0 0.15rem;
-  color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.debug-note {
-  margin: 0.8rem 0 1.1rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-.debug-controls {
-  display: grid;
-  gap: 0.65rem;
-}
-.debug-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.45rem 0.8rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-.debug-control > span { font-weight: 600; }
-.debug-control output {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.debug-control input[type="range"],
-.debug-control select {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-.debug-control input[type="range"] {
-  min-height: 28px;
-  margin: 0;
-  accent-color: var(--primary);
-}
-.debug-control select {
-  min-height: 44px;
-  padding: 0 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-}
-.debug-actions {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-.debug-status {
-  min-height: 1.3em;
-  margin: 0.8rem 0 0;
-  color: var(--muted);
-  text-align: center;
-}
-
-
-/* ---------- Banner phases ---------- */
-.winner-banner.phase-complete,
-.winner-banner.phase-out {
-  background: var(--leader-bg);
-  color: var(--leader-text);
-}
-.winner-banner.phase-targetReached {
-  background: var(--target-bg);
-  color: var(--target-text);
-}
-
-/* ---------- Negative values ---------- */
-.total-cell.neg, .delta-cell.neg { color: var(--danger); }
-
-/* ---------- Get-on-board hint (Greed) ---------- */
-.total-cell .needs {
-  display: block;
-  margin-top: 0.1rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: normal;
-}
-
-/* ---------- 500 hand rows ---------- */
-.hand-head { padding: 0; }
-.hand-edit {
-  width: 100%;
-  min-height: var(--row-h);
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  text-align: left;
-  padding: 0.35rem 0.6rem;
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.05rem;
-}
-.hand-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
-.delta-cell {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  padding: 0.5rem 0.25rem;
-}
-.empty-hint { padding: 1.2rem 0.8rem; color: var(--muted); text-align: center; }
-
-/* ---------- Hand dialog (500) ---------- */
-.hand-sheet {
-  width: min(94vw, 420px);
-  max-height: 90vh;
-  max-height: 90dvh;
-  overflow: auto;
-}
-.hand-section {
-  margin: 0.7rem 0 0.4rem;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
-.chip {
-  min-height: 44px;
-  padding: 0 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text);
-  font-weight: 600;
-}
-.chip.selected {
-  background: var(--primary);
-  color: var(--primary-text);
-  border-color: var(--primary);
-}
-.chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
-.hand-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.55rem;
-}
-.hand-stepper-label { font-weight: 600; }
-.hand-stepper .stepper output { min-width: 2rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
-.hand-hint { color: var(--muted); font-size: 0.85rem; margin: 0.1rem 0 0.5rem; }
-.hand-preview {
-  margin: 0.7rem 0 0.2rem;
-  font-weight: 700;
-  min-height: 1.3em;
-}
-
-/* ---------- Menu dialog ---------- */
-.menu-list { display: grid; gap: 0.6rem; margin: 0.4rem 0 1rem; }
-.menu-list .big { width: 100%; }
-.danger-text { color: var(--danger); }
-
-/* ---------- Dialog notes ---------- */
-.dialog-note.error { color: var(--danger); }
-
-
-/* ---------- Reduced motion (new transitions/animations) ----------
-   The earlier prefers-reduced-motion block sits before these rules, so disable
-   the score-entry and dialog motion here, after the rules they override, so
-   source order wins. Positions still update; they just snap instead of glide. */
+@media (min-width: 700px) { .game-header { padding-inline: 1.4rem; } }
 @media (prefers-reduced-motion: reduce) {
-  dialog.sheet,
-  dialog.sheet::backdrop { transition: none; }
-  .winner-banner:not([hidden]) { animation: none; }
-}
-
-/* ---------- Hidden round-reveal wheel ---------- */
-.reel-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background: rgba(0, 0, 0, 0.82);
-  -webkit-backdrop-filter: blur(5px);
-          backdrop-filter: blur(5px);
-}
-.reel-overlay[hidden] { display: none; }
-.reel-card {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 0.9rem;
-  justify-items: center;
-  text-align: center;
-}
-.reel-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-}
-.reel-window {
-  --reel-item-h: 3.6rem;
-  position: relative;
-  height: calc(var(--reel-item-h) * 3);
-  width: min(74vw, 300px);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  box-shadow: var(--shadow);
-  -webkit-mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
-          mask-image: linear-gradient(transparent, #000 26%, #000 74%, transparent);
-}
-.reel-window::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: var(--reel-item-h);
-  height: var(--reel-item-h);
-  border-block: 2px solid var(--primary);
-  pointer-events: none;
-}
-.reel-strip {
-  display: flex;
-  flex-direction: column;
-  will-change: transform;
-}
-.reel-item {
-  height: var(--reel-item-h);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--text);
-}
-.reel-target {
-  color: var(--primary);
-  animation: reel-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
-}
-@keyframes reel-pop {
-  0% { transform: scale(1); text-shadow: none; }
-  55% { transform: scale(1.4); text-shadow: 0 0 16px var(--primary); }
-  100% { transform: scale(1.18); text-shadow: 0 0 10px var(--primary); }
-}
-.reel-action { margin-top: 0.2rem; min-width: 9rem; }
-
-.reel-effects {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  overflow: hidden;
-  pointer-events: none;
-}
-.confetti-bit {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 9px;
-  height: 14px;
-  border-radius: 2px;
-  will-change: transform, opacity;
-}
-.explosion-core,
-.explosion-ring,
-.explosion-spark,
-.laser-beam {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
-  will-change: transform, opacity;
-}
-.explosion-core {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #fff8c5;
-  box-shadow: 0 0 18px 8px #ffd166, 0 0 44px 18px #ff6b35;
-}
-.explosion-ring {
-  width: 28px;
-  height: 28px;
-  border: 3px solid;
-  border-radius: 50%;
-}
-.explosion-spark {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-.laser-beam {
-  height: 3px;
-  border-radius: 999px;
-  transform-origin: center;
-}
-@media (prefers-reduced-motion: reduce) {
-  .reel-target { animation: none; text-shadow: 0 0 10px var(--primary); }
+  button, dialog.sheet, dialog.sheet::backdrop { transition: none; }
+  button:active { transform: none; }
+  .winner-banner:not([hidden]), .cards-ready, .wild-ready,
+  .reveal-wild:not(.reveal-unavailable), .reel-target { animation: none; }
+  .reel-target { text-shadow: 0 0 10px var(--primary); }
 }

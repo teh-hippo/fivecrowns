@@ -1,100 +1,79 @@
-import { lastFilledIndex, cap, unitSingular } from './games.js';
-
-/*
- * Pure game-state helpers: build a fresh state, normalise a loaded (and possibly
- * corrupt) save into the shape the engine expects, and serialise only the fields
- * a game needs. No DOM or storage access, so these can be unit-tested directly.
- */
+import { lastFilledIndex, cap, unitSingular, objectFromEntries } from './games.js';
 
 function defaultState(game) {
   return { gameId: game.id, started: false, players: [], nextId: 1, scores: {}, hands: [] };
 }
 
-function normalizeState(game, s) {
+function copyGameFields(game, source, target) {
+  (game.stateFields || []).forEach((field) => {
+    const value = source[field];
+    if (typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) target[field] = value;
+    else if (Array.isArray(value)) target[field] = value.slice();
+  });
+}
+
+function normalizeState(game, source) {
   const base = defaultState(game);
-  if (!s || typeof s !== 'object') return base;
-
+  if (!source || typeof source !== 'object') return base;
   const seen = new Set();
-  const players = [];
   let maxId = 0;
-  (Array.isArray(s.players) ? s.players : []).forEach((p) => {
-    if (!p || typeof p.id !== 'string' || seen.has(p.id)) return;
-    seen.add(p.id);
-    const seed = (typeof p.seed === 'number' && Number.isFinite(p.seed)) ? p.seed : 0;
-    const name = (typeof p.name === 'string' && p.name.trim()) ? p.name : cap(unitSingular(game)) + ' ' + (players.length + 1);
-    players.push({ id: p.id, name, seed });
-    const m = /^p(\d+)$/.exec(p.id);
-    if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
-  });
-  base.players = players;
-  base.started = !!s.started;
-  base.nextId = Math.max(maxId + 1, (typeof s.nextId === 'number' ? s.nextId : 0), players.length + 1);
-
-  // Copy any extra per-game state fields the game declares (e.g. Five Crowns'
-  // variant, wildOrder, cardOrder and revealedCount), tolerating only strings,
-  // finite numbers and arrays from a save.
-  (game.stateFields || []).forEach((f) => {
-    const v = s[f];
-    if (typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))) base[f] = v;
-    else if (Array.isArray(v)) base[f] = v.slice();
-  });
-
-  if (game.entry === 'cell') {
-    const src = (s.scores && typeof s.scores === 'object') ? s.scores : {};
-    const fixed = game.rounds.kind === 'fixed' ? game.rounds.count : null;
-    players.forEach((p) => {
-      let a = Array.isArray(src[p.id])
-        ? src[p.id].map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null))
-        : [];
-      if (fixed) {
-        a = a.slice(0, fixed);
-        while (a.length < fixed) a.push(null);
-      } else {
-        a = a.slice(0, lastFilledIndex(a) + 1); // trim trailing blanks
-      }
-      base.scores[p.id] = a;
-    });
-  } else {
-    const hands = Array.isArray(s.hands) ? s.hands : [];
-    base.hands = hands
-      .filter((h) => h && typeof h === 'object' && typeof h.bidderId === 'string' && h.deltas && typeof h.deltas === 'object')
-      .map((h, i) => ({
-        id: typeof h.id === 'string' ? h.id : 'h' + i,
-        bidderId: h.bidderId,
-        bid: h.bid,
-        bidValue: h.bidValue,
-        made: !!h.made,
-        tricks: (h.tricks && typeof h.tricks === 'object') ? h.tricks : {},
-        deltas: h.deltas,
-      }));
+  for (const player of Array.isArray(source.players) ? source.players : []) {
+    if (!player || typeof player.id !== 'string' || seen.has(player.id)) continue;
+    seen.add(player.id);
+    const seed = typeof player.seed === 'number' && Number.isFinite(player.seed) ? player.seed : 0;
+    const name = typeof player.name === 'string' && player.name.trim()
+      ? player.name : cap(unitSingular(game)) + ' ' + (base.players.length + 1);
+    base.players.push({ id: player.id, name, seed });
+    const match = /^p(\d+)$/.exec(player.id);
+    if (match) maxId = Math.max(maxId, parseInt(match[1], 10));
   }
+  base.started = !!source.started;
+  base.nextId = Math.max(maxId + 1, typeof source.nextId === 'number' ? source.nextId : 0, base.players.length + 1);
+  copyGameFields(game, source, base);
+
+  if (game.entry === 'hand') {
+    base.hands = (Array.isArray(source.hands) ? source.hands : [])
+      .filter((hand) => hand && typeof hand === 'object' && typeof hand.bidderId === 'string'
+        && hand.deltas && typeof hand.deltas === 'object')
+      .map((hand, i) => ({
+        id: typeof hand.id === 'string' ? hand.id : 'h' + i,
+        bidderId: hand.bidderId, bid: hand.bid, bidValue: hand.bidValue, made: !!hand.made,
+        tricks: hand.tricks && typeof hand.tricks === 'object' ? hand.tricks : {}, deltas: hand.deltas,
+      }));
+    return base;
+  }
+
+  const scores = source.scores && typeof source.scores === 'object' ? source.scores : {};
+  const fixed = game.rounds.kind === 'fixed' ? game.rounds.count : null;
+  base.players.forEach((player) => {
+    let values = Array.isArray(scores[player.id])
+      ? scores[player.id].map((value) => typeof value === 'number' && Number.isFinite(value) ? value : null)
+      : [];
+    if (fixed != null) {
+      values = values.slice(0, fixed);
+      while (values.length < fixed) values.push(null);
+    } else values = values.slice(0, lastFilledIndex(values) + 1);
+    base.scores[player.id] = values;
+  });
   return base;
 }
 
-// Serialize only the fields a game needs, so Five Crowns keeps its original
-// `fivecrowns:v1` shape and open cell games never persist a trailing blank row.
-function serializeState(game, st) {
+function serializeState(game, state) {
   const out = {
-    started: st.started,
-    players: st.players.map((p) => ({ id: p.id, name: p.name, seed: p.seed })),
-    nextId: st.nextId,
+    started: state.started,
+    players: state.players.map(({ id, name, seed }) => ({ id, name, seed })),
+    nextId: state.nextId,
   };
-  if (game.entry === 'cell') {
-    const scores = {};
+  if (game.entry === 'hand') out.hands = state.hands || [];
+  else {
     const fixed = game.rounds.kind === 'fixed';
-    st.players.forEach((p) => {
-      let a = (st.scores[p.id] || []).slice();
-      if (!fixed) a = a.slice(0, lastFilledIndex(a) + 1);
-      scores[p.id] = a;
-    });
-    out.scores = scores;
-  } else {
-    out.hands = st.hands || [];
+    out.scores = objectFromEntries(state.players.map((player) => {
+      let values = (state.scores[player.id] || []).slice();
+      if (!fixed) values = values.slice(0, lastFilledIndex(values) + 1);
+      return [player.id, values];
+    }));
   }
-  // Persist any extra per-game state fields the game declares.
-  (game.stateFields || []).forEach((f) => {
-    if (st[f] !== undefined) out[f] = Array.isArray(st[f]) ? st[f].slice() : st[f];
-  });
+  copyGameFields(game, state, out);
   return out;
 }
 
