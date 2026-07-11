@@ -59,6 +59,7 @@ body {
   letter-spacing: -0.02em;
 }
 .brand.small {
+  flex: 1 1 0;
   font-size: 1.15rem;
   min-width: 0;
   overflow: hidden;
@@ -254,8 +255,28 @@ button:disabled:active { transform: none; }
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
-.header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; }
+.header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
 .header-actions .ghost, .header-actions .primary { padding: 0 0.7rem; font-size: 0.9rem; }
+
+@media (max-width: 480px) {
+  .game-header {
+    gap: 0.25rem;
+    padding-inline: max(0.5rem, env(safe-area-inset-left)) max(0.5rem, env(safe-area-inset-right));
+  }
+  .header-actions { gap: 0.25rem; }
+  .header-actions .ghost, .header-actions .primary {
+    padding-inline: 0.45rem;
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+}
 
 .winner-banner {
   flex: 0 0 auto;
