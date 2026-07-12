@@ -1,108 +1,46 @@
 # Five Crowns Scorer
 
-A minimal, mobile-friendly scorekeeper for three card and dice games:
-[Five Crowns](https://en.wikipedia.org/wiki/Five_Crowns_(card_game)), Greed and
-the Australian trick-taking game [500](https://en.wikipedia.org/wiki/500_(card_game)).
-It is a single static page with no build step and no dependencies, hosted on
-GitHub Pages.
+A dependency-free, mobile-first scorekeeper for [Five Crowns](https://en.wikipedia.org/wiki/Five_Crowns_(card_game)), Greed and Australian [500](https://en.wikipedia.org/wiki/500_(card_game)). It is a static GitHub Pages app with no build step.
 
 Live app: https://teh-hippo.github.io/fivecrowns/
 
 ## Games
 
-- **Five Crowns** — 11 rounds, each with its own wild card (3s through Kings).
-  Lowest total wins. Complete once the final round is entered for everyone. Setup
-  offers a round-order choice: **Up** (3s to Kings), **Down** (Kings to 3s), or
-  **Random**, plus **Super Random**. Random shuffles the wilds. Super Random
-  independently shuffles both the 3-to-13 card counts and the wilds, using every
-  count and every wild exactly once. Both random modes hide the order and reveal
-  it a round at a time with a spinning wheel. Round 1's wheel appears at the
-  start; each later round unlocks a reveal button (and a glowing hint) once the
-  round above it is fully entered. The wheel idles until you spin it, lands on the
-  round details, then chooses equally between repeating confetti, explosion, and
-  lasers. The selected effect stays active until you confirm. Occasionally it
-  pauses briefly on an unmarked decoy, then bursts forward to the same saved
-  result. A round's scores stay locked until its details have been revealed.
-- **Greed** (dice) — open-ended rounds where each player banks a turn total.
-  You need 500 in a single turn to get on the board; a bust scores 0. Highest
-  total wins, racing to 5000. When a player reaches 5000 there is exactly one
-  more round, then the highest total wins.
-- **500** (Australian trick-taking) — open-ended hands scored through a guided
-  bid dialog (bidder, suit and level or misère, tricks won). Made bids add their
-  value, set bids subtract it, and opponents score 10 per trick. First side to
-  500 on its own made bid wins; a side that drops to -500 is out.
+- **Five Crowns**: 11 rounds, lowest total wins. Play 3s to Kings, Kings to 3s, shuffle the wilds with Random, or independently shuffle card counts and wilds with Super Random. Random uses one wild reel. Super Random uses separate card-count and wild reels that are staggered and spin in opposite directions. Scores remain locked until the round is revealed.
+- **Greed**: bank turn totals, score at least 500 in one turn to get on the board, and race to 5000. Reaching 5000 starts one final round.
+- **500**: record the bidder, contract and tricks. Made bids add their value, set bids subtract it, and opponents score 10 per trick. A side wins by reaching 500 on its own bid; dropping to -500 puts it out.
 
 ## Features
 
-- Pick the game on the setup screen. Each game keeps its own saved progress, so
-  switching between them never loses a game in play.
-- Customise the number of players (or sides, for 500) and their names; tap a
-  name to select the whole thing so you can type a replacement straight over it.
-  Drag the grip handle to reorder them on the setup screen (or focus it and use
-  the arrow keys), and the names you used are kept as the defaults for the next
-  game of that type.
-- Quick numeric entry tuned for phones (the number pad shows automatically); a
-  Return or Enter key steps round the table from where you started, and on iOS
-  the keyboard's own Previous/Next bar steps through the cells too. 500 uses a
-  chip and stepper dialog so you never type a negative score by hand.
-- Running totals with the leader highlighted, and a clear winner, target or
-  out banner per game.
-- Add a player part way through with a custom starting score, so a latecomer can
-  be slotted in without restarting, or remove one on the setup screen.
-- When a game ends, tap **Play again** to start a fresh game with the same
-  players.
-- Everything is saved on your device, so a refresh, an app switch or losing
-  signal mid-game never loses your scores.
-- A permanently dark, true-black interface that suits OLED screens.
-- Installable to your home screen, where it runs full screen like an app.
+- Separate saved games for each ruleset.
+- Remembered, reorderable player or side names.
+- Phone-friendly numeric entry with iOS Previous and Next controls.
+- Live totals, leader highlighting and winner messages.
+- Mid-game player additions with a starting score.
+- Guided hand scoring for 500.
+- Installable dark interface with local progress storage.
 
-## How to play
+## Use
 
-1. Choose a game, then set the players (or sides) and their names.
-2. For Five Crowns and Greed, tap any player's cell and type their score, then
-   press Return or Enter to move round the table from where you started. It wraps
-   past the last seat and skips seats already in, so it never jumps ahead to the
-   next round. On iOS, use the keyboard's own Previous/Next bar, which steps
-   through every cell and carries straight on into the next round. For 500, tap
-   **Score hand** and pick the bidder, contract and tricks; the dialog works out
-   every side's score.
-3. Totals update live and the leader is highlighted as you go.
-4. Use **+ Player** / **+ Side** to add someone mid-game, or **Menu** to switch
-   games or start a new one.
-5. When the game is won, tap **Play again** for a rematch with the same players.
+1. Choose a game, variant and players.
+2. Enter each round's scores, or use **Score hand** in 500.
+3. Use **Menu** to switch games or start again.
+4. Use **Play again** after the game ends.
 
-## Local development
+## Development
 
-Everything is plain HTML, CSS and JavaScript loaded as native ES modules, so
-there is no build step and no bundler. The code is split into small modules:
-`games.js` is the facade for the pure rules in `rules/`, `state.js` handles save
-shapes, `reel.js` owns reveal animation, and `lib/` contains browser utilities.
-`app.js` composes them, while the ordered stylesheets in `css/` own presentation.
+The app is plain HTML, CSS and native JavaScript modules. `app.js` composes the game registry, state helpers, browser utilities and rule modules. Serve the repository over HTTP because browsers block modules loaded through `file://`:
 
-Because browsers do not allow ES modules over `file://`, serve the folder with
-any static server rather than opening `index.html` directly:
+```sh
+python3 -m http.server
+```
 
-    python3 -m http.server
+Run the pure scoring and state tests with:
 
-then open the printed `http://localhost:8000`.
-
-### Tests
-
-The scoring and save logic is pure (no DOM), so it is covered by a small suite
-that runs on Node's built-in test runner with no dependencies:
-
-    npm test
-
-### Installing
-
-The app ships a web manifest and icons, so it can be added to a phone's home
-screen and run full screen. It deliberately has no service worker: scores live
-in `localStorage` (which an installed app keeps), so the offline value a service
-worker would add is small next to its upkeep and update risks.
+```sh
+npm test
+```
 
 ## Deployment
 
-GitHub Pages serves the site straight from the `main` branch root, so any commit
-to `main` publishes automatically. There is no build or pipeline to maintain; a
-small GitHub Actions workflow runs the unit tests on each push but does not gate
-the deploy.
+GitHub Pages serves `main` from the repository root. Pushing to `main` deploys the static files, while GitHub Actions runs the Node test suite.
