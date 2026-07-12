@@ -21,7 +21,9 @@ const REEL_FIELDS = [
   { key: 'effectAmount', id: 'effect-amount', label: 'Effect amount', min: 1, max: 120, step: 1, integer: true },
 ]; const FIELDS = {}; REEL_FIELDS.forEach((field) => { FIELDS[field.key] = field; });
 // Fourteen rendered passes safely contain the seven-pass default travel.
-const GEOMETRY = Object.freeze({ stripCycles: 14, landingCycle: 2, minIdleMs: 400, safetyMs: 800 }); const DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)';
+const GEOMETRY = Object.freeze({
+  stripCycles: 14, landingCycle: 2, minIdleMs: 400, safetyMs: 800, trackStaggerMs: 180,
+}); const DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)';
 const FAKEOUT_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)'; const EFFECT_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
 const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa']; const EFFECT_NODE_LIMIT = 140;
 
@@ -100,12 +102,16 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   };
   const renderTracks = (specs) => {
     wheels.textContent = ''; wheels.dataset.count = String(specs.length);
-    return specs.map((spec) => {
+    return specs.map((spec, index) => {
       const wheel = el('div', { class: 'reel-wheel' });
       wheel.appendChild(el('p', { class: 'reel-label' }, spec.label));
       const windowNode = el('div', { class: 'reel-window' }); const strip = el('div', { class: 'reel-strip', 'aria-hidden': 'true' });
       windowNode.appendChild(strip); wheel.appendChild(windowNode); wheels.appendChild(wheel);
-      return { spec, strip };
+      return {
+        spec, strip,
+        direction: index % 2 === 0 ? 1 : -1,
+        delayMs: index * GEOMETRY.trackStaggerMs,
+      };
     });
   };
   const clearTracks = () => {
@@ -119,7 +125,8 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     const fullLength = Math.max(length, Math.floor(fullSetSize) || length);
     const travelCycles = Math.ceil(spinCycles * fullLength / length);
     const stripCycles = Math.max(Math.ceil(GEOMETRY.stripCycles * fullLength / length), travelCycles + GEOMETRY.landingCycle + 2);
-    const landIndex = values.indexOf(target) + GEOMETRY.landingCycle * length;
+    const landingCycle = track.direction > 0 ? GEOMETRY.landingCycle : GEOMETRY.landingCycle + travelCycles;
+    const landIndex = values.indexOf(target) + landingCycle * length;
     for (let cycle = 0; cycle < stripCycles; cycle++) {
       values.forEach((value) => track.strip.appendChild(el('div', { class: 'reel-item' }, value)));
     }
@@ -127,8 +134,8 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     let fakeOutRows = fullLength + 1; if (fakeOutRows % length === 0) fakeOutRows++;
     return {
       cycleH, landY, landIndex,
-      idleBase: landY - travelCycles * cycleH,
-      fakeOutY: landY - fakeOutRows * itemH,
+      idleBase: landY - track.direction * travelCycles * cycleH,
+      fakeOutY: landY - track.direction * fakeOutRows * itemH,
     };
   };
   const bounds = () => {
@@ -243,7 +250,9 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     setBusy(true); title.textContent = settings.title; action.textContent = 'Spin'; overlay.hidden = false;
     const tracks = renderTracks(reels); const geos = tracks.map((track) => geometry(track, fullSetSize, settings.spinCycles));
     const fakeOut = reels[0].remaining.length > 1 && geos.every((geo) => geo.cycleH > 0) && Math.random() < settings.fakeOutChance;
-    const selectedMs = settings.spinMs + (fakeOut ? settings.fakeOutHoldMs + settings.fakeOutBurstMs : 0);
+    const maxDelayMs = tracks.reduce((max, track) => Math.max(max, track.delayMs), 0);
+    const selectedMs = settings.spinMs + maxDelayMs
+      + (fakeOut ? settings.fakeOutHoldMs + settings.fakeOutBurstMs + maxDelayMs : 0);
     let phase = 'idle', idles = [], selections = [], fakeTimer = null, safetyTimer = null;
     const clearTimers = () => {
       if (fakeTimer != null) clearTimeout(fakeTimer); if (safetyTimer != null) clearTimeout(safetyTimer); fakeTimer = safetyTimer = null;
@@ -273,7 +282,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
         const animation = startAnimation(
           tracks[i],
           [{ transform: 'translateY(' + from[i] + 'px)' }, { transform: 'translateY(' + to[i] + 'px)' }],
-          { duration, easing, fill: 'forwards' },
+          { duration, delay: tracks[i].delayMs, easing, fill: 'forwards' },
         );
         if (!animation) { stopAnimations(started); land(); return false; }
         started.push(animation);
@@ -321,8 +330,11 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       const idleMs = Math.max(GEOMETRY.minIdleMs, geo.cycleH / settings.idlePxps * 1000);
       const animation = startAnimation(
         track,
-        [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
-        { duration: idleMs, iterations: Infinity, easing: 'linear' },
+        [
+          { transform: 'translateY(' + geo.idleBase + 'px)' },
+          { transform: 'translateY(' + (geo.idleBase + track.direction * geo.cycleH) + 'px)' },
+        ],
+        { duration: idleMs, delay: -track.delayMs, iterations: Infinity, easing: 'linear' },
       );
       if (!animation) { land(); return true; }
       idles.push(animation);
