@@ -64,8 +64,12 @@ const fiveCrowns = {
   revealItems(state) {
     const wilds = fiveCrownsWildsFromState(state); const superRandom = state && state.variant === 'super-random';
     return wilds.map((wild, i) => {
-      if (!superRandom) return { label: wild, result: wild + ' is wild!' }; const cards = cardCountText(fiveCrownsCardCount(i, state));
-      return { label: cards + ' \u00b7 ' + wild, result: cards + ' \u00b7 ' + wild + ' wild!' };
+      if (!superRandom) return { reels: [{ label: 'Wild', value: wild }], result: wild + ' is wild!' };
+      const cardCount = fiveCrownsCardCount(i, state); const cards = cardCountText(cardCount);
+      return {
+        reels: [{ label: 'Cards', value: String(cardCount) }, { label: 'Wild', value: wild }],
+        result: cards + ' \u00b7 ' + wild + ' wild!',
+      };
     });
   },
   roundLabel(i, state) {

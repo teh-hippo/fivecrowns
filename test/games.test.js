@@ -260,6 +260,11 @@ test('Random wilds are gated by a spin: locked, then ready, then revealed', () =
   const order = FIVE_CROWNS_WILDS;
   const st = { variant: 'random', wildOrder: order, revealedCount: 0, players: sides, scores: { p1: [], p2: [] } };
 
+  assert.deepEqual(fiveCrowns.revealItems(st)[0], {
+    reels: [{ label: 'Wild', value: '3s' }],
+    result: '3s is wild!',
+  });
+
   // Round 0 starts ready (glowing, tappable), not yet revealed; round 1 is locked.
   assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: '?', ready: true });
   assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', masked: true });
@@ -302,7 +307,7 @@ test('Super Random hides and reveals the paired card count and wild', () => {
   st.revealedCount = 1;
   assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', cards: '13 cards', sub: 'Kings' });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    label: '13 cards \u00b7 Kings',
+    reels: [{ label: 'Cards', value: '13' }, { label: 'Wild', value: 'Kings' }],
     result: '13 cards \u00b7 Kings wild!',
   });
 
@@ -326,7 +331,7 @@ test('Super Random falls back to valid only-once orders for malformed saved data
   st.revealedCount = 1;
   assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', cards: '3 cards', sub: '3s' });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    label: '3 cards \u00b7 3s',
+    reels: [{ label: 'Cards', value: '3' }, { label: 'Wild', value: '3s' }],
     result: '3 cards \u00b7 3s wild!',
   });
 });

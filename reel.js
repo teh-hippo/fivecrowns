@@ -79,34 +79,51 @@ function shuffle(values) {
   return result;
 }
 
-function createReel({ overlay, strip, title, action, effects, onBusyChange }) {
+function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   let spinning = false, animationUnavailable = false, effectCleanup = null; const setBusy = (value) => { spinning = value; if (onBusyChange) onBusyChange(); };
-  const translate = (y, fixed) => strip.style.setProperty('transform', 'translateY(' + y + 'px)', fixed ? 'important' : '');
-  const currentY = () => {
-    const transform = getComputedStyle(strip).transform; if (!transform || transform === 'none') return 0;
+  const translate = (track, y, fixed) => track.strip.style.setProperty('transform', 'translateY(' + y + 'px)', fixed ? 'important' : '');
+  const currentY = (track) => {
+    const transform = getComputedStyle(track.strip).transform; if (!transform || transform === 'none') return 0;
     try { return new DOMMatrixReadOnly(transform).m42; } catch (_) { return 0; }
   };
-  const reject = (animation) => {
-    cancel(animation); cancelAll(strip); animationUnavailable = true;
+  const reject = (track, animation) => {
+    cancel(animation); cancelAll(track.strip); animationUnavailable = true;
   };
-  const startAnimation = (keyframes, options) => {
-    if (animationUnavailable) return null; const animation = animate(strip, keyframes, options);
-    if (!usable(animation)) { reject(animation); return null; }
+  const startAnimation = (track, keyframes, options) => {
+    if (animationUnavailable) return null; const animation = animate(track.strip, keyframes, options);
+    if (!usable(animation)) { reject(track, animation); return null; }
     return animation;
   };
-  const stopAnimation = (animation) => {
+  const stopAnimation = (track, animation) => {
     if (animation == null) return true; const result = cancelResult(animation); if (result.failed) animationUnavailable = true; if (result.stopped) return true;
-    const remaining = cancelAll(strip); if (remaining.failed) animationUnavailable = true; return remaining.stopped;
+    const remaining = cancelAll(track.strip); if (remaining.failed) animationUnavailable = true; return remaining.stopped;
   };
-  const geometry = (remaining, target, fullSetSize, spinCycles) => {
-    strip.innerHTML = ''; const values = shuffle(remaining), length = values.length; const fullLength = Math.max(length, Math.floor(fullSetSize) || length);
+  const renderTracks = (specs) => {
+    wheels.textContent = ''; wheels.dataset.count = String(specs.length);
+    return specs.map((spec) => {
+      const wheel = el('div', { class: 'reel-wheel' });
+      wheel.appendChild(el('p', { class: 'reel-label' }, spec.label));
+      const windowNode = el('div', { class: 'reel-window' }); const strip = el('div', { class: 'reel-strip', 'aria-hidden': 'true' });
+      windowNode.appendChild(strip); wheel.appendChild(windowNode); wheels.appendChild(wheel);
+      return { spec, strip };
+    });
+  };
+  const clearTracks = () => {
+    let stopped = true;
+    wheels.querySelectorAll('.reel-strip').forEach((strip) => {
+      const result = cancelAll(strip); stopped = stopped && result.stopped; if (result.failed) animationUnavailable = true;
+    }); wheels.textContent = ''; delete wheels.dataset.count; return stopped && !animationUnavailable;
+  };
+  const geometry = (track, fullSetSize, spinCycles) => {
+    const { remaining, target } = track.spec; track.strip.innerHTML = ''; const values = shuffle(remaining); const length = values.length;
+    const fullLength = Math.max(length, Math.floor(fullSetSize) || length);
     const travelCycles = Math.ceil(spinCycles * fullLength / length);
     const stripCycles = Math.max(Math.ceil(GEOMETRY.stripCycles * fullLength / length), travelCycles + GEOMETRY.landingCycle + 2);
     const landIndex = values.indexOf(target) + GEOMETRY.landingCycle * length;
     for (let cycle = 0; cycle < stripCycles; cycle++) {
-      values.forEach((value) => strip.appendChild(el('div', { class: 'reel-item' }, value)));
+      values.forEach((value) => track.strip.appendChild(el('div', { class: 'reel-item' }, value)));
     }
-    const itemH = strip.children[0] ? strip.children[0].getBoundingClientRect().height : 0; const cycleH = length * itemH, landY = -(landIndex - 1) * itemH;
+    const itemH = track.strip.children[0] ? track.strip.children[0].getBoundingClientRect().height : 0; const cycleH = length * itemH, landY = -(landIndex - 1) * itemH;
     let fakeOutRows = fullLength + 1; if (fakeOutRows % length === 0) fakeOutRows++;
     return {
       cycleH, landY, landIndex,
@@ -115,7 +132,7 @@ function createReel({ overlay, strip, title, action, effects, onBusyChange }) {
     };
   };
   const bounds = () => {
-    const rect = effects.getBoundingClientRect(), windowRect = strip.parentElement.getBoundingClientRect();
+    const rect = effects.getBoundingClientRect(), windowRect = wheels.getBoundingClientRect();
     return {
       width: rect.width || window.innerWidth, height: rect.height || window.innerHeight,
       cx: windowRect.width ? windowRect.left - rect.left + windowRect.width / 2 : (rect.width || window.innerWidth) / 2,
@@ -208,7 +225,7 @@ function createReel({ overlay, strip, title, action, effects, onBusyChange }) {
     if (type === 'none') return null; return EFFECTS[type] ? type : Object.keys(EFFECTS)[Math.floor(Math.random() * Object.keys(EFFECTS).length)];
   };
 
-  function show({ remaining, target, resultText, round, fullSetSize, options, onConfirm, onLand, onClose }) {
+  function show({ reels, resultText, round, fullSetSize, options, onConfirm, onLand, onClose }) {
     const supplied = options || {};
     const settings = {
       spinMs: setting('spinMs', supplied.spinMs), spinCycles: setting('spinCycles', supplied.spinCycles),
@@ -218,59 +235,103 @@ function createReel({ overlay, strip, title, action, effects, onBusyChange }) {
       effect: supplied.effect || DEFAULT_REEL_OPTIONS.effect,
       effectAmount: setting('effectAmount', supplied.effectAmount),
       title: supplied.title || 'Round ' + (round + 1),
-    }; stopEffects(); if (animationUnavailable) return false; const initial = cancelAll(strip);
-    if (!initial.stopped || initial.failed) { animationUnavailable = true; return false; }
+    };
+    const valid = Array.isArray(reels) && reels.length > 0 && reels.every((spec) => (
+      spec && Array.isArray(spec.remaining) && spec.remaining.length > 0 && spec.remaining.indexOf(spec.target) !== -1
+    ));
+    stopEffects(); if (!valid || animationUnavailable || !clearTracks()) return false;
     setBusy(true); title.textContent = settings.title; action.textContent = 'Spin'; overlay.hidden = false;
-    const geo = geometry(remaining, target, fullSetSize, settings.spinCycles); const fakeOut = remaining.length > 1 && geo.cycleH > 0 && Math.random() < settings.fakeOutChance;
+    const tracks = renderTracks(reels); const geos = tracks.map((track) => geometry(track, fullSetSize, settings.spinCycles));
+    const fakeOut = reels[0].remaining.length > 1 && geos.every((geo) => geo.cycleH > 0) && Math.random() < settings.fakeOutChance;
     const selectedMs = settings.spinMs + (fakeOut ? settings.fakeOutHoldMs + settings.fakeOutBurstMs : 0);
-    let phase = 'idle', idle = null, selection = null, fakeTimer = null, safetyTimer = null;
+    let phase = 'idle', idles = [], selections = [], fakeTimer = null, safetyTimer = null;
     const clearTimers = () => {
       if (fakeTimer != null) clearTimeout(fakeTimer); if (safetyTimer != null) clearTimeout(safetyTimer); fakeTimer = safetyTimer = null;
     };
+    const stopAnimations = (animations) => {
+      let stopped = true;
+      tracks.forEach((track, index) => { stopped = stopAnimation(track, animations[index]) && stopped; });
+      return stopped;
+    };
     const land = () => {
-      if (phase === 'confirm' || phase === 'closed') return; phase = 'confirm'; clearTimers(); stopAnimation(idle); stopAnimation(selection); idle = selection = null;
-      translate(geo.landY, true); const winner = strip.children[geo.landIndex]; if (winner) winner.classList.add('reel-target');
-      title.textContent = winner ? resultText || winner.textContent : settings.title; action.textContent = 'Confirm'; const type = effectType(settings.effect);
+      if (phase === 'confirm' || phase === 'closed') return; phase = 'confirm'; clearTimers(); stopAnimations(idles); stopAnimations(selections); idles = []; selections = [];
+      const results = tracks.map((track, index) => {
+        const geo = geos[index]; translate(track, geo.landY, true); const winner = track.strip.children[geo.landIndex];
+        if (winner) winner.classList.add('reel-target'); return winner ? winner.textContent : '';
+      });
+      title.textContent = resultText || results.filter(Boolean).join(' \u00b7 ') || settings.title;
+      action.textContent = 'Confirm'; const type = effectType(settings.effect);
       startEffects(type, settings.effectAmount); if (onLand) onLand(type, fakeOut);
     };
     const close = () => {
-      if (phase === 'closed') return; phase = 'closed'; overlay.removeEventListener('click', onTap); clearTimers(); stopAnimation(idle); stopAnimation(selection); stopEffects();
+      if (phase === 'closed') return; phase = 'closed'; overlay.removeEventListener('click', onTap); clearTimers(); stopAnimations(idles); stopAnimations(selections); stopEffects();
       if (onConfirm) onConfirm(); overlay.hidden = true; setBusy(false); if (onClose) onClose();
     };
-    const startSelection = (from, to, duration, easing, done) => {
-      const animation = startAnimation(
-        [{ transform: 'translateY(' + from + 'px)' }, { transform: 'translateY(' + to + 'px)' }],
-        { duration, easing, fill: 'forwards' },
-      );
-      if (!animation) { land(); return false; }
-      selection = animation;
-      if (!setHandler(animation, 'onfinish', done)) { selection = null; animationUnavailable = true; stopAnimation(animation); land(); return false; }
+    const startSelections = (from, to, duration, easing, done) => {
+      const started = [];
+      for (let i = 0; i < tracks.length; i++) {
+        const animation = startAnimation(
+          tracks[i],
+          [{ transform: 'translateY(' + from[i] + 'px)' }, { transform: 'translateY(' + to[i] + 'px)' }],
+          { duration, easing, fill: 'forwards' },
+        );
+        if (!animation) { stopAnimations(started); land(); return false; }
+        started.push(animation);
+      }
+      let pending = started.length;
+      const finish = () => {
+        if (phase !== 'spin' || pending === 0) return; pending--; if (pending === 0) done();
+      };
+      for (let i = 0; i < started.length; i++) {
+        if (!setHandler(started[i], 'onfinish', finish)) {
+          animationUnavailable = true; stopAnimations(started); land(); return false;
+        }
+      }
+      selections = started;
       return true;
     };
     const finishFakeOut = () => {
-      if (phase !== 'spin') return; const animation = selection; selection = null;
-      if (!stopAnimation(animation) || animationUnavailable) { land(); return; }
-      translate(geo.fakeOutY, false);
+      if (phase !== 'spin') return; const animations = selections; selections = [];
+      if (!stopAnimations(animations) || animationUnavailable) { land(); return; }
+      tracks.forEach((track, index) => translate(track, geos[index].fakeOutY, false));
       fakeTimer = setTimeout(() => {
-        fakeTimer = null; if (phase === 'spin') startSelection(geo.fakeOutY, geo.landY, settings.fakeOutBurstMs, FAKEOUT_EASE, land);
+        fakeTimer = null;
+        if (phase === 'spin') {
+          startSelections(
+            geos.map((geo) => geo.fakeOutY), geos.map((geo) => geo.landY),
+            settings.fakeOutBurstMs, FAKEOUT_EASE, land,
+          );
+        }
       }, settings.fakeOutHoldMs);
     };
     const spin = () => {
       if (phase !== 'idle') return; phase = 'spin'; action.textContent = 'Skip';
       safetyTimer = setTimeout(() => { safetyTimer = null; if (phase === 'spin') land(); }, selectedMs + GEOMETRY.safetyMs);
-      const current = currentY(), animation = idle; idle = null;
-      if (!stopAnimation(animation) || animationUnavailable) { land(); return; }
-      translate(current, false); startSelection(current, fakeOut ? geo.fakeOutY : geo.landY, settings.spinMs, DECEL, fakeOut ? finishFakeOut : land);
+      const current = tracks.map(currentY), animations = idles; idles = [];
+      if (!stopAnimations(animations) || animationUnavailable) { land(); return; }
+      tracks.forEach((track, index) => translate(track, current[index], false));
+      startSelections(
+        current, geos.map((geo) => fakeOut ? geo.fakeOutY : geo.landY),
+        settings.spinMs, DECEL, fakeOut ? finishFakeOut : land,
+      );
     }; const onTap = () => { if (phase === 'idle') spin(); else if (phase === 'spin') land(); else close(); };
-    overlay.addEventListener('click', onTap); action.focus(); translate(geo.idleBase, false); const idleMs = Math.max(GEOMETRY.minIdleMs, geo.cycleH / settings.idlePxps * 1000);
-    idle = startAnimation(
-      [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
-      { duration: idleMs, iterations: Infinity, easing: 'linear' },
-    ); if (!idle) land(); return true;
+    overlay.addEventListener('click', onTap); action.focus();
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i], geo = geos[i]; translate(track, geo.idleBase, false);
+      const idleMs = Math.max(GEOMETRY.minIdleMs, geo.cycleH / settings.idlePxps * 1000);
+      const animation = startAnimation(
+        track,
+        [{ transform: 'translateY(' + geo.idleBase + 'px)' }, { transform: 'translateY(' + (geo.idleBase + geo.cycleH) + 'px)' }],
+        { duration: idleMs, iterations: Infinity, easing: 'linear' },
+      );
+      if (!animation) { land(); return true; }
+      idles.push(animation);
+    }
+    return true;
   }
   return {
     show, isBusy: () => spinning,
-    canAnimate: () => !reducedMotion() && hasAnimation(strip) && !animationUnavailable,
+    canAnimate: () => !reducedMotion() && hasAnimation(wheels) && !animationUnavailable,
   };
 }
 

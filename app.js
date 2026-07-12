@@ -45,7 +45,7 @@ const {
   tableCaption: caption, scoreTable, headRow, scoreBody, totalRow, winnerBanner, scoreForm, addDialog,
   addTitle, addName, addSeed, addHint, addConfirm, addCancel, confirmDialog, confirmCancel, confirmOk,
   menuDialog, switchBtn, newgameBtn, menuClose, handDialog, handTitle, handBody, handPreview,
-  handDelete: handDeleteBtn, handCancel, handSave, reelOverlay, reelStrip, reelTitle, reelAction,
+  handDelete: handDeleteBtn, handCancel, handSave, reelOverlay, reelWheels, reelTitle, reelAction,
   reelEffects, revealWildBtn,
 } = refs(`
   setup-screen game-screen debug-screen game-picker setup-fresh variant-control variant-legend
@@ -54,11 +54,11 @@ const {
   game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
   total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel
   confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
-  hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-strip reel-title
+  hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title
   reel-action reel-effects reveal-wild-btn
 `); const screens = [setupScreen, gameScreen, debugScreen];
 const reel = createReel({
-  overlay: reelOverlay, strip: reelStrip, title: reelTitle, action: reelAction,
+  overlay: reelOverlay, wheels: reelWheels, title: reelTitle, action: reelAction,
   effects: reelEffects, onBusyChange: updateRevealButton,
 });
 function showOnly(screen) { screens.forEach((node) => { node.hidden = node !== screen; }); }
@@ -350,13 +350,21 @@ function refreshRevealRows() {
 
 /* ---------- Hidden round-reveal wheel ---------- */
 function commitReveal(round) { state.revealedCount = Math.max(Math.floor(state.revealedCount || 0), round + 1); save(); refreshRevealRows(); }
+function revealReels(items, round) {
+  const remaining = items.slice(round); const target = remaining[0];
+  return target.reels.map((targetReel, index) => ({
+    label: targetReel.label,
+    remaining: remaining.map((item) => item.reels[index].value),
+    target: targetReel.value,
+  }));
+}
 function openRoundReveal(round) {
   if (reel.isBusy() || !usesRoundReveal()) return; const label = activeGame.roundLabel(round, state);
   const items = typeof activeGame.revealItems === 'function' ? activeGame.revealItems(state) : []; const target = items[round];
-  if (!label.ready || !target || typeof target.label !== 'string') return;
+  if (!label.ready || !target || !Array.isArray(target.reels) || target.reels.length === 0) return;
   if (!reel.canAnimate()) { commitReveal(round); return; }
   const shown = reel.show({
-    remaining: items.slice(round).map((item) => item.label), target: target.label,
+    reels: revealReels(items, round),
     resultText: target.result, round, fullSetSize: items.length,
     onConfirm: () => commitReveal(round),
   }); if (!shown) commitReveal(round);
@@ -404,11 +412,11 @@ function debugReelOptions() {
   }); return options;
 }
 function runDebugSpin() {
-  if (reel.isBusy()) return; const debugGame = GAMES.fivecrowns; const previewState = debugGame.initVariant('random'); const items = debugGame.revealItems(previewState);
+  if (reel.isBusy()) return; const debugGame = GAMES.fivecrowns; const previewState = debugGame.initVariant('super-random'); const items = debugGame.revealItems(previewState);
   const targetIndex = Math.floor(Math.random() * items.length); const target = items[targetIndex]; const options = debugReelOptions(); debugSpinBtn.disabled = true;
   debugStatus.textContent = 'Reel open. Tap Spin.';
   const shown = reel.show({
-    remaining: items.map((item) => item.label), target: target.label,
+    reels: revealReels(items, targetIndex),
     resultText: target.result, round: targetIndex, fullSetSize: items.length,
     options: {
       ...options,
