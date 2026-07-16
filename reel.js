@@ -7,6 +7,7 @@ const EFFECTS = Object.freeze({
   fireworks: { label: 'Fireworks', amount: 14, repeatMs: 1600 },
   sparkle: { label: 'Sparkle', amount: 20, repeatMs: 900 },
   coins: { label: 'Coin shower', amount: 16, repeatMs: 1100 },
+  shockwave: { label: 'Shockwave', amount: 5, repeatMs: 1000 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -269,7 +270,19 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins };
+  const emitShockwave = (add, amount) => {
+    const area = bounds(); const centre = 'translate3d(' + area.cx + 'px,' + area.cy + 'px,0) translate(-50%,-50%)';
+    const rings = Math.max(3, Math.round(EFFECTS.shockwave.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); let started = false;
+    for (let i = 0; i < rings; i++) {
+      const ring = el('div', { class: 'shock-ring' }); ring.style.borderColor = EFFECT_COLORS[i % EFFECT_COLORS.length];
+      if (add(ring, [
+        { transform: centre + ' scale(0.1)', opacity: 0.85 },
+        { transform: centre + ' scale(' + (6 + i * 1.5) + ')', opacity: 0 },
+      ], { duration: 900 + i * 120, delay: i * 180, easing: 'cubic-bezier(0.2,0.7,0.3,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
