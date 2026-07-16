@@ -36,3 +36,4 @@
 .neon-edge {position:absolute; inset:0; opacity:0; box-shadow:inset 0 0 40px 8px rgba(167,139,250,0.6), inset 0 0 14px 2px rgba(227,193,78,0.5); will-change:opacity;}
 .suit-glyph {position:absolute; top:0; left:0; opacity:0; will-change:transform,opacity; font-size:1.6rem; line-height:1; text-shadow:0 0 6px rgba(0,0,0,0.4);}
 .streamer {position:absolute; top:0; left:0; width:7px; height:34px; border-radius:3px; opacity:0; transform-origin:top center; will-change:transform,opacity;}
+.slot-frame {position:absolute; border:3px solid currentColor; border-radius:12px; box-shadow:0 0 16px currentColor, inset 0 0 16px currentColor; color:var(--primary); opacity:0; will-change:transform,opacity;}

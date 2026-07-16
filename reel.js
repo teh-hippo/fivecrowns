@@ -11,6 +11,7 @@ const EFFECTS = Object.freeze({
   neon: { label: 'Neon halo', amount: 4, repeatMs: 1000 },
   suits: { label: 'Suit rain', amount: 16, repeatMs: 1200 },
   streamers: { label: 'Streamers', amount: 12, repeatMs: 1300 },
+  slotframe: { label: 'Slot frame', amount: 3, repeatMs: 800 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -328,7 +329,22 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers };
+  const emitSlotFrame = (add, amount) => {
+    const rect = effects.getBoundingClientRect(), wr = wheels.getBoundingClientRect(), pad = 14;
+    const left = (wr.left - rect.left) - pad, top = (wr.top - rect.top) - pad, w = (wr.width || rect.width) + pad * 2, h = (wr.height || rect.height) + pad * 2;
+    const frames = Math.max(1, Math.round(EFFECTS.slotframe.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); let started = false;
+    for (let i = 0; i < frames; i++) {
+      const frame = el('div', { class: 'slot-frame' }); frame.style.color = EFFECT_COLORS[i % 2];
+      frame.style.left = left + 'px'; frame.style.top = top + 'px'; frame.style.width = w + 'px'; frame.style.height = h + 'px';
+      if (add(frame, [
+        { transform: 'scale(0.96)', opacity: 0 },
+        { transform: 'scale(1)', opacity: 1, offset: 0.25 },
+        { transform: 'scale(1.05)', opacity: 0 },
+      ], { duration: 700 + i * 120, delay: i * 140, easing: 'ease-out', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers, slotframe: emitSlotFrame };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
