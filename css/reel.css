@@ -30,3 +30,4 @@
 .firework-flash {width:12px; height:12px;}
 .firework-spark {width:6px; height:6px;}
 .sparkle-star {position:absolute; top:0; left:0; opacity:0; will-change:transform,opacity; font-size:1.5rem; line-height:1; text-shadow:0 0 8px currentColor;}
+.coin-disc {position:absolute; top:0; left:0; width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#fff3b0,#e3c14e 55%,#b8860b); box-shadow:0 0 6px rgba(227,193,78,0.55), inset 0 0 0 2px #ffe89a; will-change:transform,opacity;}

@@ -6,6 +6,7 @@ const EFFECTS = Object.freeze({
   lasers: { label: 'Lasers', amount: 5, repeatMs: 1050 },
   fireworks: { label: 'Fireworks', amount: 14, repeatMs: 1600 },
   sparkle: { label: 'Sparkle', amount: 20, repeatMs: 900 },
+  coins: { label: 'Coin shower', amount: 16, repeatMs: 1100 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -255,7 +256,20 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle };
+  const emitCoins = (add, amount) => {
+    const area = bounds(); const count = Math.max(8, Math.round(EFFECTS.coins.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); const fall = area.height + 40; let started = false;
+    for (let i = 0; i < count; i++) {
+      const coin = el('div', { class: 'coin-disc' });
+      const x = area.width * (0.08 + Math.random() * 0.84), drift = (Math.random() - 0.5) * 60, spins = 3 + Math.floor(Math.random() * 4);
+      if (add(coin, [
+        { transform: 'translate3d(' + x + 'px,-40px,0) rotateY(0deg)', opacity: 1 },
+        { transform: 'translate3d(' + (x + drift * 0.5) + 'px,' + (fall * 0.62) + 'px,0) rotateY(' + (spins * 180) + 'deg)', opacity: 1, offset: 0.75 },
+        { transform: 'translate3d(' + (x + drift) + 'px,' + fall + 'px,0) rotateY(' + (spins * 360) + 'deg)', opacity: 0 },
+      ], { duration: 900 + Math.random() * 500, delay: Math.random() * 500, easing: 'cubic-bezier(0.4,0.1,0.7,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
