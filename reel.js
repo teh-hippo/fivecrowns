@@ -12,6 +12,7 @@ const EFFECTS = Object.freeze({
   suits: { label: 'Suit rain', amount: 16, repeatMs: 1200 },
   streamers: { label: 'Streamers', amount: 12, repeatMs: 1300 },
   slotframe: { label: 'Slot frame', amount: 3, repeatMs: 800 },
+  sunburst: { label: 'Sunburst', amount: 12, repeatMs: 950 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -344,7 +345,20 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers, slotframe: emitSlotFrame };
+  const emitSunburst = (add, amount) => {
+    const area = bounds(); const rays = Math.max(6, Math.round(EFFECTS.sunburst.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); const length = Math.min(area.width, area.height) * 0.7; let started = false;
+    for (let i = 0; i < rays; i++) {
+      const ray = el('div', { class: 'sun-ray' }); ray.style.background = FIREWORK_COLORS[i % FIREWORK_COLORS.length]; ray.style.height = length + 'px';
+      const angle = 360 * i / rays, pivot = 'translate3d(' + area.cx + 'px,' + area.cy + 'px,0) rotate(' + angle + 'deg)';
+      if (add(ray, [
+        { transform: pivot + ' scaleY(0)', opacity: 0 },
+        { transform: pivot + ' scaleY(1)', opacity: 0.9, offset: 0.4 },
+        { transform: 'translate3d(' + area.cx + 'px,' + area.cy + 'px,0) rotate(' + (angle + 24) + 'deg) scaleY(1)', opacity: 0 },
+      ], { duration: 700 + Math.random() * 300, delay: Math.floor(i / 2) * 40, easing: 'cubic-bezier(0.2,0.7,0.3,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers, slotframe: emitSlotFrame, sunburst: emitSunburst };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
