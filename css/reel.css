@@ -32,3 +32,5 @@
 .sparkle-star {position:absolute; top:0; left:0; opacity:0; will-change:transform,opacity; font-size:1.5rem; line-height:1; text-shadow:0 0 8px currentColor;}
 .coin-disc {position:absolute; top:0; left:0; width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#fff3b0,#e3c14e 55%,#b8860b); box-shadow:0 0 6px rgba(227,193,78,0.55), inset 0 0 0 2px #ffe89a; will-change:transform,opacity;}
 .shock-ring {position:absolute; top:0; left:0; width:40px; height:40px; border-radius:50%; border:2px solid; opacity:0; will-change:transform,opacity;}
+.neon-halo {position:absolute; top:0; left:0; width:80px; height:80px; border-radius:50%; border:3px solid currentColor; box-shadow:0 0 14px currentColor, inset 0 0 14px currentColor; color:var(--primary); opacity:0; will-change:transform,opacity;}
+.neon-edge {position:absolute; inset:0; opacity:0; box-shadow:inset 0 0 40px 8px rgba(167,139,250,0.6), inset 0 0 14px 2px rgba(227,193,78,0.5); will-change:opacity;}

@@ -8,6 +8,7 @@ const EFFECTS = Object.freeze({
   sparkle: { label: 'Sparkle', amount: 20, repeatMs: 900 },
   coins: { label: 'Coin shower', amount: 16, repeatMs: 1100 },
   shockwave: { label: 'Shockwave', amount: 5, repeatMs: 1000 },
+  neon: { label: 'Neon halo', amount: 4, repeatMs: 1000 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -282,7 +283,22 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave };
+  const emitNeon = (add, amount) => {
+    const area = bounds(); const centre = 'translate3d(' + area.cx + 'px,' + area.cy + 'px,0) translate(-50%,-50%)';
+    const pulses = Math.max(2, Math.round(EFFECTS.neon.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); let started = false;
+    const edge = el('div', { class: 'neon-edge' });
+    if (add(edge, [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0 }], { duration: 900, easing: 'ease-in-out', fill: 'forwards' })) started = true;
+    for (let i = 0; i < pulses; i++) {
+      const halo = el('div', { class: 'neon-halo' }); halo.style.color = EFFECT_COLORS[i % 2];
+      if (add(halo, [
+        { transform: centre + ' scale(0.4)', opacity: 0 },
+        { transform: centre + ' scale(1.2)', opacity: 0.95, offset: 0.4 },
+        { transform: centre + ' scale(2.6)', opacity: 0 },
+      ], { duration: 1000 + i * 160, delay: i * 220, easing: 'cubic-bezier(0.2,0.7,0.3,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
