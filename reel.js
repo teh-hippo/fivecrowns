@@ -13,6 +13,7 @@ const EFFECTS = Object.freeze({
   streamers: { label: 'Streamers', amount: 12, repeatMs: 1300 },
   slotframe: { label: 'Slot frame', amount: 3, repeatMs: 800 },
   sunburst: { label: 'Sunburst', amount: 12, repeatMs: 950 },
+  bubbles: { label: 'Bubbles', amount: 16, repeatMs: 1200 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -358,7 +359,21 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers, slotframe: emitSlotFrame, sunburst: emitSunburst };
+  const emitBubbles = (add, amount) => {
+    const area = bounds(); const count = Math.max(8, Math.round(EFFECTS.bubbles.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); const rise = -(area.height + 60); let started = false;
+    for (let i = 0; i < count; i++) {
+      const bubble = el('div', { class: 'bubble' }); const size = 10 + Math.random() * 22; bubble.style.width = size + 'px'; bubble.style.height = size + 'px';
+      const x = area.width * (0.06 + Math.random() * 0.88), wobble = 18 + Math.random() * 26, dir = i % 2 ? 1 : -1, startY = area.height + 20;
+      if (add(bubble, [
+        { transform: 'translate3d(' + x + 'px,' + startY + 'px,0) scale(0.6)', opacity: 0 },
+        { opacity: 0.85, offset: 0.15 },
+        { transform: 'translate3d(' + (x + dir * wobble) + 'px,' + (startY + rise * 0.55) + 'px,0) scale(1)', opacity: 0.85, offset: 0.6 },
+        { transform: 'translate3d(' + (x - dir * wobble) + 'px,' + (startY + rise) + 'px,0) scale(1.25)', opacity: 0 },
+      ], { duration: 1300 + Math.random() * 700, delay: Math.random() * 700, easing: 'cubic-bezier(0.37,0,0.63,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers, slotframe: emitSlotFrame, sunburst: emitSunburst, bubbles: emitBubbles };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }

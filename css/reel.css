@@ -38,3 +38,4 @@
 .streamer {position:absolute; top:0; left:0; width:7px; height:34px; border-radius:3px; opacity:0; transform-origin:top center; will-change:transform,opacity;}
 .slot-frame {position:absolute; border:3px solid currentColor; border-radius:12px; box-shadow:0 0 16px currentColor, inset 0 0 16px currentColor; color:var(--primary); opacity:0; will-change:transform,opacity;}
 .sun-ray {position:absolute; top:0; left:0; width:4px; border-radius:2px; transform-origin:top center; opacity:0; will-change:transform,opacity;}
+.bubble {position:absolute; top:0; left:0; border-radius:50%; background:radial-gradient(circle at 32% 28%,rgba(255,255,255,0.9),rgba(167,139,250,0.25) 60%,rgba(167,139,250,0.05)); border:1px solid rgba(255,255,255,0.5); opacity:0; will-change:transform,opacity;}
