@@ -9,6 +9,7 @@ const EFFECTS = Object.freeze({
   coins: { label: 'Coin shower', amount: 16, repeatMs: 1100 },
   shockwave: { label: 'Shockwave', amount: 5, repeatMs: 1000 },
   neon: { label: 'Neon halo', amount: 4, repeatMs: 1000 },
+  suits: { label: 'Suit rain', amount: 16, repeatMs: 1200 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -30,7 +31,7 @@ const GEOMETRY = Object.freeze({
   stripCycles: 14, landingCycle: 2, minIdleMs: 400, safetyMs: 800, trackStaggerMs: 180,
 }); const DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)';
 const FAKEOUT_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)'; const EFFECT_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
-const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa']; const FIREWORK_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#71f6ff', '#ff5cf4']; const EFFECT_NODE_LIMIT = 140;
+const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa']; const FIREWORK_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#71f6ff', '#ff5cf4']; const SUIT_GLYPHS = [['\u265B', '#e3c14e'], ['\u2660', '#ececf3'], ['\u2665', '#ff6b5e'], ['\u2666', '#ff6b5e'], ['\u2663', '#ececf3']]; const EFFECT_NODE_LIMIT = 140;
 
 function numberOr(value, fallback) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
 function setting(key, value) {
@@ -298,7 +299,21 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon };
+  const emitSuits = (add, amount) => {
+    const area = bounds(); const count = Math.max(8, Math.round(EFFECTS.suits.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); const fall = area.height + 50; let started = false;
+    for (let i = 0; i < count; i++) {
+      const [glyph, color] = SUIT_GLYPHS[i % SUIT_GLYPHS.length];
+      const node = el('div', { class: 'suit-glyph' }, glyph); node.style.color = color;
+      const x = area.width * (0.06 + Math.random() * 0.88), drift = (Math.random() - 0.5) * 70, rot = Math.random() * 360 - 180;
+      if (add(node, [
+        { transform: 'translate3d(' + x + 'px,-50px,0) rotate(0deg)', opacity: 0 },
+        { opacity: 1, offset: 0.12 },
+        { transform: 'translate3d(' + (x + drift) + 'px,' + fall + 'px,0) rotate(' + rot + 'deg)', opacity: 0 },
+      ], { duration: 1100 + Math.random() * 600, delay: Math.random() * 600, easing: 'cubic-bezier(0.3,0.2,0.5,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
