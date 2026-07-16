@@ -10,6 +10,7 @@ const EFFECTS = Object.freeze({
   shockwave: { label: 'Shockwave', amount: 5, repeatMs: 1000 },
   neon: { label: 'Neon halo', amount: 4, repeatMs: 1000 },
   suits: { label: 'Suit rain', amount: 16, repeatMs: 1200 },
+  streamers: { label: 'Streamers', amount: 12, repeatMs: 1300 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -313,7 +314,21 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
-  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits };
+  const emitStreamers = (add, amount) => {
+    const area = bounds(); const count = Math.max(6, Math.round(EFFECTS.streamers.amount * amount / DEFAULT_REEL_OPTIONS.effectAmount)); const fall = area.height + 60; let started = false;
+    for (let i = 0; i < count; i++) {
+      const ribbon = el('div', { class: 'streamer' }); ribbon.style.background = FIREWORK_COLORS[i % FIREWORK_COLORS.length];
+      const x = area.width * (0.05 + Math.random() * 0.9), sway = 30 + Math.random() * 50, dir = i % 2 ? 1 : -1, tilt = 20 + Math.random() * 40;
+      if (add(ribbon, [
+        { transform: 'translate3d(' + x + 'px,-60px,0) rotate(' + (dir * tilt) + 'deg) scaleY(0.4)', opacity: 0 },
+        { opacity: 1, offset: 0.15 },
+        { transform: 'translate3d(' + (x + dir * sway) + 'px,' + (fall * 0.5) + 'px,0) rotate(' + (-dir * tilt) + 'deg) scaleY(1)', opacity: 1, offset: 0.55 },
+        { transform: 'translate3d(' + (x - dir * sway) + 'px,' + fall + 'px,0) rotate(' + (dir * tilt) + 'deg) scaleY(1)', opacity: 0 },
+      ], { duration: 1300 + Math.random() * 600, delay: Math.random() * 500, easing: 'cubic-bezier(0.37,0,0.63,1)', fill: 'forwards' })) started = true;
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks, sparkle: emitSparkle, coins: emitCoins, shockwave: emitShockwave, neon: emitNeon, suits: emitSuits, streamers: emitStreamers };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
