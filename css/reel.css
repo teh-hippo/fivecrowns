@@ -24,3 +24,8 @@
 .explosion-ring {width:28px; height:28px; border:3px solid;}
 .explosion-spark {width:8px; height:8px;}
 .laser-beam {height:3px; border-radius:999px; transform-origin:center;}
+.firework-rocket,.firework-flash,.firework-spark {position:absolute; top:0; left:0; opacity:0; will-change:transform,opacity;}
+.firework-flash,.firework-spark {border-radius:50%;}
+.firework-rocket {width:3px; height:16px; border-radius:999px;}
+.firework-flash {width:12px; height:12px;}
+.firework-spark {width:6px; height:6px;}

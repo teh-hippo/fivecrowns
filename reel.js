@@ -4,6 +4,7 @@ const EFFECTS = Object.freeze({
   confetti: { label: 'Confetti', amount: 44, repeatMs: 1000 },
   explosion: { label: 'Explosion', amount: 30, repeatMs: 950 },
   lasers: { label: 'Lasers', amount: 5, repeatMs: 1050 },
+  fireworks: { label: 'Fireworks', amount: 14, repeatMs: 1600 },
 });
 const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
@@ -25,7 +26,7 @@ const GEOMETRY = Object.freeze({
   stripCycles: 14, landingCycle: 2, minIdleMs: 400, safetyMs: 800, trackStaggerMs: 180,
 }); const DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)';
 const FAKEOUT_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)'; const EFFECT_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
-const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa']; const EFFECT_NODE_LIMIT = 140;
+const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa']; const FIREWORK_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#71f6ff', '#ff5cf4']; const EFFECT_NODE_LIMIT = 140;
 
 function numberOr(value, fallback) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
 function setting(key, value) {
@@ -207,6 +208,39 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     }
     return started;
   };
+  const emitFireworks = (add, amount) => {
+    const area = bounds(); const scale = amount / DEFAULT_REEL_OPTIONS.effectAmount;
+    const shells = Math.max(2, Math.round(3 * scale)); const sparks = Math.max(8, Math.round(EFFECTS.fireworks.amount * scale)); let started = false;
+    for (let shell = 0; shell < shells; shell++) {
+      const color = FIREWORK_COLORS[shell % FIREWORK_COLORS.length];
+      const burstX = area.width * (0.2 + Math.random() * 0.6), burstY = area.height * (0.2 + Math.random() * 0.32);
+      const launch = shell * 240, riseMs = 500 + Math.random() * 200;
+      const rocket = el('div', { class: 'firework-rocket' }); rocket.style.background = color; rocket.style.boxShadow = '0 0 6px ' + color;
+      if (add(rocket, [
+        { transform: 'translate3d(' + burstX + 'px,' + area.height + 'px,0) scaleY(1.4)', opacity: 0 },
+        { opacity: 1, offset: 0.15 },
+        { transform: 'translate3d(' + burstX + 'px,' + burstY + 'px,0) scaleY(0.6)', opacity: 0.9 },
+      ], { duration: riseMs, delay: launch, easing: 'cubic-bezier(0.2,0.6,0.2,1)', fill: 'forwards' })) started = true;
+      const flash = el('div', { class: 'firework-flash' }); flash.style.background = color; flash.style.boxShadow = '0 0 18px 6px ' + color;
+      if (add(flash, [
+        { transform: 'translate3d(' + burstX + 'px,' + burstY + 'px,0) translate(-50%,-50%) scale(0.2)', opacity: 0 },
+        { transform: 'translate3d(' + burstX + 'px,' + burstY + 'px,0) translate(-50%,-50%) scale(1.6)', opacity: 1, offset: 0.5 },
+        { transform: 'translate3d(' + burstX + 'px,' + burstY + 'px,0) translate(-50%,-50%) scale(2.6)', opacity: 0 },
+      ], { duration: 460, delay: launch + riseMs, easing: 'ease-out', fill: 'forwards' })) started = true;
+      for (let i = 0; i < sparks; i++) {
+        const spark = el('div', { class: 'firework-spark' }); spark.style.background = color; spark.style.boxShadow = '0 0 6px ' + color;
+        const angle = Math.PI * 2 * i / sparks + (Math.random() - 0.5) * 0.3, distance = 50 + Math.random() * Math.min(150, area.width * 0.32);
+        const dx = Math.cos(angle) * distance, dy = Math.sin(angle) * distance, drop = 60 + Math.random() * 60;
+        if (add(spark, [
+          { transform: 'translate3d(' + burstX + 'px,' + burstY + 'px,0) scale(1.1)', opacity: 1 },
+          { transform: 'translate3d(' + (burstX + dx) + 'px,' + (burstY + dy) + 'px,0) scale(0.9)', opacity: 1, offset: 0.7 },
+          { transform: 'translate3d(' + (burstX + dx) + 'px,' + (burstY + dy + drop) + 'px,0) scale(0.2)', opacity: 0 },
+        ], { duration: 780 + Math.random() * 340, delay: launch + riseMs, easing: 'cubic-bezier(0.15,0.7,0.3,1)', fill: 'forwards' })) started = true;
+      }
+    }
+    return started;
+  };
+  const emitters = { confetti: emitConfetti, explosion: emitExplosion, lasers: emitLasers, fireworks: emitFireworks };
   const stopEffects = () => {
     const cleanup = effectCleanup; effectCleanup = null;
     try { if (cleanup) cleanup(); } catch (_) { /* confirmation must still close */ }
@@ -221,7 +255,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       const discard = () => { animations.delete(animation); node.remove(); };
       if (!setHandler(animation, 'onfinish', discard) || !setHandler(animation, 'oncancel', discard)) { cancel(animation); node.remove(); return false; }
       animations.add(animation); return true;
-    }; const emit = type === 'explosion' ? emitExplosion : type === 'lasers' ? emitLasers : emitConfetti;
+    }; const emit = emitters[type] || emitConfetti;
     const repeat = () => {
       if (stopped) return;
       if (!emit(add, effectAmount)) { stopEffects(); return; }
