@@ -14,7 +14,7 @@ Games save separately in local storage. The interface supports remembered player
 
 ## Development
 
-The repository is a static site with no build step or runtime dependencies. `app.js` contains the browser UI, `core.js` contains pure rules and state logic, and `test/core.test.js` covers their contract.
+The repository is a static site with no build step or runtime dependencies. `app.js` holds the browser UI, `reel.js` the reveal reel and its landing effects, and `state.js`, `games.js` and `rules/*.js` the pure rules and state logic, with shared helpers in `lib/*.js` and styles split across `css/*.css`. The Node tests in `test/` cover the rules and state contracts.
 
 ```sh
 python3 -m http.server

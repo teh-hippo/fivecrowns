@@ -1,1 +1,564 @@
-import{GAMES as e,GAME_ORDER as t,lastFilledIndex as n,cap as a,unitSingular as r,defaultState as l}from"./core.js";function i(e,t,n){let a=document.createElement(e);return Object.keys(t||{}).forEach(e=>{"class"===e?a.className=t[e]:("hidden"!==e||t[e])&&a.setAttribute(e,t[e])}),null!=n&&(a.textContent=n),a}function o(e){return String(e).replace(/[^0-9]/g,"")}function s(e,t,n){return Math.max(t,Math.min(n,e))}function d(e){let t=!1,n=()=>setTimeout(()=>{if(document.activeElement===e)try{e.setSelectionRange(0,e.value.length)}catch{try{e.select()}catch{}}});e.addEventListener("focus",()=>{t=!0,n()}),e.addEventListener("pointerup",()=>{t&&(t=!1,n())}),e.addEventListener("blur",()=>{t=!1})}import{cap as c,unitSingular as u,defaultState as p,normalizeState as h,serializeState as f}from"./core.js";var m="scorer:lastGame",y="scorer:names";function g(e){try{let t=localStorage.getItem(e.storageKey);if(t)return h(e,JSON.parse(t))}catch(e){console.warn("fivecrowns: ignoring corrupt or unavailable save",e)}return p(e)}function v(){try{let e=JSON.parse(localStorage.getItem(y));return e&&"object"==typeof e?e:{}}catch{return{}}}function b(e){let t=v()[e];if(Array.isArray(t))return{last:t.slice(),memory:t.slice()};if(!t||"object"!=typeof t)return{last:[],memory:[]};let n=Array.isArray(t.last)?t.last.slice():[];return{last:n,memory:Array.isArray(t.memory)?t.memory.slice():n.slice()}}function w(e){let t=b(e.id).last;return t.every(e=>"string"==typeof e)&&t.length>=e.minPlayers&&t.length<=e.maxPlayers?t.slice():e.defaultNames()}function C(e){let t=g(e);return t.started&&t.players.length>0}var E=["#a78bfa","#e3c14e","#5fe39a","#ff6b5e","#ececf3"],L=null,x=null,k=[],A=null,S=null,M=null;function B(){!function(e,t){try{if(localStorage.setItem(e.storageKey,JSON.stringify(f(e,t))),localStorage.setItem(m,e.id),!t.players.length)return;let n=v(),a=b(e.id).memory;t.players.forEach((e,t)=>{a[t]=e.name}),n[e.id]={last:t.players.map(e=>e.name),memory:a},localStorage.setItem(y,JSON.stringify(n))}catch{}}(L,x)}function N(e){return function(e,t){let n=new Set(t.map(e=>(e||"").trim().toLowerCase()));for(let t of b(e.id).memory){if("string"!=typeof t)continue;let e=t.trim();if(e&&!/^(player|side)\s+\d+$/i.test(e)&&!n.has(e.toLowerCase()))return t}return c(u(e))+" "+(t.length+1)}(L,e)}function I(e){return x.players.find(t=>t.id===e)}function R(e,t){let n="p"+x.nextId++,l=(e||"").trim()||a(r(L))+" "+(x.players.length+1);return x.players.push({id:n,name:l,seed:t||0}),"cell"===L.entry&&(x.scores[n]="fixed"===L.rounds.kind?new Array(L.rounds.count).fill(null):[]),n}function T(){return L.resolve(x.players,x)}function D(){return!!(L&&x&&Array.isArray(L.revealVariants)&&-1!==L.revealVariants.indexOf(x.variant))}function Y(){return"function"==typeof L.revealNoun?L.revealNoun(x):"round"}var{setupScreen:O,gameScreen:q,gamePicker:H,setupFresh:P,variantControl:V,variantLegend:j,variantOptions:z,setupResume:F,resumeNote:J,resumeBtn:G,newFromSetupBtn:U,countLabel:K,playersCount:W,playersDec:X,playersInc:$,nameList:_,startBtn:Q,gameName:Z,scoreHandBtn:ee,playAgainBtn:te,addBtn:ne,menuBtn:ae,tableCaption:re,scoreTable:le,headRow:ie,scoreBody:oe,totalRow:se,winnerBanner:de,scoreForm:ce,addDialog:ue,addTitle:pe,addName:he,addSeed:fe,addHint:me,addConfirm:ye,addCancel:ge,confirmDialog:ve,confirmCancel:be,confirmOk:we,menuDialog:Ce,switchBtn:Ee,newgameBtn:Le,menuClose:xe,handDialog:ke,handTitle:Ae,handBody:Se,handPreview:Me,handDelete:Be,handCancel:Ne,handSave:Ie,reelOverlay:Re,reelWheels:Te,reelTitle:De,reelAction:Ye,reelEffects:Oe,revealWildBtn:qe}=function(){let e={};return"\n  setup-screen game-screen game-picker setup-fresh variant-control variant-legend\n  variant-options setup-resume resume-note resume-btn new-from-setup-btn count-label players-count\n  players-dec players-inc name-list start-btn game-name score-hand-btn play-again-btn add-btn menu-btn\n  table-caption score-table head-row score-body\n  total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel\n  confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog\n  hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title\n  reel-action reel-effects reveal-wild-btn\n".trim().split(/\s+/).forEach(t=>{e[t.replace(/-([a-z])/g,(e,t)=>t.toUpperCase())]=document.getElementById(t)}),e}(),He=[O,q],Pe=function({overlay:e,wheels:t,title:n,action:a,effects:r,onBusyChange:l}){let o=!1,s=!1,d=[],c=[],u=e=>{o=e,l&&l()},p=()=>{d.splice(0).forEach(e=>{e.onfinish=null;try{e.cancel()}catch{s=!0}})},h=()=>{p(),c.splice(0).forEach(clearTimeout),r.textContent=""},f=(e,t,n)=>{e.strip.style.setProperty("transform","translateY("+t+"px)",n?"important":"")},m=e=>{try{let t=getComputedStyle(e.strip).transform;return t&&"none"!==t?new DOMMatrixReadOnly(t).m42:0}catch{return 0}},y=(e,t,n,a,r,l=0,i=1)=>{try{let o=e.strip.animate([{transform:"translateY("+t+"px)"},{transform:"translateY("+n+"px)"}],{duration:a,delay:l,iterations:i,easing:r,fill:"forwards"});return d.push(o),o}catch{return s=!0,null}};return{show:function({reels:l,resultText:o,round:g,fullSetSize:v,onConfirm:b}){if(s||!Array.isArray(l)||!l.length||l.some(e=>!(e&&Array.isArray(e.full)&&e.full.length&&Array.isArray(e.remaining)&&e.remaining.length&&e.full.includes(e.target)&&e.remaining.includes(e.target))))return!1;h(),e.hidden=!1,n.textContent="Round "+(g+1),a.textContent="Spin",u(!0);let w=(e=>(t.textContent="",t.dataset.count=String(e.length),e.map((e,n)=>{let a=i("div",{class:"reel-wheel"});a.appendChild(i("p",{class:"reel-label"},e.label));let r=i("div",{class:"reel-window"}),l=i("div",{class:"reel-strip","aria-hidden":"true"});return r.appendChild(l),a.appendChild(r),t.appendChild(a),{spec:e,strip:l,direction:n%2==0?1:-1,delay:180*n}})))(l),C=w.map(e=>((e,t)=>{let n=function(e){let t=e.slice();for(let e=t.length-1;e>0;e--){let n=Math.floor(Math.random()*(e+1));[t[e],t[n]]=[t[n],t[e]]}return t}([...new Set(e.spec.full)]),a=n.length,r=Math.max(a,Math.floor(t)||a),l=Math.ceil(7*r/a),o=e.direction>0?2:2+l,s=Math.max(Math.ceil(14*r/a),l+4),d=n.indexOf(e.spec.target)+o*a;for(let t=0;t<s;t++)n.forEach(t=>e.strip.appendChild(i("div",{class:"reel-item"},t)));let c=e.strip.firstChild.getBoundingClientRect().height,u=a*c,p=-(d-1)*c,m=e.spec.remaining.filter(t=>t!==e.spec.target&&n.indexOf(t)>=0),g=m.length?m[Math.floor(Math.random()*m.length)]:e.spec.target,y=n.indexOf(g)+o*a;return{cycleH:u,landY:p,landIndex:d,idleY:p-e.direction*l*u,fakeY:-(y-1)*c}})(e,v)),L=l[0].remaining.length>1&&Math.random()<.25,x=w[w.length-1].delay,k=7200+x+(L?1150+x:0),A="idle",S=()=>{if("confirm"===A||"closed"===A)return;A="confirm",h();let e=w.map((e,t)=>{let n=C[t];f(e,n.landY,!0);let a=e.strip.children[n.landIndex];return a.classList.add("reel-target"),a.textContent});n.textContent=o||e.join(" · "),a.textContent="Confirm",(()=>{let e=r.getBoundingClientRect(),n=t.getBoundingClientRect(),a=n.left-e.left+n.width/2,l=n.top-e.top+n.height/2;for(let t=0;t<24;t++){let n=i("div",{class:"confetti-bit"});n.style.background=E[t%E.length];let o=Math.random()*Math.PI*2,s=80+Math.random()*Math.min(240,.55*e.width),c=Math.cos(o)*s,u=Math.sin(o)*s-40;r.appendChild(n);try{d.push(n.animate([{transform:"translate3d("+a+"px,"+l+"px,0)",opacity:1},{transform:"translate3d("+(a+c)+"px,"+(l+u)+"px,0)",opacity:1,offset:.6},{transform:"translate3d("+(a+c)+"px,"+(l+u+280)+"px,0)",opacity:0}],{duration:1400+700*Math.random(),easing:"ease-out",fill:"forwards"}))}catch{n.remove()}}})()},M=(e,t,n,a,r)=>{let l=w.length;for(let i=0;i<w.length;i++){let o=y(w[i],e[i],t[i],n,a,w[i].delay);if(!o)return S(),!1;o.onfinish=()=>{"spin"===A&&0===--l&&r()}}return!0},B=()=>{"spin"===A&&(p(),w.forEach((e,t)=>f(e,C[t].fakeY,!1)),c.push(setTimeout(()=>{"spin"===A&&M(C.map(e=>e.fakeY),C.map(e=>e.landY),850,"cubic-bezier(0.4,0,0.15,1)",S)},300)))};e.onclick=()=>{"idle"===A?(()=>{if("idle"!==A)return;A="spin",a.textContent="Skip";let e=w.map(m);p(),w.forEach((t,n)=>f(t,e[n],!1)),c.push(setTimeout(S,k+800)),M(e,C.map(e=>L?e.fakeY:e.landY),7200,"cubic-bezier(0.16,0.9,0.22,1)",L?B:S)})():"spin"===A?S():"closed"!==A&&(A="closed",h(),e.onclick=null,b&&b(),e.hidden=!0,u(!1))},a.focus();for(let e=0;e<w.length;e++){let t=w[e],n=C[e];f(t,n.idleY,!1);let a=Math.max(400,n.cycleH/260*1e3);if(!y(t,n.idleY,n.idleY+t.direction*n.cycleH,a,"linear",-t.delay,1/0)){S();break}}return!0},isBusy:()=>o,canAnimate:()=>!(s||window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches||"function"!=typeof t.animate)}}({overlay:Re,wheels:Te,title:De,action:Ye,effects:Oe,onBusyChange:st});function Ve(e){He.forEach(t=>{t.hidden=t!==e})}function je(){Ve(O),window.scrollTo(0,0),Fe(H,"game",t.map(t=>({value:t,label:e[t].name})),L.id,t=>{L=e[t],Je()}),Je()}function ze(){Ve(q),We()}function Fe(e,t,n,a,r){e.innerHTML="",n.forEach(n=>{let l=i("label",{class:"pick"}),o=i("input",{type:"radio",name:t,value:n.value});o.checked=n.value===a,o.addEventListener("change",()=>{o.checked&&r(n.value)});let s=i("span",{class:"pick-name"},n.label);n.hint&&s.appendChild(i("span",{class:"pick-hint"},n.hint)),l.append(o,s),e.appendChild(l)})}function Je(){K.textContent=a(L.unitLabel);let e=C(L);F.hidden=!e,P.hidden=e,e?J.textContent="You have a "+L.name+" game in progress.":(k=w(L),A=L.variants?L.variants.default:null,function(){let e=L.variants;V.hidden=!e,e&&(j.textContent=e.label,Fe(z,"variant",e.options,A,e=>{A=e}))}(),Ge())}function Ge(){W.textContent=k.length,X.disabled=k.length<=L.minPlayers,$.disabled=k.length>=L.maxPlayers,_.innerHTML="";let e=a(r(L));k.forEach((t,n)=>{let a=i("li",{class:"name-row"}),r=e+" "+(n+1),l=i("button",{type:"button",class:"name-drag","aria-label":"Reorder "+r,title:"Drag to reorder"});l.appendChild(function(){let e=document.createElementNS(Ue,"svg");return Object.entries({viewBox:"0 0 20 20",width:"18",height:"18","aria-hidden":"true",focusable:"false"}).forEach(([t,n])=>e.setAttribute(t,n)),[4,9,14].forEach(t=>{let n=document.createElementNS(Ue,"rect");n.setAttribute("x","4"),n.setAttribute("y",String(t)),n.setAttribute("width","12"),n.setAttribute("height","2"),n.setAttribute("rx","1"),e.appendChild(n)}),e}()),l.addEventListener("pointerdown",e=>function(e,t){let n=t.closest(".name-row");if(!n)return;e.preventDefault();let a=e.pointerId;try{t.setPointerCapture(a)}catch{}n.classList.add("dragging");let r=e=>{if(e.pointerId!==a)return;let t=Array.prototype.filter.call(_.querySelectorAll(".name-row"),e=>e!==n).find(t=>{let n=t.getBoundingClientRect();return e.clientY<n.top+n.height/2})||null;t!==n.nextElementSibling&&_.insertBefore(n,t)},l=e=>{if(!e||e.pointerId===a){document.removeEventListener("pointermove",r),document.removeEventListener("pointerup",l),document.removeEventListener("pointercancel",l);try{t.releasePointerCapture(a)}catch{}n.classList.remove("dragging"),k=Array.from(_.querySelectorAll(".name-row input"),e=>e.value),Ge()}};document.addEventListener("pointermove",r),document.addEventListener("pointerup",l),document.addEventListener("pointercancel",l)}(e,l)),l.addEventListener("keydown",e=>function(e,t){if("ArrowUp"!==e.key&&"ArrowDown"!==e.key)return;let n=t+("ArrowUp"===e.key?-1:1);if(n<0||n>=k.length)return;e.preventDefault(),[k[t],k[n]]=[k[n],k[t]],Ge();let a=_.querySelectorAll(".name-drag");a[n]&&a[n].focus()}(e,n)),a.appendChild(l);let o=i("input",{type:"text",value:t,placeholder:r,"aria-label":r+" name",autocomplete:"off",autocapitalize:"words",autocorrect:"off",spellcheck:"false",enterkeyhint:"next"});if(o.addEventListener("input",()=>{k[n]=o.value}),d(o),a.appendChild(o),k.length>L.minPlayers){let e=i("button",{type:"button",class:"name-remove","aria-label":"Remove "+r},"×");e.addEventListener("click",()=>{k.splice(n,1),Ge()}),a.appendChild(e)}_.appendChild(a)})}var Ue="http://www.w3.org/2000/svg";function Ke(e){if("fixed"===L.rounds.kind)return L.rounds.count;let t=-1;x.players.forEach(e=>{t=Math.max(t,n(x.scores[e.id]||[]))});let a=t+1;return e&&null!=e.finalRound?e.finalRound+1:e&&"inProgress"!==e.phase?a:a+1}function We(){let{totals:e,status:t}=T();Z.textContent=L.name,re.textContent=function(){let e="low"===L.winDirection?"Lowest":"Highest",t=L.name+" score sheet. "+e+" total wins";return null!=L.target&&(t+="; first to "+L.target),t+"."}(),le.dataset.entry=L.entry,Xe(t),ie.innerHTML="",ie.appendChild(i("th",{class:"round-col corner",scope:"col"},"hand"===L.entry?"Hand":"Round")),x.players.forEach((e,t)=>{let n=i("th",{class:"player-col",scope:"col","data-pid":e.id}),l=i("input",{type:"text",class:"name-input",value:e.name,"aria-label":a(r(L))+" "+(t+1)+" name",autocomplete:"off",autocapitalize:"words",autocorrect:"off",spellcheck:"false",enterkeyhint:"done"});l.addEventListener("input",()=>{e.name=l.value,$e(e)}),l.addEventListener("blur",()=>{""===l.value.trim()&&(e.name=a(r(L))+" "+(t+1),l.value=e.name,$e(e))}),n.appendChild(l),ie.appendChild(n)}),function(e){if(oe.innerHTML="","hand"===L.entry)!function(){let e=x.hands||[];if(e.forEach((e,t)=>{let n=L.handSummary(e,x.players),a=i("tr",{"data-hand":String(t)}),r=i("th",{class:"round-col hand-head",scope:"row"}),l=i("button",{type:"button",class:"hand-edit","aria-label":"Edit hand "+(t+1)+", "+n});l.appendChild(i("span",{class:"round-num"},"Hand "+(t+1))),l.appendChild(i("span",{class:"wild"},n)),l.addEventListener("click",()=>mt(t)),r.appendChild(l),a.appendChild(r),x.players.forEach(t=>{let n=i("td",{class:"score-cell delta-cell"}),r=e.deltas?e.deltas[t.id]:void 0;null!=r&&(n.textContent=(r>0?"+":"")+r,r<0&&n.classList.add("neg")),a.appendChild(n)}),oe.appendChild(a)}),0===e.length){let e=i("tr"),t=i("td",{class:"empty-hint",colspan:String(x.players.length+1)},'No hands yet. Tap "Score hand" to record one.');e.appendChild(t),oe.appendChild(e)}}();else{let t=Ke(e);for(let e=0;e<t;e++)oe.appendChild(tt(e))}}(t),se.innerHTML="",se.appendChild(i("th",{class:"round-col",scope:"row"},"Total")),x.players.forEach(e=>{se.appendChild(i("td",{class:"total-cell","data-pid":e.id}))}),nt(e,t),!q.hidden&&!Pe.isBusy()&&0===ot()&&it(0)}function Xe(e){let t="inProgress"===e.phase,n="complete"===e.phase||"out"===e.phase;ne.textContent="+ "+a(r(L)),ne.hidden=!t,ee.hidden=!("hand"===L.entry&&t),te.hidden=!n,st()}function $e(e){B(),"hand"===L.entry?function(){if("hand"!==L.entry)return;let e=x.hands||[];oe.querySelectorAll("tr[data-hand]").forEach(t=>{let n=Number(t.getAttribute("data-hand")),a=e[n];if(!a)return;let r=L.handSummary(a,x.players),l=t.querySelector(".hand-edit");if(!l)return;l.setAttribute("aria-label","Edit hand "+(n+1)+", "+r);let i=l.querySelector(".wild");i&&(i.textContent=r)})}():function(e){let t=I(e);t&&oe.querySelectorAll('.score-input[data-pid="'+e+'"]').forEach(e=>{let n=Number(e.getAttribute("data-round"));e.setAttribute("aria-label",Ze(t.name,L.roundLabel(n,x)))})}(e.id),nt()}function _e(e){e.scrollIntoView({block:"nearest",inline:"nearest"})}function Qe(e){let t=e.closest("tr");return t?Array.from(t.querySelectorAll(".score-input")):[e]}function Ze(e,t){let n=[];return t.cards&&!t.cardsMasked&&!t.cardsReady&&n.push(t.cards),t.sub&&!t.masked&&!t.ready&&n.push(t.sub+" wild"),e+", round "+t.num+(n.length?", "+n.join(", "):"")+" score"}function et(e,t,n=L.roundLabel(t,x)){let a=e.querySelector(".round-col");a&&function(e,t){let n=e.querySelector(".cards");if(t.cards){if(!n){n=i("span",{class:"cards"});let t=e.querySelector(".round-num");t?t.insertAdjacentElement("afterend",n):e.appendChild(n)}n.textContent=t.cards.replace(/ cards$/," 🂠"),n.setAttribute("aria-label",t.cards),n.classList.toggle("cards-masked",!!t.cardsMasked),n.classList.toggle("cards-ready",!!t.cardsReady)}else n&&n.remove();let a=e.querySelector(".wild");t.sub?(a||(a=i("span",{class:"wild"}),e.appendChild(a)),a.textContent=t.sub,a.classList.toggle("wild-masked",!!t.masked),a.classList.toggle("wild-ready",!!t.ready)):a&&a.remove();let r=!!t.ready;e.classList.toggle("round-ready",r),r?(e.dataset.ready="1",e.setAttribute("role","button"),e.setAttribute("tabindex","0"),e.setAttribute("aria-label","Reveal the "+Y()+" for round "+t.num)):(delete e.dataset.ready,e.removeAttribute("role"),e.removeAttribute("tabindex"),e.removeAttribute("aria-label"))}(a,n);let r=!!n.masked||!!n.ready;e.querySelectorAll(".score-input").forEach(e=>{e.disabled=r;let t=I(e.getAttribute("data-pid"));t&&e.setAttribute("aria-label",Ze(t.name,n))})}function tt(e){let t=L.roundLabel(e,x),n=i("tr",{"data-round":String(e)}),a=i("th",{class:"round-col",scope:"row"});return a.appendChild(i("span",{class:"round-num"},t.num)),n.appendChild(a),x.players.forEach(t=>{let a=i("td",{class:"score-cell"}),r=i("input",{type:"text",inputmode:"numeric",pattern:"[0-9]*",enterkeyhint:"next",class:"score-input","data-pid":t.id,"data-round":String(e)}),l=(x.scores[t.id]||[])[e];r.value=null==l?"":String(l),r.addEventListener("input",()=>{let n=o(r.value);n!==r.value&&(r.value=n),function(e,t,n){Array.isArray(x.scores[e])||(x.scores[e]=[]);let a=x.scores[e];for(;a.length<=t;)a.push(null);a[t]=n,B()}(t.id,e,""===n?null:parseInt(n,10)),function(){let{totals:e,status:t}=T();Xe(t),nt(e,t);let n=Ke(t);for(;oe.children.length<n;)oe.appendChild(tt(oe.children.length));for(;oe.children.length>n&&!oe.lastChild.contains(document.activeElement);)oe.removeChild(oe.lastChild);at()}()}),r.addEventListener("focus",()=>_e(r)),r.addEventListener("keydown",e=>{"Enter"===e.key&&(e.preventDefault(),function(e){let t=function(e){let t=Qe(e),n=t.indexOf(e);for(let e=1;e<t.length;e++){let a=(n+e)%t.length;if(""===t[a].value)return a}return null}(e);null!=t?Qe(e)[t].focus():e.blur()}(r))}),d(r),a.appendChild(r),n.appendChild(a)}),et(n,e,t),n}function nt(e,t){if(!e||!t){let n=T();e=n.totals,t=n.status}x.players.forEach(a=>{let r=se.querySelector('.total-cell[data-pid="'+a.id+'"]');if(!r)return;let l=e[a.id],o=-1!==t.leaders.indexOf(a.id);r.textContent="",r.appendChild(document.createTextNode(String(l))),r.classList.toggle("leader",o),r.classList.toggle("neg",L.allowNegative&&l<0),o&&(r.appendChild(i("span",{class:"leader-mark","aria-hidden":"true"},"♛")),r.appendChild(i("span",{class:"visually-hidden"}," leader"))),L.onBoardMin&&0===l&&n(x.scores[a.id]||[])>=0&&r.appendChild(i("span",{class:"needs",title:"Needs "+L.onBoardMin+" in a single turn to get on the board"},"needs "+L.onBoardMin))}),de.className="winner-banner phase-"+t.phase,t.text?(de.hidden=!1,de.textContent=t.text):(de.hidden=!0,de.textContent="")}function at(){D()&&(Array.prototype.forEach.call(oe.children,e=>{let t=Number(e.getAttribute("data-round"));Number.isNaN(t)||et(e,t)}),st())}function rt(e){x.revealedCount=Math.max(Math.floor(x.revealedCount||0),e+1),B(),at()}function lt(e,t){let n=e.slice(t);return n[0].reels.map((r,o)=>({label:r.label,full:e.map(a=>a.reels[o].value),remaining:n.map(a=>a.reels[o].value),target:r.value}))}function it(e){if(Pe.isBusy()||!D())return;let t=L.roundLabel(e,x),n="function"==typeof L.revealItems?L.revealItems(x):[],a=n[e];t.ready&&a&&Array.isArray(a.reels)&&0!==a.reels.length&&(Pe.canAnimate()&&Pe.show({reels:lt(n,e),resultText:a.result,round:e,fullSetSize:n.length,onConfirm:()=>rt(e)})||rt(e))}function ot(){if(!D())return-1;let e="fixed"===L.rounds.kind?L.rounds.count:0,t=Math.max(0,Math.min(e,Math.floor(x.revealedCount||0)));return t<e&&L.roundLabel(t,x).ready?t:-1}function st(){let e=ot()>=0&&!Pe.isBusy()&&!q.hidden;qe.textContent="Reveal "+Y(),qe.hidden=!D(),qe.disabled=!e,qe.classList.toggle("reveal-unavailable",!e)}function dt(){let e=parseInt(o(fe.value),10)||0,t=L.target,n=null!=t&&e>=t;return me.hidden=null==t,me.classList.toggle("error",n),null!=t&&(me.textContent=(n?"Starting score must":"Must")+" be less than "+t+"."),ye.disabled=n,!n}function ct(e,t){e.returnValue="",e.showModal(),t&&t.focus()}var ut={el:i,chip:function(e,t,n,a){let r=i("button",{type:"button",class:"chip"+(t?" selected":""),"aria-pressed":t?"true":"false"},e);return a&&r.setAttribute("aria-label",a),r.addEventListener("click",n),r},labeledStepper:function(e,t,n,a,r){let l=i("div",{class:"hand-stepper"});l.appendChild(i("span",{class:"hand-stepper-label"},e));let o=i("div",{class:"stepper"}),d=i("button",{type:"button",class:"step-btn","aria-label":"Decrease "+e},"−"),c=i("output",{},String(t)),u=i("button",{type:"button",class:"step-btn","aria-label":"Increase "+e},"+");return d.disabled=t<=n,u.disabled=t>=a,d.addEventListener("click",()=>r(s(t-1,n,a))),u.addEventListener("click",()=>r(s(t+1,n,a))),o.appendChild(d),o.appendChild(c),o.appendChild(u),l.appendChild(o),l}};function pt(){Se.innerHTML="",L.hand.build(Se,M,x.players,ut,ht)}function ht(){pt(),ft()}function ft(){let e=L.hand.validate(M,x.players);Ie.disabled=!e.valid,Me.textContent=e.message}function mt(e){null==e&&x.players.length<2||(S=e,M=null!=e?L.hand.draftFromRecord(x.hands[e]):L.hand.newDraft(x.players),Ae.textContent=null!=e?"Edit hand "+(e+1):"Score hand",Be.hidden=null==e,pt(),ft(),ct(ke,Se.querySelector(".chip")))}function yt(e){if(e>=0){let t=oe.querySelector('tr[data-hand="'+e+'"] .hand-edit');if(t)return void t.focus()}ee.hidden||ee.focus()}function gt(e,t,n,a){t.addEventListener("click",()=>e.close("cancel")),n&&e.addEventListener("close",()=>n(e.returnValue)),a&&e.addEventListener("click",t=>{if(t.target!==e)return;let n=e.getBoundingClientRect();(t.clientX<n.left||t.clientX>n.right||t.clientY<n.top||t.clientY>n.bottom)&&e.close("cancel")})}$.addEventListener("click",()=>{k.length<L.maxPlayers&&(k.push(N(k)),Ge())}),X.addEventListener("click",()=>{k.length>L.minPlayers&&(k.pop(),Ge())}),Q.addEventListener("click",function(){(x=l(L)).started=!0,L.variants&&Object.assign(x,L.initVariant(A)),k.forEach(e=>R(e,0)),B(),ze()}),G.addEventListener("click",function(){x=g(L),ze()}),U.addEventListener("click",()=>ct(ve)),ce.addEventListener("submit",e=>e.preventDefault()),oe.addEventListener("click",e=>{let t=e.target.closest?e.target.closest('.round-col[data-ready="1"]'):null;t&&it(Number(t.closest("tr").getAttribute("data-round")))}),oe.addEventListener("keydown",e=>{if("Enter"!==e.key&&" "!==e.key&&"Spacebar"!==e.key)return;let t=e.target.closest?e.target.closest('.round-col[data-ready="1"]'):null;t&&(e.preventDefault(),it(Number(t.closest("tr").getAttribute("data-round"))))}),qe.addEventListener("click",()=>{let e=ot();e>=0&&it(e)}),ne.addEventListener("click",function(){pe.textContent="Add "+r(L),he.value=N(x.players.map(e=>e.name)),fe.value="0",dt(),ct(ue,he)}),te.addEventListener("click",function(){let e=x.players.map(e=>({id:e.id,name:e.name,seed:0})),t=l(L);t.started=!0,t.players=e,t.nextId=x.nextId,L.variants&&x.variant&&Object.assign(t,L.initVariant(x.variant)),e.forEach(e=>{"cell"===L.entry&&(t.scores[e.id]="fixed"===L.rounds.kind?new Array(L.rounds.count).fill(null):[])}),x=t,B(),We()}),ee.addEventListener("click",()=>mt(null)),fe.addEventListener("input",()=>{fe.value=o(fe.value),dt()}),ae.addEventListener("click",()=>ct(Ce)),Ee.addEventListener("click",()=>{Ce.close("cancel"),B(),je()}),Le.addEventListener("click",()=>{Ce.close("cancel"),ct(ve)}),we.addEventListener("click",()=>ve.close("ok")),Be.addEventListener("click",()=>ke.close("delete")),gt(ue,ge,e=>{"add"!==e||!dt()||(R(he.value,parseInt(o(fe.value),10)||0),B(),We())},!0),gt(Ce,xe,null,!0),gt(ve,be,e=>{"ok"===e&&(x=l(L),B(),k=w(L),je())},!1),gt(ke,Ne,e=>{"save"===e?function(){let e=null!=S?x.hands[S].id:null,t=L.hand.toRecord(M,x.players,e);null!=S?x.hands[S]=t:x.hands.push(t),B();let n=S??x.hands.length-1;We(),yt(n)}():"delete"===e&&null!=S&&(x.hands.splice(S,1),B(),We(),yt(Math.min(S,x.hands.length-1)))},!0),function(e){let t=()=>{let e=window.visualViewport,t=e?Math.max(0,window.innerHeight-e.height-e.offsetTop):0;document.documentElement.style.setProperty("--keyboard-height",t+"px")};window.visualViewport&&(window.visualViewport.addEventListener("resize",()=>{t();let n=document.activeElement;n&&n.classList&&n.classList.contains("score-input")&&e(n)}),window.visualViewport.addEventListener("scroll",t)),window.addEventListener("orientationchange",t),t()}(_e),function(){let e=window.HTMLDialogElement&&HTMLDialogElement.prototype;if(e&&"function"==typeof e.showModal)return;document.documentElement.classList.add("no-dialog");let t=0;function n(){this.hasAttribute("open")||(this.setAttribute("open",""),t++,document.documentElement.classList.add("has-open-dialog"))}function a(e){this.hasAttribute("open")&&(void 0!==e&&(this.returnValue=e),this.removeAttribute("open"),t=Math.max(0,t-1),t||document.documentElement.classList.remove("has-open-dialog"),this.dispatchEvent(new Event("close")))}Array.prototype.forEach.call(document.querySelectorAll("dialog"),e=>{e.showModal=n,e.show=n,e.close=a,(!("returnValue"in e)||"string"!=typeof e.returnValue)&&(e.returnValue=""),e.addEventListener("click",t=>{let n=t.target&&t.target.closest?t.target.closest("button"):null,a=n&&e.contains(n)?n.form:null;!a||"dialog"!==a.getAttribute("method")||"submit"!==n.type&&n.type||(t.preventDefault(),e.close(n.value||""))})})}(),navigator.storage&&"function"==typeof navigator.storage.persist&&navigator.storage.persist().catch(()=>{}),C(L=e[function(e){let t=null;try{t=localStorage.getItem(m)}catch{}return t&&e[t]?t:"fivecrowns"}(e)])?(x=g(L),ze()):(x=l(L),k=w(L),je());
+import { GAMES, GAME_ORDER, lastFilledIndex, cap, unitSingular } from './games.js';
+import { defaultState } from './state.js';
+import { el, refs, onlyDigits, clamp, selectAllOnEdit } from './lib/dom.js';
+import {
+  loadGame, saveGame, recalledNames, nextRecalledName as recalledNextName, lastGameId, hasStartedSave,
+} from './lib/storage.js';
+import { installViewport, installDialogFallback } from './lib/platform.js';
+import { DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel } from './reel.js';
+const CARD_GLYPH = '\u{1F0A0}';
+const DEBUG_TAP_TARGET = 5; // deliberate enough to avoid accidental entry
+/* ---------- state ---------- */
+let activeGame = null; let state = null; let setupNames = []; let setupVariant = null; let handEditIndex = null; let handDraft = null; let fiveCrownsDebugTaps = 0;
+function save() { saveGame(activeGame, state); }
+function nextRecalledName(names) { return recalledNextName(activeGame, names); }
+
+/* ---------- state helpers ---------- */
+function playerById(id) { return state.players.find((p) => p.id === id); }
+function nameOf(id) { const p = playerById(id); return p ? p.name : id; }
+function addPlayerToState(name, seed) {
+  const id = 'p' + state.nextId++; const clean = (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (state.players.length + 1);
+  state.players.push({ id, name: clean, seed: seed || 0 });
+  if (activeGame.entry === 'cell') {
+    state.scores[id] = activeGame.rounds.kind === 'fixed'
+      ? new Array(activeGame.rounds.count).fill(null)
+      : [];
+  }
+  return id;
+}
+function setScore(pid, round, value) {
+  if (!Array.isArray(state.scores[pid])) state.scores[pid] = []; const arr = state.scores[pid]; while (arr.length <= round) arr.push(null); arr[round] = value; save();
+}
+function resolve() { return activeGame.resolve(state.players, state); }
+function usesRoundReveal() {
+  return !!(activeGame && state && Array.isArray(activeGame.revealVariants)
+    && activeGame.revealVariants.indexOf(state.variant) !== -1);
+}
+function revealNoun() {
+  return typeof activeGame.revealNoun === 'function' ? activeGame.revealNoun(state) : 'round';
+}
+const {
+  setupScreen, gameScreen, debugScreen, gamePicker: picker, setupFresh, variantControl, variantLegend,
+  variantOptions, setupResume, resumeNote, resumeBtn, newFromSetupBtn, countLabel, playersCount,
+  playersDec, playersInc, nameList, startBtn, debugControls, debugBack, debugSpin: debugSpinBtn,
+  debugReset, debugStatus, gameName, scoreHandBtn: headerScoreHandBtn, playAgainBtn, addBtn, menuBtn,
+  tableCaption: caption, scoreTable, headRow, scoreBody, totalRow, winnerBanner, scoreForm, addDialog,
+  addTitle, addName, addSeed, addHint, addConfirm, addCancel, confirmDialog, confirmCancel, confirmOk,
+  menuDialog, switchBtn, newgameBtn, menuClose, handDialog, handTitle, handBody, handPreview,
+  handDelete: handDeleteBtn, handCancel, handSave, reelOverlay, reelWheels, reelTitle, reelAction,
+  reelEffects, revealWildBtn,
+} = refs(`
+  setup-screen game-screen debug-screen game-picker setup-fresh variant-control variant-legend
+  variant-options setup-resume resume-note resume-btn new-from-setup-btn count-label players-count
+  players-dec players-inc name-list start-btn debug-controls debug-back debug-spin debug-reset debug-status
+  game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
+  total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel
+  confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
+  hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title
+  reel-action reel-effects reveal-wild-btn
+`); const screens = [setupScreen, gameScreen, debugScreen];
+const reel = createReel({
+  overlay: reelOverlay, wheels: reelWheels, title: reelTitle, action: reelAction,
+  effects: reelEffects, onBusyChange: updateRevealButton,
+});
+function showOnly(screen) { screens.forEach((node) => { node.hidden = node !== screen; }); }
+function showSetup() { fiveCrownsDebugTaps = 0; showOnly(setupScreen); window.scrollTo(0, 0); renderPicker(); refreshSetupView(); }
+function showGame() { showOnly(gameScreen); renderGame(); }
+function showDebug() { showOnly(debugScreen); window.scrollTo(0, 0); syncDebugControls(); debugStatus.textContent = 'Ready.'; }
+function renderChoices(container, group, options, selected, onChange, onTap) {
+  container.innerHTML = '';
+  options.forEach((option) => {
+    const label = el('label', { class: 'pick' }); const input = el('input', { type: 'radio', name: group, value: option.value }); input.checked = option.value === selected;
+    input.addEventListener('change', () => { if (input.checked) onChange(option.value); }); const name = el('span', { class: 'pick-name' }, option.label);
+    if (option.hint) name.appendChild(el('span', { class: 'pick-hint' }, option.hint)); if (onTap) name.addEventListener('click', (e) => onTap(option.value, e));
+    label.append(input, name); container.appendChild(label);
+  });
+}
+function registerDebugTap(id, event) {
+  fiveCrownsDebugTaps = id === 'fivecrowns' ? fiveCrownsDebugTaps + 1 : 0; if (fiveCrownsDebugTaps < DEBUG_TAP_TARGET) return; fiveCrownsDebugTaps = 0; event.preventDefault();
+  showDebug();
+}
+function renderPicker() {
+  renderChoices(
+    picker,
+    'game',
+    GAME_ORDER.map((id) => ({ value: id, label: GAMES[id].name })),
+    activeGame.id,
+    (id) => { activeGame = GAMES[id]; refreshSetupView(); },
+    registerDebugTap,
+  );
+}
+function renderVariantControl() {
+  const spec = activeGame.variants; variantControl.hidden = !spec; if (!spec) return; variantLegend.textContent = spec.label;
+  renderChoices(variantOptions, 'variant', spec.options, setupVariant, (value) => { setupVariant = value; });
+}
+function refreshSetupView() {
+  countLabel.textContent = cap(activeGame.unitLabel); const resumable = hasStartedSave(activeGame);
+  setupResume.hidden = !resumable; setupFresh.hidden = resumable;
+  if (resumable) { resumeNote.textContent = 'You have a ' + activeGame.name + ' game in progress.'; return; }
+  setupNames = recalledNames(activeGame); setupVariant = activeGame.variants ? activeGame.variants.default : null;
+  renderVariantControl(); renderNameList();
+}
+function renderNameList() {
+  playersCount.textContent = setupNames.length; playersDec.disabled = setupNames.length <= activeGame.minPlayers; playersInc.disabled = setupNames.length >= activeGame.maxPlayers;
+  nameList.innerHTML = ''; const unit = cap(unitSingular(activeGame));
+  setupNames.forEach((nm, i) => {
+    const li = el('li', { class: 'name-row' }); const field = unit + ' ' + (i + 1);
+    const grip = el('button', {
+      type: 'button', class: 'name-drag', 'aria-label': 'Reorder ' + field, title: 'Drag to reorder',
+    }); grip.appendChild(dragIcon()); grip.addEventListener('pointerdown', (e) => startRowDrag(e, grip)); grip.addEventListener('keydown', (e) => moveRowByKey(e, i));
+    li.appendChild(grip);
+    const input = el('input', {
+      type: 'text', value: nm, placeholder: field, 'aria-label': field + ' name',
+      autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off',
+      spellcheck: 'false', enterkeyhint: 'next',
+    }); input.addEventListener('input', () => { setupNames[i] = input.value; }); selectAllOnEdit(input); li.appendChild(input);
+    if (setupNames.length > activeGame.minPlayers) {
+      const rm = el('button', {
+        type: 'button', class: 'name-remove', 'aria-label': 'Remove ' + field,
+      }, '\u00d7'); rm.addEventListener('click', () => { setupNames.splice(i, 1); renderNameList(); }); li.appendChild(rm);
+    }
+    nameList.appendChild(li);
+  });
+}
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function dragIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  Object.entries({
+    viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', focusable: 'false',
+  }).forEach(([name, value]) => svg.setAttribute(name, value));
+  [4, 9, 14].forEach((y) => {
+    const r = document.createElementNS(SVG_NS, 'rect'); r.setAttribute('x', '4'); r.setAttribute('y', String(y));
+    r.setAttribute('width', '12'); r.setAttribute('height', '2'); r.setAttribute('rx', '1'); svg.appendChild(r);
+  }); return svg;
+}
+function commitNameOrder() { setupNames = Array.from(nameList.querySelectorAll('.name-row input'), (input) => input.value); }
+// Pointer capture keeps touch reordering active if the drag leaves the handle.
+function startRowDrag(e, grip) {
+  const li = grip.closest('.name-row'); if (!li) return; e.preventDefault(); const pid = e.pointerId;
+  try { grip.setPointerCapture(pid); } catch (_) { /* unsupported */ }
+  li.classList.add('dragging');
+  const move = (ev) => {
+    if (ev.pointerId !== pid) return; const rows = Array.prototype.filter.call(nameList.querySelectorAll('.name-row'), (o) => o !== li);
+    const before = rows.find((o) => {
+      const r = o.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2;
+    }) || null; if (before !== li.nextElementSibling) nameList.insertBefore(li, before);
+  };
+  const end = (ev) => {
+    if (ev && ev.pointerId !== pid) return; document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', end);
+    document.removeEventListener('pointercancel', end);
+    try { grip.releasePointerCapture(pid); } catch (_) { /* already released */ }
+    li.classList.remove('dragging'); commitNameOrder(); renderNameList();
+  }; document.addEventListener('pointermove', move); document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+}
+function moveRowByKey(e, i) {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return; const j = i + (e.key === 'ArrowUp' ? -1 : 1); if (j < 0 || j >= setupNames.length) return; e.preventDefault();
+  [setupNames[i], setupNames[j]] = [setupNames[j], setupNames[i]]; renderNameList(); const grips = nameList.querySelectorAll('.name-drag'); if (grips[j]) grips[j].focus();
+}
+
+/* ---------- game rendering ---------- */
+function captionText() {
+  const dir = activeGame.winDirection === 'low' ? 'Lowest' : 'Highest'; let t = activeGame.name + ' score sheet. ' + dir + ' total wins';
+  if (activeGame.target != null) t += '; first to ' + activeGame.target; return t + '.';
+}
+function cornerLabel() { return activeGame.entry === 'hand' ? 'Hand' : 'Round'; }
+function cellRowCount(st) {
+  if (activeGame.rounds.kind === 'fixed') return activeGame.rounds.count; let lastFilled = -1;
+  state.players.forEach((p) => { lastFilled = Math.max(lastFilled, lastFilledIndex(state.scores[p.id] || [])); }); const started = lastFilled + 1;
+  if (st && st.finalRound != null) return st.finalRound + 1;        // capped final round (Greed)
+  if (!st || st.phase === 'inProgress') return started + 1;          // trailing empty row
+  return started;
+}
+function renderGame() {
+  const { totals, status } = resolve(); gameName.textContent = activeGame.name; caption.textContent = captionText(); scoreTable.dataset.entry = activeGame.entry;
+  renderHeaderActions(status); buildHead(); buildBody(status); buildFoot(); updateTotalsAndBanner(totals, status); maybeAutoReveal();
+}
+function renderHeaderActions(st) {
+  const inProgress = st.phase === 'inProgress'; const ended = st.phase === 'complete' || st.phase === 'out'; addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
+  addBtn.hidden = !inProgress; headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress); playAgainBtn.hidden = !ended; updateRevealButton();
+}
+function playerNameChanged(player) { save(); if (activeGame.entry === 'hand') refreshHandLabels(); else refreshScoreLabels(player.id); updateTotalsAndBanner(); }
+function buildHead() {
+  headRow.innerHTML = ''; headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, cornerLabel()));
+  state.players.forEach((p, i) => {
+    const th = el('th', { class: 'player-col', scope: 'col', 'data-pid': p.id });
+    const input = el('input', {
+      type: 'text', class: 'name-input', value: p.name,
+      'aria-label': cap(unitSingular(activeGame)) + ' ' + (i + 1) + ' name',
+      autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off',
+      spellcheck: 'false', enterkeyhint: 'done',
+    }); input.addEventListener('input', () => { p.name = input.value; playerNameChanged(p); });
+    input.addEventListener('blur', () => {
+      if (input.value.trim() !== '') return; p.name = cap(unitSingular(activeGame)) + ' ' + (i + 1); input.value = p.name; playerNameChanged(p);
+    }); th.appendChild(input); headRow.appendChild(th);
+  });
+}
+// Re-run browser scrolling after focus or an iOS visual-viewport resize.
+function revealScoreInput(input) {
+  input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+/* ---------- score-entry advance ---------- */
+// Hardware Enter stays in the round; iOS uses the form's native Previous/Next bar.
+function scoreCellsInRow(input) { const tr = input.closest('tr'); return tr ? Array.from(tr.querySelectorAll('.score-input')) : [input]; }
+function nextScoreCol(input) {
+  const cells = scoreCellsInRow(input); const cur = cells.indexOf(input);
+  for (let i = 1; i < cells.length; i++) { const j = (cur + i) % cells.length; if (cells[j].value === '') return j; }
+  return null;
+}
+function advanceFrom(input) {
+  const target = nextScoreCol(input);
+  if (target == null) { input.blur(); return; }
+  scoreCellsInRow(input)[target].focus();
+}
+function scoreCellLabel(name, label) {
+  // Hidden details are not spoken, so screen readers do not spoil the reveal.
+  const details = []; if (label.cards && !label.cardsMasked && !label.cardsReady) details.push(label.cards);
+  if (label.sub && !label.masked && !label.ready) details.push(label.sub + ' wild');
+  return name + ', round ' + label.num + (details.length ? ', ' + details.join(', ') : '') + ' score';
+}
+function refreshScoreLabels(pid) {
+  const p = playerById(pid); if (!p) return;
+  scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
+    const r = Number(input.getAttribute('data-round')); input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r, state)));
+  });
+}
+function refreshHandLabels() {
+  if (activeGame.entry !== 'hand') return; const hands = state.hands || [];
+  scoreBody.querySelectorAll('tr[data-hand]').forEach((tr) => {
+    const i = Number(tr.getAttribute('data-hand')); const hand = hands[i]; if (!hand) return; const summary = activeGame.handSummary(hand, state.players);
+    const btn = tr.querySelector('.hand-edit'); if (!btn) return; btn.setAttribute('aria-label', 'Edit hand ' + (i + 1) + ', ' + summary); const wild = btn.querySelector('.wild');
+    if (wild) wild.textContent = summary;
+  });
+}
+function buildBody(st) {
+  scoreBody.innerHTML = '';
+  if (activeGame.entry === 'hand') {
+    buildHandRows();
+  } else { const rows = cellRowCount(st); for (let r = 0; r < rows; r++) scoreBody.appendChild(buildCellRow(r)); }
+}
+function applyRoundHeader(th, label) {
+  let cards = th.querySelector('.cards');
+  if (label.cards) {
+    if (!cards) {
+      cards = el('span', { class: 'cards' }); const num = th.querySelector('.round-num'); if (num) num.insertAdjacentElement('afterend', cards); else th.appendChild(cards);
+    }
+    cards.textContent = label.cards.replace(/ cards$/, ' ' + CARD_GLYPH); cards.setAttribute('aria-label', label.cards);
+    cards.classList.toggle('cards-masked', !!label.cardsMasked); cards.classList.toggle('cards-ready', !!label.cardsReady);
+  } else if (cards) { cards.remove(); }
+  let wild = th.querySelector('.wild');
+  if (label.sub) {
+    if (!wild) { wild = el('span', { class: 'wild' }); th.appendChild(wild); }
+    wild.textContent = label.sub; wild.classList.toggle('wild-masked', !!label.masked); wild.classList.toggle('wild-ready', !!label.ready);
+  } else if (wild) { wild.remove(); }
+  const ready = !!label.ready; th.classList.toggle('round-ready', ready);
+  if (ready) {
+    th.dataset.ready = '1'; th.setAttribute('role', 'button'); th.setAttribute('tabindex', '0');
+    th.setAttribute('aria-label', 'Reveal the ' + revealNoun() + ' for round ' + label.num);
+  } else { delete th.dataset.ready; th.removeAttribute('role'); th.removeAttribute('tabindex'); th.removeAttribute('aria-label'); }
+}
+function applyRoundRow(tr, r, label = activeGame.roundLabel(r, state)) {
+  const th = tr.querySelector('.round-col'); if (th) applyRoundHeader(th, label); const lock = !!label.masked || !!label.ready;
+  tr.querySelectorAll('.score-input').forEach((inp) => {
+    inp.disabled = lock; const p = playerById(inp.getAttribute('data-pid')); if (p) inp.setAttribute('aria-label', scoreCellLabel(p.name, label));
+  });
+}
+function buildCellRow(r) {
+  const label = activeGame.roundLabel(r, state); const tr = el('tr', { 'data-round': String(r) }); const rh = el('th', { class: 'round-col', scope: 'row' });
+  rh.appendChild(el('span', { class: 'round-num' }, label.num)); tr.appendChild(rh);
+  state.players.forEach((p) => {
+    const td = el('td', { class: 'score-cell' });
+    const input = el('input', {
+      type: 'text',
+      inputmode: 'numeric',
+      pattern: '[0-9]*',
+      enterkeyhint: 'next',
+      class: 'score-input',
+      'data-pid': p.id,
+      'data-round': String(r),
+    }); const arr = state.scores[p.id] || []; const v = arr[r]; input.value = v == null ? '' : String(v);
+    input.addEventListener('input', () => {
+      const digits = onlyDigits(input.value); if (digits !== input.value) input.value = digits; setScore(p.id, r, digits === '' ? null : parseInt(digits, 10)); handleCellChange();
+    }); input.addEventListener('focus', () => revealScoreInput(input));
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return; e.preventDefault(); advanceFrom(input);
+    }); selectAllOnEdit(input); td.appendChild(input); tr.appendChild(td);
+  }); applyRoundRow(tr, r, label); return tr;
+}
+function buildHandRows() {
+  const hands = state.hands || [];
+  hands.forEach((hand, i) => {
+    const summary = activeGame.handSummary(hand, state.players); const tr = el('tr', { 'data-hand': String(i) }); const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
+    const btn = el('button', { type: 'button', class: 'hand-edit', 'aria-label': 'Edit hand ' + (i + 1) + ', ' + summary });
+    btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1))); btn.appendChild(el('span', { class: 'wild' }, summary));
+    btn.addEventListener('click', () => openHandDialog(i)); rh.appendChild(btn); tr.appendChild(rh);
+    state.players.forEach((p) => {
+      const td = el('td', { class: 'score-cell delta-cell' }); const d = hand.deltas ? hand.deltas[p.id] : undefined;
+      if (d != null) { td.textContent = (d > 0 ? '+' : '') + d; if (d < 0) td.classList.add('neg'); }
+      tr.appendChild(td);
+    }); scoreBody.appendChild(tr);
+  });
+  if (hands.length === 0) {
+    const tr = el('tr');
+    const td = el('td', { class: 'empty-hint', colspan: String(state.players.length + 1) },
+      'No hands yet. Tap "Score hand" to record one.');
+    tr.appendChild(td); scoreBody.appendChild(tr);
+  }
+}
+function buildFoot() {
+  totalRow.innerHTML = ''; totalRow.appendChild(el('th', { class: 'round-col', scope: 'row' }, 'Total'));
+  state.players.forEach((p) => {
+    totalRow.appendChild(el('td', { class: 'total-cell', 'data-pid': p.id }));
+  });
+}
+function updateTotalsAndBanner(totals, st) {
+  if (!totals || !st) { const r = resolve(); totals = r.totals; st = r.status; }
+  state.players.forEach((p) => {
+    const cell = totalRow.querySelector('.total-cell[data-pid="' + p.id + '"]'); if (!cell) return; const t = totals[p.id]; const isLeader = st.leaders.indexOf(p.id) !== -1;
+    cell.textContent = ''; cell.appendChild(document.createTextNode(String(t))); cell.classList.toggle('leader', isLeader);
+    cell.classList.toggle('neg', activeGame.allowNegative && t < 0);
+    if (isLeader) {
+      cell.appendChild(el('span', { class: 'leader-mark', 'aria-hidden': 'true' }, '\u265B')); cell.appendChild(el('span', { class: 'visually-hidden' }, ' leader'));
+    }
+    if (activeGame.onBoardMin && t === 0 && lastFilledIndex(state.scores[p.id] || []) >= 0) {
+      cell.appendChild(el('span', {
+        class: 'needs',
+        title: 'Needs ' + activeGame.onBoardMin + ' in a single turn to get on the board',
+      }, 'needs ' + activeGame.onBoardMin));
+    }
+  }); winnerBanner.className = 'winner-banner phase-' + st.phase;
+  if (st.text) {
+    winnerBanner.hidden = false; winnerBanner.textContent = st.text;
+  } else { winnerBanner.hidden = true; winnerBanner.textContent = ''; }
+}
+// Update in place so the keystroke that changes the game state keeps focus.
+function handleCellChange() {
+  const { totals, status } = resolve(); renderHeaderActions(status); updateTotalsAndBanner(totals, status); const want = cellRowCount(status);
+  while (scoreBody.children.length < want) scoreBody.appendChild(buildCellRow(scoreBody.children.length));
+  while (scoreBody.children.length > want
+    && !scoreBody.lastChild.contains(document.activeElement)) {
+    scoreBody.removeChild(scoreBody.lastChild);
+  }
+  refreshRevealRows();
+}
+function refreshRevealRows() {
+  if (!usesRoundReveal()) return;
+  Array.prototype.forEach.call(scoreBody.children, (tr) => {
+    const r = Number(tr.getAttribute('data-round')); if (!Number.isNaN(r)) applyRoundRow(tr, r);
+  }); updateRevealButton();
+}
+
+/* ---------- Hidden round-reveal wheel ---------- */
+function commitReveal(round) { state.revealedCount = Math.max(Math.floor(state.revealedCount || 0), round + 1); save(); refreshRevealRows(); }
+function revealReels(items, round) {
+  const remaining = items.slice(round); const target = remaining[0];
+  return target.reels.map((targetReel, index) => ({
+    label: targetReel.label,
+    full: items.map((item) => item.reels[index].value),
+    remaining: remaining.map((item) => item.reels[index].value),
+    target: targetReel.value,
+  }));
+}
+function openRoundReveal(round) {
+  if (reel.isBusy() || !usesRoundReveal()) return; const label = activeGame.roundLabel(round, state);
+  const items = typeof activeGame.revealItems === 'function' ? activeGame.revealItems(state) : []; const target = items[round];
+  if (!label.ready || !target || !Array.isArray(target.reels) || target.reels.length === 0) return;
+  if (!reel.canAnimate()) { commitReveal(round); return; }
+  const shown = reel.show({
+    reels: revealReels(items, round),
+    resultText: target.result, round, fullSetSize: items.length,
+    onConfirm: () => commitReveal(round),
+  }); if (!shown) commitReveal(round);
+}
+function readyRoundIndex() {
+  if (!usesRoundReveal()) return -1; const count = activeGame.rounds.kind === 'fixed' ? activeGame.rounds.count : 0;
+  const round = Math.max(0, Math.min(count, Math.floor(state.revealedCount || 0))); return round < count && activeGame.roundLabel(round, state).ready ? round : -1;
+}
+function updateRevealButton() {
+  const round = readyRoundIndex(); const available = round >= 0 && !reel.isBusy() && !gameScreen.hidden; revealWildBtn.textContent = 'Reveal ' + revealNoun();
+  revealWildBtn.hidden = !usesRoundReveal(); revealWildBtn.disabled = !available; revealWildBtn.classList.toggle('reveal-unavailable', !available);
+}
+function maybeAutoReveal() { if (!gameScreen.hidden && !reel.isBusy() && readyRoundIndex() === 0) openRoundReveal(0); }
+const debugFields = {};
+function debugFieldValue(field, value = DEFAULT_REEL_OPTIONS[field.key]) { return field.scale ? value * field.scale : value; }
+function formatDebugValue(field, value) { if (field.key === 'spinCycles') return value + (Number(value) === 1 ? ' pass' : ' passes'); return value + (field.unit || ''); }
+function buildDebugControls() {
+  REEL_FIELDS.forEach((field) => {
+    const label = el('label', { class: 'debug-control', for: 'debug-' + field.id }); label.appendChild(el('span', {}, field.label)); let input;
+    if (field.options) {
+      input = el('select', { id: 'debug-' + field.id }); field.options.forEach(([value, text]) => input.appendChild(el('option', { value }, text)));
+    } else {
+      const scale = field.scale || 1; const output = el('output', { id: 'debug-' + field.id + '-value', for: 'debug-' + field.id });
+      input = el('input', {
+        id: 'debug-' + field.id, type: 'range',
+        min: field.min * scale, max: field.max * scale, step: field.step * scale,
+      }); label.appendChild(output);
+      input.addEventListener('input', () => {
+        output.textContent = formatDebugValue(field, input.value);
+      }); debugFields[field.key] = { field, input, output };
+    }
+    if (!debugFields[field.key]) debugFields[field.key] = { field, input }; label.appendChild(input); debugControls.appendChild(label);
+  });
+}
+function syncDebugControls(reset) {
+  Object.values(debugFields).forEach(({ field, input, output }) => {
+    if (reset) input.value = String(debugFieldValue(field)); if (output) output.textContent = formatDebugValue(field, input.value);
+  });
+}
+function resetDebugControls() { syncDebugControls(true); debugStatus.textContent = 'Defaults restored.'; }
+function debugReelOptions() {
+  const options = {};
+  Object.keys(debugFields).forEach((key) => {
+    const { field, input } = debugFields[key]; options[key] = field.options ? input.value : Number(input.value) / (field.scale || 1);
+  }); return options;
+}
+function runDebugSpin() {
+  if (reel.isBusy()) return; const debugGame = GAMES.fivecrowns; const previewState = debugGame.initVariant('super-random'); const items = debugGame.revealItems(previewState);
+  const targetIndex = Math.floor(Math.random() * items.length); const target = items[targetIndex]; const options = debugReelOptions(); debugSpinBtn.disabled = true;
+  debugStatus.textContent = 'Reel open. Tap Spin.';
+  const shown = reel.show({
+    reels: revealReels(items, targetIndex),
+    resultText: target.result, round: targetIndex, fullSetSize: items.length,
+    options: {
+      ...options,
+      title: 'Debug spin',
+    },
+    onConfirm() {},
+    onLand(effect, fakeOut) {
+      debugStatus.textContent = target.result + ' Effect: ' + (effect || 'none') + (fakeOut ? ' with fake-out.' : '.');
+    },
+    onClose() { debugSpinBtn.disabled = false; debugSpinBtn.focus(); },
+  });
+  if (!shown) { debugSpinBtn.disabled = false; debugStatus.textContent = 'Reel animation is unavailable in this browser.'; }
+}
+
+/* ---------- actions ---------- */
+function startGame() {
+  state = defaultState(activeGame); state.started = true; if (activeGame.variants) Object.assign(state, activeGame.initVariant(setupVariant));
+  setupNames.forEach((n) => addPlayerToState(n, 0)); save(); showGame();
+}
+function resumeGame() { state = loadGame(activeGame); showGame(); }
+function newGame() { state = defaultState(activeGame); save(); setupNames = recalledNames(activeGame); showSetup(); }
+function playAgain() {
+  const keep = state.players.map((p) => ({ id: p.id, name: p.name, seed: 0 })); const fresh = defaultState(activeGame); fresh.started = true; fresh.players = keep;
+  fresh.nextId = state.nextId; if (activeGame.variants && state.variant) Object.assign(fresh, activeGame.initVariant(state.variant));
+  keep.forEach((p) => {
+    if (activeGame.entry === 'cell') {
+      fresh.scores[p.id] = activeGame.rounds.kind === 'fixed'
+        ? new Array(activeGame.rounds.count).fill(null)
+        : [];
+    }
+  }); state = fresh; save(); renderGame();
+}
+
+/* ---------- add-player dialog ---------- */
+function validateSeed() {
+  const seed = parseInt(onlyDigits(addSeed.value), 10) || 0; const target = activeGame.target; const invalid = target != null && seed >= target;
+  addHint.hidden = target == null; addHint.classList.toggle('error', invalid);
+  if (target != null) addHint.textContent = (invalid ? 'Starting score must' : 'Must') + ' be less than ' + target + '.';
+  addConfirm.disabled = invalid; return !invalid;
+}
+function showDialog(dialog, focus) { dialog.returnValue = ''; dialog.showModal(); if (focus) focus.focus(); }
+function openAddDialog() {
+  addTitle.textContent = 'Add ' + unitSingular(activeGame); addName.value = nextRecalledName(state.players.map((p) => p.name)); addSeed.value = '0'; validateSeed();
+  showDialog(addDialog, addName);
+}
+
+/* ---------- generic UI helpers ---------- */
+function chip(label, selected, onClick, ariaLabel) {
+  const b = el('button', { type: 'button', class: 'chip' + (selected ? ' selected' : ''), 'aria-pressed': selected ? 'true' : 'false' }, label);
+  if (ariaLabel) b.setAttribute('aria-label', ariaLabel); b.addEventListener('click', onClick); return b;
+}
+function labeledStepper(label, value, min, max, onChange) {
+  const wrap = el('div', { class: 'hand-stepper' }); wrap.appendChild(el('span', { class: 'hand-stepper-label' }, label)); const ctrl = el('div', { class: 'stepper' });
+  const dec = el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Decrease ' + label }, '−'); const out = el('output', {}, String(value));
+  const inc = el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Increase ' + label }, '+'); dec.disabled = value <= min; inc.disabled = value >= max;
+  dec.addEventListener('click', () => onChange(clamp(value - 1, min, max))); inc.addEventListener('click', () => onChange(clamp(value + 1, min, max)));
+  ctrl.appendChild(dec); ctrl.appendChild(out); ctrl.appendChild(inc); wrap.appendChild(ctrl); return wrap;
+}
+
+/* ---------- hand dialog (delegated to the game) ---------- */
+const HAND_UI = { el: el, chip: chip, labeledStepper: labeledStepper };
+function renderHandForm() { handBody.innerHTML = ''; activeGame.hand.build(handBody, handDraft, state.players, HAND_UI, onHandChange); }
+function onHandChange() { renderHandForm(); updateHandPreview(); }
+function updateHandPreview() { const v = activeGame.hand.validate(handDraft, state.players); handSave.disabled = !v.valid; handPreview.textContent = v.message; }
+function openHandDialog(index) {
+  if (index == null && state.players.length < 2) return; handEditIndex = index;
+  handDraft = index != null
+    ? activeGame.hand.draftFromRecord(state.hands[index])
+    : activeGame.hand.newDraft(state.players);
+  handTitle.textContent = index != null ? 'Edit hand ' + (index + 1) : 'Score hand'; handDeleteBtn.hidden = index == null; renderHandForm(); updateHandPreview();
+  showDialog(handDialog, handBody.querySelector('.chip'));
+}
+function saveHand() {
+  const id = handEditIndex != null ? state.hands[handEditIndex].id : null; const record = activeGame.hand.toRecord(handDraft, state.players, id);
+  if (handEditIndex != null) state.hands[handEditIndex] = record; else state.hands.push(record); save();
+  const focusIdx = handEditIndex != null ? handEditIndex : state.hands.length - 1; renderGame(); focusHandRow(focusIdx);
+}
+function deleteHand() {
+  if (handEditIndex == null) return; state.hands.splice(handEditIndex, 1); save(); renderGame(); focusHandRow(Math.min(handEditIndex, state.hands.length - 1));
+}
+function focusHandRow(i) {
+  if (i >= 0) {
+    const btn = scoreBody.querySelector('tr[data-hand="' + i + '"] .hand-edit');
+    if (btn) { btn.focus(); return; }
+  }
+  if (!headerScoreHandBtn.hidden) headerScoreHandBtn.focus();
+}
+[[debugBack, showSetup], [debugSpinBtn, runDebugSpin], [debugReset, resetDebugControls]]
+  .forEach(([node, handler]) => node.addEventListener('click', handler));
+playersInc.addEventListener('click', () => {
+  if (setupNames.length < activeGame.maxPlayers) { setupNames.push(nextRecalledName(setupNames)); renderNameList(); }
+});
+playersDec.addEventListener('click', () => {
+  if (setupNames.length > activeGame.minPlayers) { setupNames.pop(); renderNameList(); }
+}); startBtn.addEventListener('click', startGame); resumeBtn.addEventListener('click', resumeGame);
+newFromSetupBtn.addEventListener('click', () => showDialog(confirmDialog));
+// The form exists for iOS Previous/Next controls and must never submit.
+scoreForm.addEventListener('submit', (e) => e.preventDefault());
+scoreBody.addEventListener('click', (e) => {
+  const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null; if (!th) return; openRoundReveal(Number(th.closest('tr').getAttribute('data-round')));
+});
+scoreBody.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return; const th = e.target.closest ? e.target.closest('.round-col[data-ready="1"]') : null; if (!th) return;
+  e.preventDefault(); openRoundReveal(Number(th.closest('tr').getAttribute('data-round')));
+});
+revealWildBtn.addEventListener('click', () => {
+  const rr = readyRoundIndex(); if (rr >= 0) openRoundReveal(rr);
+}); addBtn.addEventListener('click', openAddDialog); playAgainBtn.addEventListener('click', playAgain); headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
+addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); });
+menuBtn.addEventListener('click', () => showDialog(menuDialog));
+switchBtn.addEventListener('click', () => { menuDialog.close('cancel'); save(); showSetup(); });
+newgameBtn.addEventListener('click', () => {
+  menuDialog.close('cancel'); showDialog(confirmDialog);
+}); confirmOk.addEventListener('click', () => confirmDialog.close('ok'));
+handDeleteBtn.addEventListener('click', () => handDialog.close('delete'));
+function bindDialog(dialog, cancel, onClose, backdrop) {
+  cancel.addEventListener('click', () => dialog.close('cancel'));
+  if (onClose) dialog.addEventListener('close', () => onClose(dialog.returnValue));
+  if (backdrop) dialog.addEventListener('click', (e) => {
+    if (e.target !== dialog) return; const r = dialog.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close('cancel');
+  });
+}
+bindDialog(addDialog, addCancel, (value) => {
+  if (value !== 'add' || !validateSeed()) return; addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0); save(); renderGame();
+}, true);
+bindDialog(menuDialog, menuClose, null, true);
+bindDialog(confirmDialog, confirmCancel, (value) => { if (value === 'ok') newGame(); }, false);
+bindDialog(handDialog, handCancel, (value) => {
+  if (value === 'save') saveHand(); else if (value === 'delete') deleteHand();
+}, true);
+
+installViewport(revealScoreInput); installDialogFallback();
+function init() {
+  buildDebugControls(); resetDebugControls(); activeGame = GAMES[lastGameId(GAMES, 'fivecrowns')];
+  if (hasStartedSave(activeGame)) {
+    state = loadGame(activeGame); showGame();
+  } else { state = defaultState(activeGame); setupNames = recalledNames(activeGame); showSetup(); }
+}
+// Best-effort protection against storage eviction.
+if (navigator.storage && typeof navigator.storage.persist === 'function') {
+  navigator.storage.persist().catch(() => {});
+}
+init();
