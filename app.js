@@ -5,7 +5,9 @@ import {
   loadGame, saveGame, recalledNames, nextRecalledName as recalledNextName, lastGameId, hasStartedSave,
 } from './lib/storage.js';
 import { installViewport, installDialogFallback } from './lib/platform.js';
-import { DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel } from './reel.js';
+import {
+  DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel, fakeOutChanceForMisses, nextFakeOutMisses,
+} from './reel.js';
 const CARD_GLYPH = '\u{1F0A0}';
 const DEBUG_TAP_TARGET = 5; // deliberate enough to avoid accidental entry
 /* ---------- state ---------- */
@@ -365,10 +367,16 @@ function openRoundReveal(round) {
   const items = typeof activeGame.revealItems === 'function' ? activeGame.revealItems(state) : []; const target = items[round];
   if (!label.ready || !target || !Array.isArray(target.reels) || target.reels.length === 0) return;
   if (!reel.canAnimate()) { commitReveal(round); return; }
+  const progressiveFakeOut = !!activeGame.progressiveFakeOut; let didFakeOut = false;
   const shown = reel.show({
     reels: revealReels(items, round),
     resultText: target.result, round, fullSetSize: items.length,
-    onConfirm: () => commitReveal(round),
+    options: progressiveFakeOut ? { fakeOutChance: fakeOutChanceForMisses(state.fakeOutMisses) } : undefined,
+    onConfirm: () => {
+      if (progressiveFakeOut) state.fakeOutMisses = nextFakeOutMisses(state.fakeOutMisses, didFakeOut);
+      commitReveal(round);
+    },
+    onLand(_effect, fakeOut) { didFakeOut = fakeOut; },
   }); if (!shown) commitReveal(round);
 }
 function readyRoundIndex() {

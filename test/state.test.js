@@ -98,6 +98,7 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
     variant: 'random',
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
     revealedCount: 4,
+    fakeOutMisses: 3,
   });
   const round = normalizeState(fiveCrowns, serializeState(fiveCrowns, original));
   assert.deepEqual(round.players, original.players);
@@ -105,6 +106,7 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
   assert.equal(round.variant, 'random');
   assert.deepEqual(round.wildOrder, [...FIVE_CROWNS_WILDS].reverse());
   assert.equal(round.revealedCount, 4);
+  assert.equal(round.fakeOutMisses, 3);
 });
 
 test('serialize then normalize round-trips Super Random card and wild orders', () => {

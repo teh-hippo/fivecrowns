@@ -225,12 +225,15 @@ test('Five Crowns orders: fixed modes stay aligned and random is a full shuffle'
   const random = fiveCrowns.initVariant('random');
   assert.equal(random.variant, 'random');
   assert.equal(random.revealedCount, 0);
+  assert.equal(random.fakeOutMisses, 0);
   assert.equal(random.wildOrder.length, 11);
   assert.deepEqual([...random.wildOrder].sort(), [...FIVE_CROWNS_WILDS].sort());
 
   // Up/Down are never masked, so they carry no revealedCount.
   assert.equal(up.revealedCount, undefined);
   assert.equal(down.revealedCount, undefined);
+  assert.equal(up.fakeOutMisses, undefined);
+  assert.equal(down.fakeOutMisses, undefined);
   assert.equal(random.cardOrder, undefined);
 
   // An unknown variant falls back to the default.
@@ -248,6 +251,7 @@ test('Super Random deterministically shuffles every card count and wild exactly 
   const superRandom = fiveCrowns.initVariant('super-random', () => 0);
   assert.equal(superRandom.variant, 'super-random');
   assert.equal(superRandom.revealedCount, 0);
+  assert.equal(superRandom.fakeOutMisses, 0);
   assert.deepEqual(superRandom.wildOrder, [...FIVE_CROWNS_WILDS.slice(1), FIVE_CROWNS_WILDS[0]]);
   assert.deepEqual(superRandom.cardOrder, [...FIVE_CROWNS_CARD_COUNTS.slice(1), FIVE_CROWNS_CARD_COUNTS[0]]);
   assert.equal(new Set(superRandom.wildOrder).size, FIVE_CROWNS_ROUNDS);

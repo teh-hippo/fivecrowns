@@ -19,6 +19,7 @@ const DEFAULT_REEL_OPTIONS = Object.freeze({
   spinMs: 7200, spinCycles: 7, idlePxps: 260, fakeOutChance: 0.25,
   fakeOutHoldMs: 300, fakeOutBurstMs: 850, effect: 'random', effectAmount: EFFECTS.confetti.amount,
 });
+const FAKE_OUT_CHANCE_STEP = 0.05;
 // Shared runtime and tuning bounds keep every preview production-valid.
 const REEL_FIELDS = [
   { key: 'spinMs', id: 'spin-ms', label: 'Spin duration', min: 250, max: 12000, step: 50, unit: ' ms' },
@@ -40,6 +41,16 @@ const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d']; const LAS
 function numberOr(value, fallback) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
 function setting(key, value) {
   const field = FIELDS[key]; const result = clamp(numberOr(value, DEFAULT_REEL_OPTIONS[key]), field.min, field.max); return field.integer ? Math.round(result) : result;
+}
+function normaliseFakeOutMisses(value) {
+  const misses = numberOr(value, 0); return Math.max(0, Math.floor(misses));
+}
+function fakeOutChanceForMisses(misses, baseChance = DEFAULT_REEL_OPTIONS.fakeOutChance) {
+  return setting('fakeOutChance', numberOr(baseChance, DEFAULT_REEL_OPTIONS.fakeOutChance)
+    + normaliseFakeOutMisses(misses) * FAKE_OUT_CHANCE_STEP);
+}
+function nextFakeOutMisses(misses, didFakeOut) {
+  return didFakeOut ? 0 : normaliseFakeOutMisses(misses) + 1;
 }
 function reducedMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
 function animationObject(value) { return value != null && ['object', 'function'].includes(typeof value); }
@@ -424,7 +435,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     const maxDelayMs = tracks.reduce((max, track) => Math.max(max, track.delayMs), 0);
     const selectedMs = settings.spinMs + maxDelayMs
       + (fakeOut ? settings.fakeOutHoldMs + settings.fakeOutBurstMs + maxDelayMs : 0);
-    let phase = 'idle', idles = [], selections = [], fakeTimer = null, safetyTimer = null;
+    let phase = 'idle', idles = [], selections = [], fakeTimer = null, safetyTimer = null, fakeOutShown = false;
     const clearTimers = () => {
       if (fakeTimer != null) clearTimeout(fakeTimer); if (safetyTimer != null) clearTimeout(safetyTimer); fakeTimer = safetyTimer = null;
     };
@@ -441,7 +452,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       });
       title.textContent = resultText || results.filter(Boolean).join(' \u00b7 ') || settings.title;
       action.textContent = 'Confirm'; const type = effectType(settings.effect);
-      startEffects(type, settings.effectAmount); if (onLand) onLand(type, fakeOut);
+      startEffects(type, settings.effectAmount); if (onLand) onLand(type, fakeOutShown);
     };
     const close = () => {
       if (phase === 'closed') return; phase = 'closed'; overlay.removeEventListener('click', onTap); clearTimers(); stopAnimations(idles); stopAnimations(selections); stopEffects();
@@ -474,6 +485,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       if (phase !== 'spin') return; const animations = selections; selections = [];
       if (!stopAnimations(animations) || animationUnavailable) { land(); return; }
       tracks.forEach((track, index) => translate(track, geos[index].fakeOutY, false));
+      fakeOutShown = true;
       fakeTimer = setTimeout(() => {
         fakeTimer = null;
         if (phase === 'spin') {
@@ -518,4 +530,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   };
 }
 
-export { DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel };
+export {
+  DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel,
+  fakeOutChanceForMisses, nextFakeOutMisses,
+};

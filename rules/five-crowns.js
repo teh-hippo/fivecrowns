@@ -53,11 +53,12 @@ const fiveCrowns = {
     ],
   },
   revealVariants: ['random', 'super-random'],
-  stateFields: ['variant', 'wildOrder', 'cardOrder', 'revealedCount'],
+  progressiveFakeOut: true,
+  stateFields: ['variant', 'wildOrder', 'cardOrder', 'revealedCount', 'fakeOutMisses'],
   initVariant(variant, random = Math.random) {
     const known = this.variants.options.some((o) => o.value === variant); const v = known ? variant : this.variants.default;
     const extra = { variant: v, wildOrder: fiveCrownsWildOrder(v, random) }; if (v === 'super-random') extra.cardOrder = fiveCrownsSuperRandomCardOrder(random);
-    if (fiveCrownsRevealVariant(v)) extra.revealedCount = 0; return extra;
+    if (fiveCrownsRevealVariant(v)) { extra.revealedCount = 0; extra.fakeOutMisses = 0; } return extra;
   },
   cardCount: fiveCrownsCardCount,
   revealNoun(state) { return state && state.variant === 'super-random' ? 'round' : 'wild'; },

@@ -22,7 +22,9 @@ test('Five Crowns registers Super Random and its persisted card order', () => {
   const option = game.variants.options.find((o) => o.value === 'super-random');
   assert.equal(option.label, 'Super Random');
   assert.ok(game.revealVariants.includes('super-random'));
+  assert.equal(game.progressiveFakeOut, true);
   assert.ok(game.stateFields.includes('cardOrder'));
+  assert.ok(game.stateFields.includes('fakeOutMisses'));
 });
 
 test('every game implements the engine contract', () => {
