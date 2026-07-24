@@ -265,7 +265,8 @@ function applyRoundRow(tr, r, label = activeGame.roundLabel(r, state)) {
 }
 function buildCellRow(r) {
   const label = activeGame.roundLabel(r, state); const tr = el('tr', { 'data-round': String(r) }); const rh = el('th', { class: 'round-col', scope: 'row' });
-  rh.appendChild(el('span', { class: 'round-num' }, label.num)); tr.appendChild(rh);
+  if (!label.hideRoundNumber) rh.appendChild(el('span', { class: 'round-num' }, label.num));
+  tr.appendChild(rh);
   state.players.forEach((p) => {
     const td = el('td', { class: 'score-cell' });
     const input = el('input', {

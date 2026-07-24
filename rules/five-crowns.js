@@ -73,7 +73,8 @@ const fiveCrowns = {
     });
   },
   roundLabel(i, state) {
-    const wilds = fiveCrownsWildsFromState(state); const superRandom = state && state.variant === 'super-random'; const label = { num: String(i + 1), sub: wilds[i] };
+    const wilds = fiveCrownsWildsFromState(state); const superRandom = state && state.variant === 'super-random';
+    const label = { num: String(i + 1), sub: wilds[i], hideRoundNumber: true };
     if (superRandom) label.cards = cardCountText(fiveCrownsCardCount(i, state));
     if (!state || !fiveCrownsRevealVariant(state.variant) || i < fiveCrownsRevealedCount(state)) return label;
     const ready = i === fiveCrownsRevealedCount(state) && fiveCrownsPrevComplete(i, state); label.sub = ready ? FIVE_CROWNS_READY : FIVE_CROWNS_MASK; if (ready) label.ready = true;
