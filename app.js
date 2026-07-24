@@ -8,7 +8,6 @@ import { installViewport, installDialogFallback } from './lib/platform.js';
 import {
   DEFAULT_REEL_OPTIONS, REEL_FIELDS, createReel, fakeOutChanceForMisses, nextFakeOutMisses,
 } from './reel.js';
-const CARD_GLYPH = '\u{1F0A0}';
 const DEBUG_TAP_TARGET = 5; // deliberate enough to avoid accidental entry
 /* ---------- state ---------- */
 let activeGame = null; let state = null; let setupNames = []; let setupVariant = null; let handEditIndex = null; let handDraft = null; let fiveCrownsDebugTaps = 0;
@@ -172,7 +171,8 @@ function cellRowCount(st) {
   return started;
 }
 function renderGame() {
-  const { totals, status } = resolve(); gameName.textContent = activeGame.name; caption.textContent = captionText(); scoreTable.dataset.entry = activeGame.entry;
+  const { totals, status } = resolve(); gameName.textContent = activeGame.name; caption.textContent = captionText();
+  scoreTable.dataset.entry = activeGame.entry; scoreTable.dataset.game = activeGame.id;
   renderHeaderActions(status); buildHead(); buildBody(status); buildFoot(); updateTotalsAndBanner(totals, status); maybeAutoReveal();
 }
 function renderHeaderActions(st) {
@@ -239,19 +239,26 @@ function buildBody(st) {
     buildHandRows();
   } else { const rows = cellRowCount(st); for (let r = 0; r < rows; r++) scoreBody.appendChild(buildCellRow(r)); }
 }
+function setRoundKeyText(node, value, kind, labelled) {
+  const suffix = ' ' + kind; node.textContent = labelled && value.endsWith(suffix) ? value.slice(0, -suffix.length) : value;
+  if (labelled) node.appendChild(el('span', { class: 'round-kind' }, suffix));
+}
 function applyRoundHeader(th, label) {
+  const roundKey = !!label.hideRoundNumber;
+  th.classList.toggle('round-key', roundKey); th.classList.toggle('round-key-paired', roundKey && !!label.cards);
   let cards = th.querySelector('.cards');
   if (label.cards) {
     if (!cards) {
       cards = el('span', { class: 'cards' }); const num = th.querySelector('.round-num'); if (num) num.insertAdjacentElement('afterend', cards); else th.appendChild(cards);
     }
-    cards.textContent = label.cards.replace(/ cards$/, ' ' + CARD_GLYPH); cards.setAttribute('aria-label', label.cards);
+    setRoundKeyText(cards, label.cards, 'cards', roundKey && !label.cardsMasked); cards.setAttribute('aria-label', label.cards);
     cards.classList.toggle('cards-masked', !!label.cardsMasked); cards.classList.toggle('cards-ready', !!label.cardsReady);
   } else if (cards) { cards.remove(); }
   let wild = th.querySelector('.wild');
   if (label.sub) {
     if (!wild) { wild = el('span', { class: 'wild' }); th.appendChild(wild); }
-    wild.textContent = label.sub; wild.classList.toggle('wild-masked', !!label.masked); wild.classList.toggle('wild-ready', !!label.ready);
+    setRoundKeyText(wild, label.sub, 'wild', roundKey && !label.masked);
+    wild.classList.toggle('wild-masked', !!label.masked); wild.classList.toggle('wild-ready', !!label.ready);
   } else if (wild) { wild.remove(); }
   const ready = !!label.ready; th.classList.toggle('round-ready', ready);
   if (ready) {

@@ -12,6 +12,7 @@
 .table-wrap {flex:1 1 auto; overflow:auto; overscroll-behavior:contain; padding:0; /* Inline margins keep the sticky first column flush with its scrollport. */ margin-inline:env(safe-area-inset-left) env(safe-area-inset-right); scroll-padding-top:var(--row-h); scroll-padding-bottom:calc(var(--row-h) + var(--keyboard-height,0px));}
 table {width:min-content; border-collapse:separate; border-spacing:0; table-layout:fixed; /* Fixed layout prevents score edits from resizing columns. */}
 #score-table[data-entry="hand"] {width:max-content;}
+#score-table[data-game="fivecrowns"] {--col-round:5.25rem;}
 #score-table {margin-bottom:var(--keyboard-height,0px);}
 caption {text-align:left;}
 th,td {white-space:nowrap; border-bottom:1px solid var(--line); border-right:1px solid var(--line);}
@@ -24,9 +25,17 @@ thead .round-col,tfoot .round-col {z-index:3;}
 .cards,.wild {color:var(--muted); font-size:0.66rem; font-weight:600;}
 .cards {display:inline-block; margin-left:0.25rem;}
 .wild {display:block;}
+.round-key {padding-inline:0.45rem;}
+.round-key .cards,.round-key .wild {margin:0; line-height:1.1;}
+.round-key .cards {display:block; color:var(--text); font-size:0.82rem; font-weight:800;}
+.round-key .wild {color:var(--text); font-size:0.82rem; font-weight:800;}
+.round-key:not(.round-key-paired) .wild {font-size:1rem;}
+.round-key .round-kind {color:var(--muted); font-size:0.62em; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;}
+.round-key:not(.round-key-paired) .round-kind {display:block; margin-top:0.12rem; font-size:0.55rem; line-height:1;}
 .cards-masked,.wild-masked {opacity:0.4; letter-spacing:0.15em;}
 .round-ready {cursor:pointer;}
 .cards-ready,.wild-ready {color:var(--primary); font-weight:800; animation:wild-glow 1.4s ease-in-out infinite;}
+.round-key .cards-ready,.round-key .wild-ready {color:var(--primary);}
 .wild-ready {font-size:1rem;}
 .round-ready:focus-visible,.hand-edit:focus-visible {outline:var(--focus-ring); outline-offset:-2px;}
 .round-ready:focus-visible {border-radius:6px;}
