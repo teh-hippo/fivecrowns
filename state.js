@@ -6,7 +6,7 @@ function defaultState(game) {
 
 function copyGameFields(game, source, target) {
   (game.stateFields || []).forEach((field) => {
-    const value = source[field]; if (typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) target[field] = value;
+    const value = source[field]; if (typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) target[field] = value;
     else if (Array.isArray(value)) target[field] = value.slice();
   });
 }

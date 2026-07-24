@@ -23,8 +23,13 @@ test('Five Crowns registers Super Random and its persisted card order', () => {
   assert.equal(option.label, 'Super Random');
   assert.ok(game.revealVariants.includes('super-random'));
   assert.equal(game.progressiveFakeOut, true);
+  assert.deepEqual(game.dealerVariants, ['random', 'super-random']);
   assert.ok(game.stateFields.includes('cardOrder'));
+  assert.ok(game.stateFields.includes('cardOrderBase'));
   assert.ok(game.stateFields.includes('fakeOutMisses'));
+  assert.ok(game.stateFields.includes('dealerEnabled'));
+  assert.ok(game.stateFields.includes('dealerRounds'));
+  assert.ok(game.stateFields.includes('dealerOrderStartsAt'));
 });
 
 test('every game implements the engine contract', () => {

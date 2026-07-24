@@ -3,6 +3,7 @@ import { defaultState } from './state.js';
 import { el, refs, onlyDigits, clamp, selectAllOnEdit } from './lib/dom.js';
 import {
   loadGame, saveGame, recalledNames, nextRecalledName as recalledNextName, lastGameId, hasStartedSave,
+  loadDealerRigSettings, saveDealerRigSettings,
 } from './lib/storage.js';
 import { installViewport, installDialogFallback } from './lib/platform.js';
 import {
@@ -10,7 +11,8 @@ import {
 } from './reel.js';
 const DEBUG_TAP_TARGET = 5; // deliberate enough to avoid accidental entry
 /* ---------- state ---------- */
-let activeGame = null; let state = null; let setupNames = []; let setupVariant = null; let handEditIndex = null; let handDraft = null; let fiveCrownsDebugTaps = 0;
+let activeGame = null; let state = null; let setupNames = []; let setupVariant = null; let setupDealerEnabled = false; let setupFirstDealerIndex = 0;
+let handEditIndex = null; let handDraft = null; let fiveCrownsDebugTaps = 0;
 function save() { saveGame(activeGame, state); }
 function nextRecalledName(names) { return recalledNextName(activeGame, names); }
 
@@ -38,10 +40,14 @@ function usesRoundReveal() {
 function revealNoun() {
   return typeof activeGame.revealNoun === 'function' ? activeGame.revealNoun(state) : 'round';
 }
+function dealerNameForRound(round) {
+  return typeof activeGame.dealerName === 'function' ? activeGame.dealerName(round, state) : '';
+}
 const {
   setupScreen, gameScreen, debugScreen, gamePicker: picker, setupFresh, variantControl, variantLegend,
   variantOptions, setupResume, resumeNote, resumeBtn, newFromSetupBtn, countLabel, playersCount,
-  playersDec, playersInc, nameList, startBtn, debugControls, debugBack, debugSpin: debugSpinBtn,
+  playersDec, playersInc, nameList, dealerControl, dealerToggle, firstDealerField, firstDealer,
+  startBtn, debugControls, debugBack, debugSpin: debugSpinBtn,
   debugReset, debugStatus, gameName, scoreHandBtn: headerScoreHandBtn, playAgainBtn, addBtn, menuBtn,
   tableCaption: caption, scoreTable, headRow, scoreBody, totalRow, winnerBanner, scoreForm, addDialog,
   addTitle, addName, addSeed, addHint, addConfirm, addCancel, confirmDialog, confirmCancel, confirmOk,
@@ -51,7 +57,8 @@ const {
 } = refs(`
   setup-screen game-screen debug-screen game-picker setup-fresh variant-control variant-legend
   variant-options setup-resume resume-note resume-btn new-from-setup-btn count-label players-count
-  players-dec players-inc name-list start-btn debug-controls debug-back debug-spin debug-reset debug-status
+  players-dec players-inc name-list dealer-control dealer-toggle first-dealer-field first-dealer
+  start-btn debug-controls debug-back debug-spin debug-reset debug-status
   game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
   total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel
   confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
@@ -91,20 +98,32 @@ function renderPicker() {
 }
 function renderVariantControl() {
   const spec = activeGame.variants; variantControl.hidden = !spec; if (!spec) return; variantLegend.textContent = spec.label;
-  renderChoices(variantOptions, 'variant', spec.options, setupVariant, (value) => { setupVariant = value; });
+  renderChoices(variantOptions, 'variant', spec.options, setupVariant, (value) => { setupVariant = value; renderDealerControl(); });
+}
+function renderDealerControl() {
+  const available = Array.isArray(activeGame.dealerVariants) && activeGame.dealerVariants.indexOf(setupVariant) !== -1;
+  dealerControl.hidden = !available; if (!available) return;
+  setupFirstDealerIndex = Math.max(0, Math.min(setupNames.length - 1, setupFirstDealerIndex));
+  dealerToggle.checked = setupDealerEnabled; firstDealerField.hidden = !setupDealerEnabled;
+  firstDealer.innerHTML = '';
+  setupNames.forEach((name, index) => {
+    const text = (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (index + 1);
+    firstDealer.appendChild(el('option', { value: String(index) }, text));
+  });
+  firstDealer.value = String(setupFirstDealerIndex);
 }
 function refreshSetupView() {
   countLabel.textContent = cap(activeGame.unitLabel); const resumable = hasStartedSave(activeGame);
   setupResume.hidden = !resumable; setupFresh.hidden = resumable;
   if (resumable) { resumeNote.textContent = 'You have a ' + activeGame.name + ' game in progress.'; return; }
-  setupNames = recalledNames(activeGame); setupVariant = activeGame.variants ? activeGame.variants.default : null;
+  setupNames = recalledNames(activeGame); setupVariant = activeGame.variants ? activeGame.variants.default : null; setupDealerEnabled = false; setupFirstDealerIndex = 0;
   renderVariantControl(); renderNameList();
 }
 function renderNameList() {
   playersCount.textContent = setupNames.length; playersDec.disabled = setupNames.length <= activeGame.minPlayers; playersInc.disabled = setupNames.length >= activeGame.maxPlayers;
   nameList.innerHTML = ''; const unit = cap(unitSingular(activeGame));
   setupNames.forEach((nm, i) => {
-    const li = el('li', { class: 'name-row' }); const field = unit + ' ' + (i + 1);
+    const li = el('li', { class: 'name-row' }); if (i === setupFirstDealerIndex) li.setAttribute('data-first-dealer', '1'); const field = unit + ' ' + (i + 1);
     const grip = el('button', {
       type: 'button', class: 'name-drag', 'aria-label': 'Reorder ' + field, title: 'Drag to reorder',
     }); grip.appendChild(dragIcon()); grip.addEventListener('pointerdown', (e) => startRowDrag(e, grip)); grip.addEventListener('keydown', (e) => moveRowByKey(e, i));
@@ -113,14 +132,19 @@ function renderNameList() {
       type: 'text', value: nm, placeholder: field, 'aria-label': field + ' name',
       autocomplete: 'off', autocapitalize: 'words', autocorrect: 'off',
       spellcheck: 'false', enterkeyhint: 'next',
-    }); input.addEventListener('input', () => { setupNames[i] = input.value; }); selectAllOnEdit(input); li.appendChild(input);
+    }); input.addEventListener('input', () => { setupNames[i] = input.value; renderDealerControl(); }); selectAllOnEdit(input); li.appendChild(input);
     if (setupNames.length > activeGame.minPlayers) {
       const rm = el('button', {
         type: 'button', class: 'name-remove', 'aria-label': 'Remove ' + field,
-      }, '\u00d7'); rm.addEventListener('click', () => { setupNames.splice(i, 1); renderNameList(); }); li.appendChild(rm);
+      }, '\u00d7'); rm.addEventListener('click', () => {
+        setupNames.splice(i, 1);
+        if (i < setupFirstDealerIndex) setupFirstDealerIndex--;
+        else if (i === setupFirstDealerIndex) setupFirstDealerIndex = Math.min(i, setupNames.length - 1);
+        renderNameList();
+      }); li.appendChild(rm);
     }
     nameList.appendChild(li);
-  });
+  }); renderDealerControl();
 }
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function dragIcon() {
@@ -133,7 +157,16 @@ function dragIcon() {
     r.setAttribute('width', '12'); r.setAttribute('height', '2'); r.setAttribute('rx', '1'); svg.appendChild(r);
   }); return svg;
 }
-function commitNameOrder() { setupNames = Array.from(nameList.querySelectorAll('.name-row input'), (input) => input.value); }
+function markSetupDealerRow() {
+  Array.from(nameList.querySelectorAll('.name-row')).forEach((row, index) => {
+    if (index === setupFirstDealerIndex) row.setAttribute('data-first-dealer', '1'); else row.removeAttribute('data-first-dealer');
+  });
+}
+function commitNameOrder() {
+  const rows = Array.from(nameList.querySelectorAll('.name-row')); const selected = rows.findIndex((row) => row.getAttribute('data-first-dealer') === '1');
+  setupNames = rows.map((row) => row.querySelector('input').value);
+  setupFirstDealerIndex = selected >= 0 ? selected : Math.max(0, Math.min(setupNames.length - 1, setupFirstDealerIndex));
+}
 // Pointer capture keeps touch reordering active if the drag leaves the handle.
 function startRowDrag(e, grip) {
   const li = grip.closest('.name-row'); if (!li) return; e.preventDefault(); const pid = e.pointerId;
@@ -154,7 +187,9 @@ function startRowDrag(e, grip) {
 }
 function moveRowByKey(e, i) {
   if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return; const j = i + (e.key === 'ArrowUp' ? -1 : 1); if (j < 0 || j >= setupNames.length) return; e.preventDefault();
-  [setupNames[i], setupNames[j]] = [setupNames[j], setupNames[i]]; renderNameList(); const grips = nameList.querySelectorAll('.name-drag'); if (grips[j]) grips[j].focus();
+  [setupNames[i], setupNames[j]] = [setupNames[j], setupNames[i]];
+  if (setupFirstDealerIndex === i) setupFirstDealerIndex = j; else if (setupFirstDealerIndex === j) setupFirstDealerIndex = i;
+  renderNameList(); const grips = nameList.querySelectorAll('.name-drag'); if (grips[j]) grips[j].focus();
 }
 
 /* ---------- game rendering ---------- */
@@ -179,7 +214,10 @@ function renderHeaderActions(st) {
   const inProgress = st.phase === 'inProgress'; const ended = st.phase === 'complete' || st.phase === 'out'; addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
   addBtn.hidden = !inProgress; headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress); playAgainBtn.hidden = !ended; updateRevealButton();
 }
-function playerNameChanged(player) { save(); if (activeGame.entry === 'hand') refreshHandLabels(); else refreshScoreLabels(player.id); updateTotalsAndBanner(); }
+function playerNameChanged(player) {
+  if (typeof activeGame.applyDealerRig === 'function') activeGame.applyDealerRig(state, loadDealerRigSettings());
+  save(); if (activeGame.entry === 'hand') refreshHandLabels(); else refreshScoreLabels(player.id); updateTotalsAndBanner();
+}
 function buildHead() {
   headRow.innerHTML = ''; headRow.appendChild(el('th', { class: 'round-col corner', scope: 'col' }, cornerLabel()));
   state.players.forEach((p, i) => {
@@ -375,11 +413,13 @@ function openRoundReveal(round) {
   const items = typeof activeGame.revealItems === 'function' ? activeGame.revealItems(state) : []; const target = items[round];
   if (!label.ready || !target || !Array.isArray(target.reels) || target.reels.length === 0) return;
   if (!reel.canAnimate()) { commitReveal(round); return; }
-  const progressiveFakeOut = !!activeGame.progressiveFakeOut; let didFakeOut = false;
+  const progressiveFakeOut = !!activeGame.progressiveFakeOut; const dealer = dealerNameForRound(round); const options = {}; let didFakeOut = false;
+  if (progressiveFakeOut) options.fakeOutChance = fakeOutChanceForMisses(state.fakeOutMisses);
+  if (dealer) options.title = dealer + ' deals \u00b7 Round ' + (round + 1);
   const shown = reel.show({
     reels: revealReels(items, round),
-    resultText: target.result, round, fullSetSize: items.length,
-    options: progressiveFakeOut ? { fakeOutChance: fakeOutChanceForMisses(state.fakeOutMisses) } : undefined,
+    resultText: dealer ? dealer + ' deals \u00b7 ' + target.result : target.result,
+    round, fullSetSize: items.length, options,
     onConfirm: () => {
       if (progressiveFakeOut) state.fakeOutMisses = nextFakeOutMisses(state.fakeOutMisses, didFakeOut);
       commitReveal(round);
@@ -396,9 +436,23 @@ function updateRevealButton() {
   revealWildBtn.hidden = !usesRoundReveal(); revealWildBtn.disabled = !available; revealWildBtn.classList.toggle('reveal-unavailable', !available);
 }
 function maybeAutoReveal() { if (!gameScreen.hidden && !reel.isBusy() && readyRoundIndex() === 0) openRoundReveal(0); }
-const debugFields = {};
+const DEALER_RIG_FIELDS = [
+  { key: 'dadLowCards', id: 'dad-low-cards', label: 'Dad gets the lowest remaining card count while dealing' },
+  { key: 'mumHighCards', id: 'mum-high-cards', label: 'Mum gets the highest remaining card count while dealing' },
+];
+const debugFields = {}, debugRigInputs = {};
 function debugFieldValue(field, value = DEFAULT_REEL_OPTIONS[field.key]) { return field.scale ? value * field.scale : value; }
 function formatDebugValue(field, value) { if (field.key === 'spinCycles') return value + (Number(value) === 1 ? ' pass' : ' passes'); return value + (field.unit || ''); }
+function currentDealerRigSettings() {
+  const value = {}; DEALER_RIG_FIELDS.forEach((field) => { value[field.key] = !!debugRigInputs[field.key].checked; }); return value;
+}
+function applyDealerRigSettings(settings) {
+  if (!activeGame || !state || state.gameId !== activeGame.id || !state.started || typeof activeGame.applyDealerRig !== 'function') return;
+  activeGame.applyDealerRig(state, settings); save();
+}
+function persistDealerRigSettings() {
+  const settings = saveDealerRigSettings(currentDealerRigSettings()); applyDealerRigSettings(settings); debugStatus.textContent = 'Dealer rig saved.';
+}
 function buildDebugControls() {
   REEL_FIELDS.forEach((field) => {
     const label = el('label', { class: 'debug-control', for: 'debug-' + field.id }); label.appendChild(el('span', {}, field.label)); let input;
@@ -416,13 +470,24 @@ function buildDebugControls() {
     }
     if (!debugFields[field.key]) debugFields[field.key] = { field, input }; label.appendChild(input); debugControls.appendChild(label);
   });
-}
-function syncDebugControls(reset) {
-  Object.values(debugFields).forEach(({ field, input, output }) => {
-    if (reset) input.value = String(debugFieldValue(field)); if (output) output.textContent = formatDebugValue(field, input.value);
+  debugControls.appendChild(el('h2', { class: 'debug-section-title' }, 'Dealer rigging'));
+  DEALER_RIG_FIELDS.forEach((field) => {
+    const label = el('label', { class: 'debug-control debug-toggle', for: 'debug-' + field.id });
+    const input = el('input', { id: 'debug-' + field.id, type: 'checkbox' }); input.addEventListener('change', persistDealerRigSettings);
+    label.append(el('span', {}, field.label), input); debugRigInputs[field.key] = input; debugControls.appendChild(label);
   });
 }
-function resetDebugControls() { syncDebugControls(true); debugStatus.textContent = 'Defaults restored.'; }
+function syncDebugControls(resetReel = false, resetRig = false) {
+  Object.values(debugFields).forEach(({ field, input, output }) => {
+    if (resetReel) input.value = String(debugFieldValue(field)); if (output) output.textContent = formatDebugValue(field, input.value);
+  });
+  const rig = resetRig
+    ? saveDealerRigSettings({ dadLowCards: false, mumHighCards: false })
+    : loadDealerRigSettings();
+  DEALER_RIG_FIELDS.forEach((field) => { debugRigInputs[field.key].checked = rig[field.key]; });
+  if (resetRig) applyDealerRigSettings(rig);
+}
+function resetDebugControls() { syncDebugControls(true, true); debugStatus.textContent = 'Defaults restored.'; }
 function debugReelOptions() {
   const options = {};
   Object.keys(debugFields).forEach((key) => {
@@ -451,14 +516,30 @@ function runDebugSpin() {
 
 /* ---------- actions ---------- */
 function startGame() {
-  state = defaultState(activeGame); state.started = true; if (activeGame.variants) Object.assign(state, activeGame.initVariant(setupVariant));
-  setupNames.forEach((n) => addPlayerToState(n, 0)); save(); showGame();
+  state = defaultState(activeGame); state.started = true; setupNames.forEach((n) => addPlayerToState(n, 0));
+  if (activeGame.variants) {
+    Object.assign(state, activeGame.initVariant(setupVariant, Math.random, {
+      players: state.players,
+      dealerEnabled: setupDealerEnabled,
+      firstDealerIndex: setupFirstDealerIndex,
+      rig: loadDealerRigSettings(),
+    }));
+  }
+  save(); showGame();
 }
 function resumeGame() { state = loadGame(activeGame); showGame(); }
 function newGame() { state = defaultState(activeGame); save(); setupNames = recalledNames(activeGame); showSetup(); }
 function playAgain() {
   const keep = state.players.map((p) => ({ id: p.id, name: p.name, seed: 0 })); const fresh = defaultState(activeGame); fresh.started = true; fresh.players = keep;
-  fresh.nextId = state.nextId; if (activeGame.variants && state.variant) Object.assign(fresh, activeGame.initVariant(state.variant));
+  fresh.nextId = state.nextId;
+  if (activeGame.variants && state.variant) {
+    Object.assign(fresh, activeGame.initVariant(state.variant, Math.random, {
+      players: keep,
+      dealerEnabled: !!state.dealerEnabled,
+      dealerOrder: state.dealerOrder,
+      rig: loadDealerRigSettings(),
+    }));
+  }
   keep.forEach((p) => {
     if (activeGame.entry === 'cell') {
       fresh.scores[p.id] = activeGame.rounds.kind === 'fixed'
@@ -524,11 +605,17 @@ function focusHandRow(i) {
 }
 [[debugBack, showSetup], [debugSpinBtn, runDebugSpin], [debugReset, resetDebugControls]]
   .forEach(([node, handler]) => node.addEventListener('click', handler));
+dealerToggle.addEventListener('change', () => { setupDealerEnabled = dealerToggle.checked; renderDealerControl(); });
+firstDealer.addEventListener('change', () => { setupFirstDealerIndex = Number(firstDealer.value) || 0; markSetupDealerRow(); });
 playersInc.addEventListener('click', () => {
   if (setupNames.length < activeGame.maxPlayers) { setupNames.push(nextRecalledName(setupNames)); renderNameList(); }
 });
 playersDec.addEventListener('click', () => {
-  if (setupNames.length > activeGame.minPlayers) { setupNames.pop(); renderNameList(); }
+  if (setupNames.length > activeGame.minPlayers) {
+    const removed = setupNames.length - 1; setupNames.pop();
+    if (setupFirstDealerIndex === removed) setupFirstDealerIndex = Math.max(0, setupNames.length - 1);
+    renderNameList();
+  }
 }); startBtn.addEventListener('click', startGame); resumeBtn.addEventListener('click', resumeGame);
 newFromSetupBtn.addEventListener('click', () => showDialog(confirmDialog));
 // The form exists for iOS Previous/Next controls and must never submit.
@@ -560,7 +647,10 @@ function bindDialog(dialog, cancel, onClose, backdrop) {
   });
 }
 bindDialog(addDialog, addCancel, (value) => {
-  if (value !== 'add' || !validateSeed()) return; addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0); save(); renderGame();
+  if (value !== 'add' || !validateSeed()) return;
+  const id = addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0);
+  if (typeof activeGame.onPlayerAdded === 'function') activeGame.onPlayerAdded(state, id, loadDealerRigSettings());
+  save(); renderGame();
 }, true);
 bindDialog(menuDialog, menuClose, null, true);
 bindDialog(confirmDialog, confirmCancel, (value) => { if (value === 'ok') newGame(); }, false);
@@ -570,7 +660,7 @@ bindDialog(handDialog, handCancel, (value) => {
 
 installViewport(revealScoreInput); installDialogFallback();
 function init() {
-  buildDebugControls(); resetDebugControls(); activeGame = GAMES[lastGameId(GAMES, 'fivecrowns')];
+  buildDebugControls(); syncDebugControls(true, false); debugStatus.textContent = 'Ready.'; activeGame = GAMES[lastGameId(GAMES, 'fivecrowns')];
   if (hasStartedSave(activeGame)) {
     state = loadGame(activeGame); showGame();
   } else { state = defaultState(activeGame); setupNames = recalledNames(activeGame); showSetup(); }

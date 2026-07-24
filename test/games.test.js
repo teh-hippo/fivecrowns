@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   contractValue, suitContractValue, bidLabel, buildBidOrder,
   five00, greed, greedRunningTotals,
-  fiveCrowns, fiveCrownsWildOrder,
+  fiveCrowns, fiveCrownsWildOrder, fiveCrownsDealerOrder, fiveCrownsDealerRounds,
+  fiveCrownsDealerId, fiveCrownsRigCardOrder,
   FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS, FIVE_CROWNS_ROUNDS,
   leadersOf, sumScores, lastFilledIndex, joinNames, winnerText,
 } from '../games.js';
@@ -258,6 +259,93 @@ test('Super Random deterministically shuffles every card count and wild exactly 
   assert.equal(new Set(superRandom.cardOrder).size, FIVE_CROWNS_ROUNDS);
   assert.deepEqual([...superRandom.wildOrder].sort(), [...FIVE_CROWNS_WILDS].sort());
   assert.deepEqual([...superRandom.cardOrder].sort((a, b) => a - b), FIVE_CROWNS_CARD_COUNTS);
+});
+
+test('Dealer nomination rotates from the selected first dealer', () => {
+  const players = [
+    { id: 'p1', name: 'Dad' },
+    { id: 'p2', name: 'Mum' },
+    { id: 'p3', name: 'Sam' },
+  ];
+  const order = fiveCrownsDealerOrder(players, 1);
+  assert.deepEqual(order, ['p2', 'p3', 'p1']);
+  assert.deepEqual(fiveCrownsDealerRounds(order).slice(0, 5), ['p2', 'p3', 'p1', 'p2', 'p3']);
+
+  const state = { dealerEnabled: true, dealerOrder: order, dealerRounds: fiveCrownsDealerRounds(order), players };
+  assert.equal(fiveCrownsDealerId(0, state), 'p2');
+  assert.equal(fiveCrownsDealerId(2, state), 'p1');
+});
+
+test('Dealer rigging gives Dad the lowest and Mum the highest remaining count', () => {
+  const base = [8, 3, 12, 4, 13, 5, 11, 6, 10, 7, 9];
+  const dealers = ['Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam'];
+  const order = fiveCrownsRigCardOrder(base, dealers, { dadLowCards: true, mumHighCards: true });
+  assert.deepEqual(order.slice(0, 3), [3, 8, 13]);
+  assert.deepEqual([...order].sort((a, b) => a - b), FIVE_CROWNS_CARD_COUNTS);
+});
+
+test('Super Random applies dealer rigging without constraining wilds', () => {
+  const players = [
+    { id: 'p1', name: 'Dad' },
+    { id: 'p2', name: 'Mum' },
+    { id: 'p3', name: 'Sam' },
+  ];
+  const state = fiveCrowns.initVariant('super-random', () => 0, {
+    players,
+    dealerEnabled: true,
+    firstDealerIndex: 0,
+    rig: { dadLowCards: true, mumHighCards: true },
+  });
+  assert.equal(state.dealerEnabled, true);
+  assert.deepEqual(state.dealerOrder, ['p1', 'p2', 'p3']);
+  assert.deepEqual(state.dealerRounds.slice(0, 4), ['p1', 'p2', 'p3', 'p1']);
+  assert.deepEqual(state.cardOrder.slice(0, 3), [3, 13, 4]);
+  assert.deepEqual(state.cardOrderBase, [...FIVE_CROWNS_CARD_COUNTS.slice(1), FIVE_CROWNS_CARD_COUNTS[0]]);
+  assert.deepEqual(state.wildOrder, [...FIVE_CROWNS_WILDS.slice(1), FIVE_CROWNS_WILDS[0]]);
+
+  fiveCrowns.applyDealerRig(state, { dadLowCards: false, mumHighCards: false });
+  assert.deepEqual(state.cardOrder, state.cardOrderBase);
+});
+
+test('A mid-game player joins the dealer rotation after the current cycle', () => {
+  const state = {
+    variant: 'random',
+    dealerEnabled: true,
+    dealerOrder: ['p2', 'p3', 'p1'],
+    dealerRounds: fiveCrownsDealerRounds(['p2', 'p3', 'p1']),
+    revealedCount: 4,
+    players: [
+      { id: 'p1', name: 'A' },
+      { id: 'p2', name: 'B' },
+      { id: 'p3', name: 'C' },
+      { id: 'p4', name: 'D' },
+    ],
+  };
+  fiveCrowns.onPlayerAdded(state, 'p4', {});
+  assert.deepEqual(state.dealerOrder, ['p2', 'p3', 'p1', 'p4']);
+  assert.deepEqual(state.dealerRounds.slice(4, 10), ['p3', 'p1', 'p2', 'p3', 'p1', 'p4']);
+});
+
+test('Repeated mid-game additions share the same pending dealer cycle', () => {
+  const state = {
+    variant: 'random',
+    dealerEnabled: true,
+    dealerOrder: ['p1', 'p2', 'p3'],
+    dealerRounds: fiveCrownsDealerRounds(['p1', 'p2', 'p3']),
+    dealerOrderStartsAt: 0,
+    revealedCount: 1,
+    players: [
+      { id: 'p1', name: 'A' },
+      { id: 'p2', name: 'B' },
+      { id: 'p3', name: 'C' },
+      { id: 'p4', name: 'D' },
+    ],
+  };
+  fiveCrowns.onPlayerAdded(state, 'p4', {});
+  state.players.push({ id: 'p5', name: 'E' });
+  fiveCrowns.onPlayerAdded(state, 'p5', {});
+  assert.equal(state.dealerOrderStartsAt, 3);
+  assert.deepEqual(state.dealerRounds.slice(0, 9), ['p1', 'p2', 'p3', 'p1', 'p2', 'p3', 'p4', 'p5', 'p1']);
 });
 
 test('Random wilds are gated by a spin: locked, then ready, then revealed', () => {

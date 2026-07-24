@@ -99,6 +99,10 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
     revealedCount: 4,
     fakeOutMisses: 3,
+    dealerEnabled: true,
+    dealerOrder: ['p2', 'p1'],
+    dealerRounds: ['p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2'],
+    dealerOrderStartsAt: 0,
   });
   const round = normalizeState(fiveCrowns, serializeState(fiveCrowns, original));
   assert.deepEqual(round.players, original.players);
@@ -107,6 +111,10 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
   assert.deepEqual(round.wildOrder, [...FIVE_CROWNS_WILDS].reverse());
   assert.equal(round.revealedCount, 4);
   assert.equal(round.fakeOutMisses, 3);
+  assert.equal(round.dealerEnabled, true);
+  assert.deepEqual(round.dealerOrder, ['p2', 'p1']);
+  assert.deepEqual(round.dealerRounds, original.dealerRounds);
+  assert.equal(round.dealerOrderStartsAt, 0);
 });
 
 test('serialize then normalize round-trips Super Random card and wild orders', () => {
@@ -117,6 +125,7 @@ test('serialize then normalize round-trips Super Random card and wild orders', (
     variant: 'super-random',
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
     cardOrder: [...FIVE_CROWNS_CARD_COUNTS].reverse(),
+    cardOrderBase: FIVE_CROWNS_CARD_COUNTS,
     revealedCount: 1,
   });
   const saved = serializeState(fiveCrowns, original);
@@ -125,6 +134,7 @@ test('serialize then normalize round-trips Super Random card and wild orders', (
   assert.equal(round.variant, 'super-random');
   assert.deepEqual(round.wildOrder, original.wildOrder);
   assert.deepEqual(round.cardOrder, original.cardOrder);
+  assert.deepEqual(round.cardOrderBase, original.cardOrderBase);
   assert.equal(round.revealedCount, 1);
   assert.notStrictEqual(round.cardOrder, saved.cardOrder);
 });

@@ -6,7 +6,7 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 
 ## Games
 
-- **Five Crowns**: lowest total wins across 11 rounds. Random shuffles wilds; Super Random independently shuffles card counts and wilds, then reveals them on opposite, staggered reels.
+- **Five Crowns**: lowest total wins across 11 rounds. Random shuffles wilds; Super Random independently shuffles card counts and wilds, then reveals them on opposite, staggered reels. Random modes can optionally nominate a first dealer and rotate the deal each round.
 - **Greed**: get on the board with 500 in one turn and race to 5000, followed by one final round.
 - **500**: record each contract and tricks. Reach 500 on a made bid to win; falling to -500 puts a side out.
 
