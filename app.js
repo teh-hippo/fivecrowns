@@ -535,6 +535,7 @@ scoreBody.addEventListener('keydown', (e) => {
 revealWildBtn.addEventListener('click', () => {
   const rr = readyRoundIndex(); if (rr >= 0) openRoundReveal(rr);
 }); addBtn.addEventListener('click', openAddDialog); playAgainBtn.addEventListener('click', playAgain); headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
+selectAllOnEdit(addName);
 addSeed.addEventListener('input', () => { addSeed.value = onlyDigits(addSeed.value); validateSeed(); });
 menuBtn.addEventListener('click', () => showDialog(menuDialog));
 switchBtn.addEventListener('click', () => { menuDialog.close('cancel'); save(); showSetup(); });
