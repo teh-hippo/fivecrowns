@@ -313,7 +313,7 @@ test('Super Random hides and reveals the paired card count and wild', () => {
     num: '1', cards: '13 cards', sub: 'Kings', hideRoundNumber: true,
   });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    reels: [{ label: 'Cards', value: '13' }, { label: 'Wild', value: 'Kings' }],
+    reels: [{ label: 'Cards', value: '13', tone: 'cards' }, { label: 'Wild', value: 'Kings' }],
     result: '13 cards \u00b7 Kings wild!',
   });
 
@@ -339,7 +339,7 @@ test('Super Random falls back to valid only-once orders for malformed saved data
     num: '1', cards: '3 cards', sub: '3s', hideRoundNumber: true,
   });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    reels: [{ label: 'Cards', value: '3' }, { label: 'Wild', value: '3s' }],
+    reels: [{ label: 'Cards', value: '3', tone: 'cards' }, { label: 'Wild', value: '3s' }],
     result: '3 cards \u00b7 3s wild!',
   });
 });

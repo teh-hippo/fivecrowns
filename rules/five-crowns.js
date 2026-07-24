@@ -68,7 +68,7 @@ const fiveCrowns = {
       if (!superRandom) return { reels: [{ label: 'Wild', value: wild }], result: wild + ' is wild!' };
       const cardCount = fiveCrownsCardCount(i, state); const cards = cardCountText(cardCount);
       return {
-        reels: [{ label: 'Cards', value: String(cardCount) }, { label: 'Wild', value: wild }],
+        reels: [{ label: 'Cards', value: String(cardCount), tone: 'cards' }, { label: 'Wild', value: wild }],
         result: cards + ' \u00b7 ' + wild + ' wild!',
       };
     });

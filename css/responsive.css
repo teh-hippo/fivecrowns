@@ -18,5 +18,5 @@
   button,dialog.sheet,dialog.sheet::backdrop {transition:none;}
   button:active {transform:none;}
   .winner-banner:not([hidden]),.cards-ready,.wild-ready,.reveal-wild:not(.reveal-unavailable),.reel-target {animation:none;}
-  .reel-target {text-shadow:0 0 10px var(--primary);}
+  .reel-target {text-shadow:0 0 10px var(--reel-color);}
 }

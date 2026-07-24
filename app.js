@@ -364,6 +364,7 @@ function revealReels(items, round) {
   const remaining = items.slice(round); const target = remaining[0];
   return target.reels.map((targetReel, index) => ({
     label: targetReel.label,
+    tone: targetReel.tone,
     full: items.map((item) => item.reels[index].value),
     remaining: remaining.map((item) => item.reels[index].value),
     target: targetReel.value,

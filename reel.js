@@ -124,7 +124,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   const renderTracks = (specs) => {
     wheels.textContent = ''; wheels.dataset.count = String(specs.length);
     return specs.map((spec, index) => {
-      const wheel = el('div', { class: 'reel-wheel' });
+      const wheel = el('div', { class: 'reel-wheel' + (spec.tone === 'cards' ? ' reel-wheel-cards' : '') });
       wheel.appendChild(el('p', { class: 'reel-label' }, spec.label));
       const windowNode = el('div', { class: 'reel-window' }); const strip = el('div', { class: 'reel-strip', 'aria-hidden': 'true' });
       windowNode.appendChild(strip); wheel.appendChild(windowNode); wheels.appendChild(wheel);
