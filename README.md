@@ -16,7 +16,9 @@ A service worker caches the whole app on first visit, so once it has loaded it k
 
 ## Development
 
-The repository is a static site with no build step and no runtime dependencies. `app.js` holds the browser UI, `reel.js` the reveal reel and its landing effects, `sw.js` the offline cache, and `state.js`, `games.js` and `rules/*.js` the pure rules and state logic, with shared helpers in `lib/*.js` and styles split across `css/*.css`. The rules layer is deliberately free of any UI or personal configuration: `lib/dealer-rig.js` owns which dealers get a helping hand and hands the rules a resolver.
+The repository is a static site with no build step and no runtime dependencies. `app.js` is a bootstrap; `app/main.js` holds the browser UI behind a side-effect-free `createApp()`, so it can be built more than once and tested. `reel.js` drives the reveal reel and its landing effects, `sw.js` the offline cache, and `state.js`, `games.js` and `rules/*.js` the pure rules and state logic, with shared helpers in `lib/*.js` and styles split across `css/*.css`.
+
+The rules layer is deliberately free of any UI or personal configuration: `lib/dealer-rig.js` owns which dealers get a helping hand and passes the rules a resolver, so adding a preference never means touching how a game is played.
 
 The Node tests in `test/` cover the rules, the state contracts and, through the [jsdom](https://github.com/jsdom/jsdom) harness in `test/helpers/`, the browser behaviour.
 
