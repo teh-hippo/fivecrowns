@@ -16,6 +16,7 @@ const SHELL = [
   'css/reel.css',
   'css/responsive.css',
   'app.js',
+  'app/main.js',
   'reel.js',
   'state.js',
   'games.js',

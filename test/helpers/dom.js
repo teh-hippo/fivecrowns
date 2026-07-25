@@ -53,14 +53,12 @@ function bootDom({ animations = false, reducedMotion = false } = {}) {
     addEventListener() {},
     removeEventListener() {},
   });
+  // jsdom does no layout, so these are noise rather than behaviour.
+  window.scrollTo = () => {};
+  window.Element.prototype.scrollIntoView = () => {};
 
   if (animations) installFakeAnimations(window);
 
-  const had = {
-    window: 'window' in globalThis,
-    document: 'document' in globalThis,
-    localStorage: 'localStorage' in globalThis,
-  };
   globalThis.window = window;
   globalThis.document = window.document;
   globalThis.localStorage = memoryStorage();
@@ -71,9 +69,10 @@ function bootDom({ animations = false, reducedMotion = false } = {}) {
     document: window.document,
     byId: (id) => window.document.getElementById(id),
     cleanup() {
-      if (!had.window) delete globalThis.window;
-      if (!had.document) delete globalThis.document;
-      if (!had.localStorage) delete globalThis.localStorage;
+      // Deliberately leaves window and document bound to the closed jsdom
+      // instance. selectAllOnEdit schedules work on the global setTimeout, and
+      // those callbacks would throw on a bare reference after teardown. The
+      // next bootDom replaces them anyway.
       window.close();
     },
   };
@@ -85,4 +84,19 @@ function press(window, target, name, init = {}) {
   );
 }
 
-export { bootDom, memoryStorage, press };
+// app/main.js has no import-time side effects, so each test gets an
+// independent app from one module instance. Re-importing with a cache buster
+// would fragment coverage across a copy per boot.
+async function bootApp(options = {}) {
+  const harness = bootDom(options);
+  const { createApp } = await import('../../app/main.js');
+  harness.app = createApp();
+  return harness;
+}
+
+function type(window, input, value) {
+  input.value = value;
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+export { bootDom, bootApp, memoryStorage, press, type };

@@ -333,10 +333,10 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   const translate = (track, y, fixed) =>
     track.strip.style.setProperty('transform', 'translateY(' + y + 'px)', fixed ? 'important' : '');
   const currentY = (track) => {
-    const transform = getComputedStyle(track.strip).transform;
+    const transform = window.getComputedStyle(track.strip).transform;
     if (!transform || transform === 'none') return 0;
     try {
-      return new DOMMatrixReadOnly(transform).m42;
+      return new window.DOMMatrixReadOnly(transform).m42;
     } catch (_) {
       return 0;
     }
