@@ -17,7 +17,7 @@ function copyGameFields(game, source, target) {
   });
 }
 
-function normalizeState(game, source) {
+function normaliseState(game, source) {
   const base = defaultState(game);
   if (!source || typeof source !== 'object') return base;
   const seen = new Set();
@@ -102,4 +102,4 @@ function serializeState(game, state) {
   return out;
 }
 
-export { defaultState, normalizeState, serializeState };
+export { defaultState, normaliseState, serializeState };

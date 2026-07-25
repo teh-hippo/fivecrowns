@@ -1,4 +1,5 @@
 import { CELL_GAME, sumScores, leadersOf, winnerText } from './shared.js';
+import { shuffle } from '../lib/random.js';
 
 const FIVE_CROWNS_WILDS = [
   '3s',
@@ -19,14 +20,6 @@ const FIVE_CROWNS_ROUNDS = FIVE_CROWNS_WILDS.length;
 const FIVE_CROWNS_MASK = '\u2014';
 const FIVE_CROWNS_READY = '?';
 
-function shuffle(arr, random = Math.random) {
-  const out = arr.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 function fiveCrownsWildOrder(variant, random = Math.random) {
   if (variant === 'down') return FIVE_CROWNS_WILDS.slice().reverse();
   if (variant === 'random' || variant === 'super-random') return shuffle(FIVE_CROWNS_WILDS, random);

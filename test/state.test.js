@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultState, normalizeState, serializeState } from '../state.js';
+import { defaultState, normaliseState, serializeState } from '../state.js';
 import { fiveCrowns, greed, five00, FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS } from '../games.js';
 
 test('defaultState is an empty, not-started game', () => {
@@ -14,16 +14,16 @@ test('defaultState is an empty, not-started game', () => {
   });
 });
 
-test('normalizeState falls back to a default for missing or junk input', () => {
+test('normaliseState falls back to a default for missing or junk input', () => {
   for (const bad of [null, undefined, 'garbage', 42, []]) {
-    const s = normalizeState(fiveCrowns, bad);
+    const s = normaliseState(fiveCrowns, bad);
     assert.equal(s.started, false);
     assert.deepEqual(s.players, []);
   }
 });
 
-test('normalizeState pads fixed-round scores to the full round count', () => {
-  const s = normalizeState(fiveCrowns, {
+test('normaliseState pads fixed-round scores to the full round count', () => {
+  const s = normaliseState(fiveCrowns, {
     started: true,
     players: [{ id: 'p1', name: 'Zac', seed: 0 }],
     scores: { p1: [5, 12] },
@@ -33,8 +33,8 @@ test('normalizeState pads fixed-round scores to the full round count', () => {
   assert.equal(s.started, true);
 });
 
-test('normalizeState drops duplicate, non-string and id-less players', () => {
-  const s = normalizeState(fiveCrowns, {
+test('normaliseState drops duplicate, non-string and id-less players', () => {
+  const s = normaliseState(fiveCrowns, {
     players: [
       { id: 'p1', name: 'A', seed: 0 },
       { id: 'p1', name: 'B' },
@@ -46,15 +46,15 @@ test('normalizeState drops duplicate, non-string and id-less players', () => {
   assert.equal(s.players[0].name, 'A');
 });
 
-test('normalizeState gives a missing name a sensible default', () => {
-  const s = normalizeState(fiveCrowns, { players: [{ id: 'p1', seed: 0 }] });
+test('normaliseState gives a missing name a sensible default', () => {
+  const s = normaliseState(fiveCrowns, { players: [{ id: 'p1', seed: 0 }] });
   assert.equal(s.players[0].name, 'Player 1');
-  const sides = normalizeState(five00, { players: [{ id: 'p1' }] });
+  const sides = normaliseState(five00, { players: [{ id: 'p1' }] });
   assert.equal(sides.players[0].name, 'Side 1');
 });
 
-test('normalizeState keeps valid hands and discards malformed ones', () => {
-  const s = normalizeState(five00, {
+test('normaliseState keeps valid hands and discards malformed ones', () => {
+  const s = normaliseState(five00, {
     started: true,
     players: [
       { id: 'p1', name: 'Us', seed: 0 },
@@ -91,7 +91,7 @@ test('serializeState trims trailing blanks for open cell games', () => {
 test('serializeState writes scores for cell games and hands for hand games', () => {
   const fc = serializeState(
     fiveCrowns,
-    normalizeState(fiveCrowns, {
+    normaliseState(fiveCrowns, {
       started: true,
       players: [{ id: 'p1', name: 'Zac', seed: 0 }],
       scores: { p1: [5] },
@@ -119,8 +119,8 @@ test('serializeState writes scores for cell games and hands for hand games', () 
   assert.ok(!('scores' in f5));
 });
 
-test('serialize then normalize round-trips a Five Crowns game', () => {
-  const original = normalizeState(fiveCrowns, {
+test('serialise then normalise round-trips a Five Crowns game', () => {
+  const original = normaliseState(fiveCrowns, {
     started: true,
     players: [
       { id: 'p1', name: 'Zac', seed: 0 },
@@ -136,7 +136,7 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
     dealerRounds: ['p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2'],
     dealerOrderStartsAt: 0,
   });
-  const round = normalizeState(fiveCrowns, serializeState(fiveCrowns, original));
+  const round = normaliseState(fiveCrowns, serializeState(fiveCrowns, original));
   assert.deepEqual(round.players, original.players);
   assert.deepEqual(round.scores, original.scores);
   assert.equal(round.variant, 'random');
@@ -149,8 +149,8 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
   assert.equal(round.dealerOrderStartsAt, 0);
 });
 
-test('serialize then normalize round-trips Super Random card and wild orders', () => {
-  const original = normalizeState(fiveCrowns, {
+test('serialise then normalise round-trips Super Random card and wild orders', () => {
+  const original = normaliseState(fiveCrowns, {
     started: true,
     players: [
       { id: 'p1', name: 'Zac', seed: 0 },
@@ -164,7 +164,7 @@ test('serialize then normalize round-trips Super Random card and wild orders', (
     revealedCount: 1,
   });
   const saved = serializeState(fiveCrowns, original);
-  const round = normalizeState(fiveCrowns, saved);
+  const round = normaliseState(fiveCrowns, saved);
 
   assert.equal(round.variant, 'super-random');
   assert.deepEqual(round.wildOrder, original.wildOrder);
@@ -174,8 +174,8 @@ test('serialize then normalize round-trips Super Random card and wild orders', (
   assert.notStrictEqual(round.cardOrder, saved.cardOrder);
 });
 
-test('serialize then normalize round-trips a 500 game', () => {
-  const original = normalizeState(five00, {
+test('serialise then normalise round-trips a 500 game', () => {
+  const original = normaliseState(five00, {
     started: true,
     players: [
       { id: 'p1', name: 'Us', seed: 0 },
@@ -192,7 +192,7 @@ test('serialize then normalize round-trips a 500 game', () => {
       },
     ],
   });
-  const round = normalizeState(five00, serializeState(five00, original));
+  const round = normaliseState(five00, serializeState(five00, original));
   assert.deepEqual(round.players, original.players);
   assert.deepEqual(round.hands, original.hands);
 });

@@ -1,4 +1,5 @@
 import { el, clamp } from './lib/dom.js';
+import { shuffle } from './lib/random.js';
 
 const EFFECTS = Object.freeze({
   confetti: { label: 'Confetti', amount: 44, repeatMs: 1000 },
@@ -270,14 +271,6 @@ function cancelAll(node) {
     failed = failed || result.failed;
   });
   return { stopped, failed };
-}
-function shuffle(values) {
-  const result = values.slice();
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 }
 
 function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {

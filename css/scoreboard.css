@@ -376,6 +376,16 @@ tfoot .round-col {
   color: var(--danger);
 }
 
+/* Hands recorded after the game ended are still editable but score nothing. */
+.hand-void .delta-cell {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.hand-void .hand-edit {
+  opacity: 0.55;
+}
+
 .total-cell .needs {
   display: block;
   margin-top: 0.1rem;

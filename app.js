@@ -539,6 +539,15 @@ function refreshScoreLabels(pid) {
     input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r, state)));
   });
 }
+function handEditLabel(index, summary, isVoid) {
+  return (
+    'Edit hand ' +
+    (index + 1) +
+    ', ' +
+    summary +
+    (isVoid ? ', after the game ended, not counted' : '')
+  );
+}
 function refreshHandLabels() {
   if (activeGame.entry !== 'hand') return;
   const hands = state.hands || [];
@@ -549,7 +558,7 @@ function refreshHandLabels() {
     const summary = activeGame.handSummary(hand, state.players);
     const btn = tr.querySelector('.hand-edit');
     if (!btn) return;
-    btn.setAttribute('aria-label', 'Edit hand ' + (i + 1) + ', ' + summary);
+    btn.setAttribute('aria-label', handEditLabel(i, summary, tr.classList.contains('hand-void')));
     const wild = btn.querySelector('.wild');
     if (wild) wild.textContent = summary;
   });
@@ -557,7 +566,7 @@ function refreshHandLabels() {
 function buildBody(st) {
   scoreBody.innerHTML = '';
   if (activeGame.entry === 'hand') {
-    buildHandRows();
+    buildHandRows(st);
   } else {
     const rows = cellRowCount(st);
     for (let r = 0; r < rows; r++) scoreBody.appendChild(buildCellRow(r));
@@ -662,16 +671,23 @@ function buildCellRow(r) {
   applyRoundRow(tr, r, label);
   return tr;
 }
-function buildHandRows() {
+// Hands recorded after the game-ending hand are kept, so an edit can bring them
+// back into play, but they score nothing and must not look like they do.
+function voidHandFrom(st) {
+  return st && st.terminalHand != null ? st.terminalHand + 1 : null;
+}
+function buildHandRows(st) {
   const hands = state.hands || [];
+  const voidFrom = voidHandFrom(st);
   hands.forEach((hand, i) => {
     const summary = activeGame.handSummary(hand, state.players);
-    const tr = el('tr', { 'data-hand': String(i) });
+    const isVoid = voidFrom != null && i >= voidFrom;
+    const tr = el('tr', { 'data-hand': String(i), class: isVoid ? 'hand-void' : null });
     const rh = el('th', { class: 'round-col hand-head', scope: 'row' });
     const btn = el('button', {
       type: 'button',
       class: 'hand-edit',
-      'aria-label': 'Edit hand ' + (i + 1) + ', ' + summary,
+      'aria-label': handEditLabel(i, summary, isVoid),
     });
     btn.appendChild(el('span', { class: 'round-num' }, 'Hand ' + (i + 1)));
     btn.appendChild(el('span', { class: 'wild' }, summary));

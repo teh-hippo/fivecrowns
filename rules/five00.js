@@ -123,7 +123,9 @@ const five00 = {
     const hands = Array.isArray(state.hands) ? state.hands : [];
     const running = objectFromEntries(players.map((player) => [player.id, player.seed || 0]));
     let terminal = null;
-    for (const hand of hands) {
+    let terminalHand = null;
+    for (let index = 0; index < hands.length; index++) {
+      const hand = hands[index];
       players.forEach((player) => {
         running[player.id] += (hand.deltas && hand.deltas[player.id]) || 0;
       });
@@ -135,7 +137,10 @@ const five00 = {
           .map((player) => player.id);
         if (outs.length) terminal = { type: 'out', outIds: outs };
       }
-      if (terminal) break;
+      if (terminal) {
+        terminalHand = index;
+        break;
+      }
     }
     const totals = { ...running };
     const { best, leaders, distinct } = leadersOf(totals, 'high');
@@ -146,6 +151,7 @@ const five00 = {
           phase: 'complete',
           best,
           leaders: [terminal.winnerId],
+          terminalHand,
           text: winnerText(players, [terminal.winnerId], totals[terminal.winnerId]),
         },
       };
@@ -163,13 +169,20 @@ const five00 = {
           phase: 'out',
           best,
           leaders: winners,
+          terminalHand,
           text: TROPHY + joinNames(players, winners) + ' win \u2014 ' + outText,
         },
       };
     }
     return {
       totals,
-      status: { phase: 'inProgress', best, leaders: distinct ? leaders : [], text: '' },
+      status: {
+        phase: 'inProgress',
+        best,
+        leaders: distinct ? leaders : [],
+        terminalHand: null,
+        text: '',
+      },
     };
   },
 };

@@ -649,3 +649,35 @@ test('Five Crowns resolve: a seed is added to the total', () => {
   const { totals } = fiveCrowns.resolve(seeded, { scores: { p1: [5] } });
   assert.equal(totals.p1, 15);
 });
+
+test('500 resolve reports which hand ended the game', () => {
+  const hand = (bidderId, deltas, made) => ({
+    id: 'h',
+    bidderId,
+    bid: { kind: 'suit', suit: 'spades', level: 6 },
+    made,
+    tricks: {},
+    deltas,
+  });
+
+  const open = five00.resolve(sides, { hands: [hand('p1', { p1: 300, p2: 0 }, true)] });
+  assert.equal(open.status.phase, 'inProgress');
+  assert.equal(open.status.terminalHand, null);
+
+  const won = five00.resolve(sides, {
+    hands: [
+      hand('p1', { p1: 300, p2: 0 }, true),
+      hand('p1', { p1: 300, p2: 0 }, true),
+      hand('p2', { p1: 0, p2: 400 }, true),
+    ],
+  });
+  assert.equal(won.status.phase, 'complete');
+  assert.equal(won.status.terminalHand, 1, 'the second hand takes Us past 500');
+  assert.deepEqual(won.totals, { p1: 600, p2: 0 }, 'the third hand scores nothing');
+
+  const out = five00.resolve(sides, {
+    hands: [hand('p2', { p1: 0, p2: -500 }, false), hand('p1', { p1: 120, p2: 0 }, true)],
+  });
+  assert.equal(out.status.phase, 'out');
+  assert.equal(out.status.terminalHand, 0);
+});
