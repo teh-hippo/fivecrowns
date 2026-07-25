@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { dealerPreferenceResolver } from '../lib/dealer-rig.js';
 import {
   contractValue,
   suitContractValue,
@@ -376,7 +377,11 @@ test('Dealer nomination rotates from the selected first dealer', () => {
 test('Dealer rigging gives Dad the lowest and Mum the highest remaining count', () => {
   const base = [8, 3, 12, 4, 13, 5, 11, 6, 10, 7, 9];
   const dealers = ['Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam'];
-  const order = fiveCrownsRigCardOrder(base, dealers, { dadLowCards: true, mumHighCards: true });
+  const order = fiveCrownsRigCardOrder(
+    base,
+    dealers,
+    dealerPreferenceResolver({ dadLowCards: true, mumHighCards: true }),
+  );
   assert.deepEqual(order.slice(0, 3), [3, 8, 13]);
   assert.deepEqual(
     [...order].sort((a, b) => a - b),
@@ -394,7 +399,7 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
     players,
     dealerEnabled: true,
     firstDealerIndex: 0,
-    rig: { dadLowCards: true, mumHighCards: true },
+    preferenceFor: dealerPreferenceResolver({ dadLowCards: true, mumHighCards: true }),
   });
   assert.equal(state.dealerEnabled, true);
   assert.deepEqual(state.dealerOrder, ['p1', 'p2', 'p3']);
@@ -406,7 +411,7 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
   ]);
   assert.deepEqual(state.wildOrder, [...FIVE_CROWNS_WILDS.slice(1), FIVE_CROWNS_WILDS[0]]);
 
-  fiveCrowns.applyDealerRig(state, { dadLowCards: false, mumHighCards: false });
+  fiveCrowns.applyDealerRig(state, dealerPreferenceResolver({}));
   assert.deepEqual(state.cardOrder, state.cardOrderBase);
 });
 

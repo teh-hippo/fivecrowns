@@ -8,9 +8,14 @@ import {
   nextRecalledName as recalledNextName,
   lastGameId,
   hasStartedSave,
+} from './lib/storage.js';
+import {
+  DEALER_RIG_RULES,
+  defaultDealerRigSettings,
+  dealerPreferenceResolver,
   loadDealerRigSettings,
   saveDealerRigSettings,
-} from './lib/storage.js';
+} from './lib/dealer-rig.js';
 import { installViewport, installDialogFallback } from './lib/platform.js';
 import {
   DEFAULT_REEL_OPTIONS,
@@ -458,7 +463,7 @@ function renderHeaderActions(st) {
 }
 function playerNameChanged(player) {
   if (typeof activeGame.applyDealerRig === 'function')
-    activeGame.applyDealerRig(state, loadDealerRigSettings());
+    activeGame.applyDealerRig(state, dealerPreferenceResolver(loadDealerRigSettings()));
   save();
   if (activeGame.entry === 'hand') refreshHandLabels();
   else refreshScoreLabels(player.id);
@@ -856,18 +861,6 @@ function updateRevealButton() {
 function maybeAutoReveal() {
   if (!gameScreen.hidden && !reel.isBusy() && readyRoundIndex() === 0) openRoundReveal(0);
 }
-const DEALER_RIG_FIELDS = [
-  {
-    key: 'dadLowCards',
-    id: 'dad-low-cards',
-    label: 'Dad gets the lowest remaining card count while dealing',
-  },
-  {
-    key: 'mumHighCards',
-    id: 'mum-high-cards',
-    label: 'Mum gets the highest remaining card count while dealing',
-  },
-];
 const debugFields = {},
   debugRigInputs = {};
 function debugFieldValue(field, value = DEFAULT_REEL_OPTIONS[field.key]) {
@@ -879,7 +872,7 @@ function formatDebugValue(field, value) {
 }
 function currentDealerRigSettings() {
   const value = {};
-  DEALER_RIG_FIELDS.forEach((field) => {
+  DEALER_RIG_RULES.forEach((field) => {
     value[field.key] = !!debugRigInputs[field.key].checked;
   });
   return value;
@@ -893,7 +886,7 @@ function applyDealerRigSettings(settings) {
     typeof activeGame.applyDealerRig !== 'function'
   )
     return;
-  activeGame.applyDealerRig(state, settings);
+  activeGame.applyDealerRig(state, dealerPreferenceResolver(settings));
   save();
 }
 function persistDealerRigSettings() {
@@ -930,7 +923,7 @@ function buildDebugControls() {
     debugControls.appendChild(label);
   });
   debugControls.appendChild(el('h2', { class: 'debug-section-title' }, 'Dealer rigging'));
-  DEALER_RIG_FIELDS.forEach((field) => {
+  DEALER_RIG_RULES.forEach((field) => {
     const label = el('label', { class: 'debug-control debug-toggle', for: 'debug-' + field.id });
     const input = el('input', { id: 'debug-' + field.id, type: 'checkbox' });
     input.addEventListener('change', persistDealerRigSettings);
@@ -945,9 +938,9 @@ function syncDebugControls(resetReel = false, resetRig = false) {
     if (output) output.textContent = formatDebugValue(field, input.value);
   });
   const rig = resetRig
-    ? saveDealerRigSettings({ dadLowCards: false, mumHighCards: false })
+    ? saveDealerRigSettings(defaultDealerRigSettings())
     : loadDealerRigSettings();
-  DEALER_RIG_FIELDS.forEach((field) => {
+  DEALER_RIG_RULES.forEach((field) => {
     debugRigInputs[field.key].checked = rig[field.key];
   });
   if (resetRig) applyDealerRigSettings(rig);
@@ -1011,7 +1004,7 @@ function startGame() {
         players: state.players,
         dealerEnabled: setupDealerEnabled,
         firstDealerIndex: setupFirstDealerIndex,
-        rig: loadDealerRigSettings(),
+        preferenceFor: dealerPreferenceResolver(loadDealerRigSettings()),
       }),
     );
   }
@@ -1041,7 +1034,7 @@ function playAgain() {
         players: keep,
         dealerEnabled: !!state.dealerEnabled,
         dealerOrder: state.dealerOrder,
-        rig: loadDealerRigSettings(),
+        preferenceFor: dealerPreferenceResolver(loadDealerRigSettings()),
       }),
     );
   }
@@ -1265,7 +1258,7 @@ bindDialog(
     if (value !== 'add' || !validateSeed()) return;
     const id = addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0);
     if (typeof activeGame.onPlayerAdded === 'function')
-      activeGame.onPlayerAdded(state, id, loadDealerRigSettings());
+      activeGame.onPlayerAdded(state, id, dealerPreferenceResolver(loadDealerRigSettings()));
     save();
     renderGame();
   },

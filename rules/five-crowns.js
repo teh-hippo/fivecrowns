@@ -70,19 +70,18 @@ function fiveCrownsDealerName(i, state) {
     id && Array.isArray(state.players) ? state.players.find((item) => item.id === id) : null;
   return player && typeof player.name === 'string' ? player.name : '';
 }
-function fiveCrownsRigCardOrder(baseOrder, dealerNames, settings) {
+// The caller supplies preferenceFor(dealerName), returning 'low', 'high' or
+// null. Keeping the mapping outside this module leaves the rules generic.
+function fiveCrownsRigCardOrder(baseOrder, dealerNames, preferenceFor) {
   const remaining = Array.isArray(baseOrder) ? baseOrder.slice() : [];
   const dealers = Array.isArray(dealerNames) ? dealerNames : [];
+  const prefer = typeof preferenceFor === 'function' ? preferenceFor : () => null;
   const result = [];
-  const rig = settings || {};
   for (let i = 0; i < dealers.length && remaining.length; i++) {
-    const dealer = String(dealers[i] || '')
-      .trim()
-      .toLowerCase();
+    const preference = prefer(dealers[i]);
     let index = 0;
-    if (dealer === 'dad' && rig.dadLowCards) index = remaining.indexOf(Math.min(...remaining));
-    else if (dealer === 'mum' && rig.mumHighCards)
-      index = remaining.indexOf(Math.max(...remaining));
+    if (preference === 'low') index = remaining.indexOf(Math.min(...remaining));
+    else if (preference === 'high') index = remaining.indexOf(Math.max(...remaining));
     result.push(remaining.splice(index, 1)[0]);
   }
   return result.concat(remaining);
@@ -113,7 +112,7 @@ function fiveCrownsRevealedCount(state) {
 function cardCountText(count) {
   return String(count) + ' cards';
 }
-function fiveCrownsApplyDealerRig(state, settings) {
+function fiveCrownsApplyDealerRig(state, preferenceFor) {
   if (!state || state.variant !== 'super-random' || !state.dealerEnabled) return;
   const cards = fiveCrownsCardsFromState(state);
   const revealed = fiveCrownsRevealedCount(state);
@@ -122,9 +121,9 @@ function fiveCrownsApplyDealerRig(state, settings) {
   const dealers = remaining.map((_, offset) => fiveCrownsDealerName(revealed + offset, state));
   state.cardOrder = cards
     .slice(0, revealed)
-    .concat(fiveCrownsRigCardOrder(remaining, dealers, settings));
+    .concat(fiveCrownsRigCardOrder(remaining, dealers, preferenceFor));
 }
-function fiveCrownsAddDealer(state, id, settings) {
+function fiveCrownsAddDealer(state, id, preferenceFor) {
   if (!state || !state.dealerEnabled || typeof id !== 'string') return;
   const players = Array.isArray(state.players) ? state.players : [];
   const existingIds = players.map((player) => player.id).filter((playerId) => playerId !== id);
@@ -140,7 +139,7 @@ function fiveCrownsAddDealer(state, id, settings) {
     state.dealerOrder = [id];
     state.dealerRounds = fiveCrownsDealerRounds(state.dealerOrder);
     state.dealerOrderStartsAt = 0;
-    fiveCrownsApplyDealerRig(state, settings);
+    fiveCrownsApplyDealerRig(state, preferenceFor);
     return;
   }
   const currentRounds =
@@ -157,7 +156,7 @@ function fiveCrownsAddDealer(state, id, settings) {
       rounds[i] = order[(i - pendingStart) % order.length];
     state.dealerOrder = order;
     state.dealerRounds = rounds;
-    fiveCrownsApplyDealerRig(state, settings);
+    fiveCrownsApplyDealerRig(state, preferenceFor);
     return;
   }
   if (revealed === 0) boundary = Math.min(FIVE_CROWNS_ROUNDS, oldOrder.length);
@@ -177,7 +176,7 @@ function fiveCrownsAddDealer(state, id, settings) {
   state.dealerOrder = order;
   state.dealerRounds = rounds;
   state.dealerOrderStartsAt = boundary;
-  fiveCrownsApplyDealerRig(state, settings);
+  fiveCrownsApplyDealerRig(state, preferenceFor);
 }
 function fiveCrownsPrevComplete(i, state) {
   if (i <= 0) return true;
@@ -247,7 +246,7 @@ const fiveCrowns = {
         return player ? player.name : '';
       });
       extra.cardOrderBase = cards;
-      extra.cardOrder = fiveCrownsRigCardOrder(cards, names, context.rig || {});
+      extra.cardOrder = fiveCrownsRigCardOrder(cards, names, context.preferenceFor);
     }
     if (fiveCrownsRevealVariant(v)) {
       extra.revealedCount = 0;

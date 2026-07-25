@@ -1,12 +1,8 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fiveCrowns, FIVE_CROWNS_WILDS } from '../games.js';
-import {
-  loadDealerRigSettings,
-  nextRecalledName,
-  saveDealerRigSettings,
-  saveGame,
-} from '../lib/storage.js';
+import { nextRecalledName, saveGame } from '../lib/storage.js';
+import { loadDealerRigSettings, saveDealerRigSettings } from '../lib/dealer-rig.js';
 
 function storageWith(values) {
   const data = new Map(Object.entries(values));
