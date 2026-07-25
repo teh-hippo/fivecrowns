@@ -34,7 +34,15 @@ test('Five Crowns registers Super Random and its persisted card order', () => {
 
 test('every game implements the engine contract', () => {
   for (const game of Object.values(GAMES)) {
-    for (const field of ['id', 'name', 'storageKey', 'unitLabel', 'winDirection', 'rounds', 'entry']) {
+    for (const field of [
+      'id',
+      'name',
+      'storageKey',
+      'unitLabel',
+      'winDirection',
+      'rounds',
+      'entry',
+    ]) {
       assert.ok(game[field] != null, `${game.id} is missing ${field}`);
     }
     assert.ok(['low', 'high'].includes(game.winDirection));
