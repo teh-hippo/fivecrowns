@@ -158,6 +158,55 @@ function nextFakeOutMisses(misses, didFakeOut) {
 function reducedMotion() {
   return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+// No layout-dependent visibility check here: offsetParent is null for
+// fixed-position subtrees and in non-rendering engines, which would silently
+// empty the list and disable the trap entirely.
+function focusableWithin(node) {
+  if (!node || typeof node.querySelectorAll !== 'function') return [];
+  return Array.prototype.filter.call(
+    node.querySelectorAll(FOCUSABLE),
+    (item) => !item.hidden && !item.closest('[hidden]'),
+  );
+}
+
+// The overlay is a hand-rolled modal, so the background has to be hidden from
+// assistive technology and keyboard order explicitly. inert does both where it
+// is supported; aria-hidden covers browsers that lack it.
+function backgroundSiblings(overlay) {
+  if (!overlay || !overlay.parentNode) return [];
+  return Array.prototype.filter.call(
+    overlay.parentNode.children,
+    (node) => node !== overlay && node.tagName !== 'SCRIPT',
+  );
+}
+
+function deactivateBackground(overlay) {
+  const affected = [];
+  backgroundSiblings(overlay).forEach((node) => {
+    affected.push({ node, inert: node.inert, hidden: node.getAttribute('aria-hidden') });
+    try {
+      node.inert = true;
+    } catch (_) {
+      /* inert is unsupported, aria-hidden below still applies */
+    }
+    node.setAttribute('aria-hidden', 'true');
+  });
+  return () => {
+    affected.forEach(({ node, inert, hidden }) => {
+      try {
+        node.inert = !!inert;
+      } catch (_) {
+        /* nothing to restore */
+      }
+      if (hidden == null) node.removeAttribute('aria-hidden');
+      else node.setAttribute('aria-hidden', hidden);
+    });
+  };
+}
 function animationObject(value) {
   return value != null && ['object', 'function'].includes(typeof value);
 }
@@ -1202,6 +1251,8 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     setBusy(true);
     title.textContent = settings.title;
     action.textContent = 'Spin';
+    const restoreFocusTo = document.activeElement;
+    const restoreBackground = deactivateBackground(overlay);
     overlay.hidden = false;
     const tracks = renderTracks(reels);
     const geos = tracks.map((track) => geometry(track, fullSetSize, settings.spinCycles));
@@ -1257,12 +1308,21 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       if (phase === 'closed') return;
       phase = 'closed';
       overlay.removeEventListener('click', onTap);
+      overlay.removeEventListener('keydown', onKeyDown);
       clearTimers();
       stopAnimations(idles);
       stopAnimations(selections);
       stopEffects();
       if (onConfirm) onConfirm();
       overlay.hidden = true;
+      restoreBackground();
+      if (restoreFocusTo && typeof restoreFocusTo.focus === 'function') {
+        try {
+          restoreFocusTo.focus();
+        } catch (_) {
+          /* the opener has gone, leave focus where the browser put it */
+        }
+      }
       setBusy(false);
       if (onClose) onClose();
     };
@@ -1353,7 +1413,36 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       else if (phase === 'spin') land();
       else close();
     };
+    // Escape follows the same progression as a tap rather than abandoning the
+    // reveal, so a keyboard user cannot skip past an unconfirmed round.
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onTap();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = focusableWithin(overlay);
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (!overlay.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     overlay.addEventListener('click', onTap);
+    overlay.addEventListener('keydown', onKeyDown);
     action.focus();
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i],

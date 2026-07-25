@@ -208,7 +208,14 @@
       </form>
     </dialog>
 
-    <div id="reel-overlay" class="reel-overlay" hidden>
+    <div
+      id="reel-overlay"
+      class="reel-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reel-title"
+      hidden
+    >
       <div class="reel-card">
         <p id="reel-title" class="reel-title" aria-live="polite" aria-atomic="true"></p>
         <div id="reel-wheels" class="reel-wheels"></div>
