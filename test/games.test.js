@@ -1,15 +1,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  contractValue, suitContractValue, bidLabel, buildBidOrder,
-  five00, greed, greedRunningTotals,
-  fiveCrowns, fiveCrownsWildOrder, fiveCrownsDealerOrder, fiveCrownsDealerRounds,
-  fiveCrownsDealerId, fiveCrownsRigCardOrder,
-  FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS, FIVE_CROWNS_ROUNDS,
-  leadersOf, sumScores, lastFilledIndex, joinNames, winnerText,
+  contractValue,
+  suitContractValue,
+  bidLabel,
+  buildBidOrder,
+  five00,
+  greed,
+  greedRunningTotals,
+  fiveCrowns,
+  fiveCrownsWildOrder,
+  fiveCrownsDealerOrder,
+  fiveCrownsDealerRounds,
+  fiveCrownsDealerId,
+  fiveCrownsRigCardOrder,
+  FIVE_CROWNS_WILDS,
+  FIVE_CROWNS_CARD_COUNTS,
+  FIVE_CROWNS_ROUNDS,
+  leadersOf,
+  sumScores,
+  lastFilledIndex,
+  joinNames,
+  winnerText,
 } from '../games.js';
 
-const sides = [{ id: 'p1', name: 'Us', seed: 0 }, { id: 'p2', name: 'Them', seed: 0 }];
+const sides = [
+  { id: 'p1', name: 'Us', seed: 0 },
+  { id: 'p2', name: 'Them', seed: 0 },
+];
 
 /* ---------- shared helpers ---------- */
 test('sumScores ignores nulls and non-numbers', () => {
@@ -27,8 +45,16 @@ test('lastFilledIndex finds the last non-null', () => {
 });
 
 test('leadersOf reports best, ties and distinctness', () => {
-  assert.deepEqual(leadersOf({ p1: 10, p2: 20 }, 'low'), { best: 10, leaders: ['p1'], distinct: true });
-  assert.deepEqual(leadersOf({ p1: 20, p2: 10 }, 'high'), { best: 20, leaders: ['p1'], distinct: true });
+  assert.deepEqual(leadersOf({ p1: 10, p2: 20 }, 'low'), {
+    best: 10,
+    leaders: ['p1'],
+    distinct: true,
+  });
+  assert.deepEqual(leadersOf({ p1: 20, p2: 10 }, 'high'), {
+    best: 20,
+    leaders: ['p1'],
+    distinct: true,
+  });
   const tie = leadersOf({ p1: 10, p2: 10 }, 'low');
   assert.equal(tie.best, 10);
   assert.deepEqual(tie.leaders.sort(), ['p1', 'p2']);
@@ -78,55 +104,97 @@ test('buildBidOrder lists every contract in rank order', () => {
 
 /* ---------- 500 scoring ---------- */
 test('scoreHand: a made suit bid scores its value plus opponent tricks', () => {
-  const r = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 7, p2: 3 } }, sides);
+  const r = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 7, p2: 3 } },
+    sides,
+  );
   assert.equal(r.meta.made, true);
   assert.deepEqual(r.deltas, { p1: 140, p2: 30 });
 });
 
 test('scoreHand: a set bid loses its value, opponents still score tricks', () => {
-  const r = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 6, p2: 4 } }, sides);
+  const r = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 6, p2: 4 } },
+    sides,
+  );
   assert.equal(r.meta.made, false);
   assert.deepEqual(r.deltas, { p1: -140, p2: 40 });
 });
 
 test('scoreHand: a slam on a low bid is worth 250', () => {
-  const r = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 6 }, tricks: { p1: 10, p2: 0 } }, sides);
+  const r = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 6 }, tricks: { p1: 10, p2: 0 } },
+    sides,
+  );
   assert.deepEqual(r.deltas, { p1: 250, p2: 0 });
 });
 
 test('scoreHand: a high bid taken with all tricks scores its own value (no slam bonus)', () => {
-  const r = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'nt', suit: 'nt', level: 8 }, tricks: { p1: 10, p2: 0 } }, sides);
+  const r = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'nt', suit: 'nt', level: 8 }, tricks: { p1: 10, p2: 0 } },
+    sides,
+  );
   assert.equal(r.deltas.p1, 320);
 });
 
 test('scoreHand: misere made and set', () => {
-  const made = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'misere' }, tricks: { p1: 0, p2: 0 } }, sides);
+  const made = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'misere' }, tricks: { p1: 0, p2: 0 } },
+    sides,
+  );
   assert.deepEqual(made.deltas, { p1: 250, p2: 0 });
-  const set = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'misere' }, tricks: { p1: 1, p2: 0 } }, sides);
+  const set = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'misere' }, tricks: { p1: 1, p2: 0 } },
+    sides,
+  );
   assert.deepEqual(set.deltas, { p1: -250, p2: 0 });
 });
 
 test('scoreHand: open misere made and set', () => {
-  const made = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } }, sides);
+  const made = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } },
+    sides,
+  );
   assert.deepEqual(made.deltas, { p1: 500, p2: 0 });
-  const set = five00.scoreHand({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 2, p2: 0 } }, sides);
+  const set = five00.scoreHand(
+    { bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 2, p2: 0 } },
+    sides,
+  );
   assert.deepEqual(set.deltas, { p1: -500, p2: 0 });
 });
 
 /* ---------- 500 resolve ---------- */
 function handFor(input) {
   const r = five00.scoreHand(input, sides);
-  return { id: 'h', bidderId: input.bidderId, bid: input.bid, bidValue: r.meta.bidValue, made: r.meta.made, tricks: r.meta.tricks, deltas: r.deltas };
+  return {
+    id: 'h',
+    bidderId: input.bidderId,
+    bid: input.bid,
+    bidValue: r.meta.bidValue,
+    made: r.meta.made,
+    tricks: r.meta.tricks,
+    deltas: r.deltas,
+  };
 }
 
 test('500 resolve: in progress until a side reaches the target', () => {
-  const state = { hands: [handFor({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 7, p2: 3 } })] };
+  const state = {
+    hands: [
+      handFor({
+        bidderId: 'p1',
+        bid: { kind: 'suit', suit: 'spades', level: 7 },
+        tricks: { p1: 7, p2: 3 },
+      }),
+    ],
+  };
   const { status } = five00.resolve(sides, state);
   assert.equal(status.phase, 'inProgress');
 });
 
 test('500 resolve: a made bid reaching 500 wins', () => {
-  const state = { hands: [handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } })] };
+  const state = {
+    hands: [handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } })],
+  };
   const { totals, status } = five00.resolve(sides, state);
   assert.equal(status.phase, 'complete');
   assert.deepEqual(status.leaders, ['p1']);
@@ -134,7 +202,9 @@ test('500 resolve: a made bid reaching 500 wins', () => {
 });
 
 test('500 resolve: dropping to -500 puts a side out and the other wins', () => {
-  const state = { hands: [handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 3, p2: 0 } })] };
+  const state = {
+    hands: [handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 3, p2: 0 } })],
+  };
   const { status } = five00.resolve(sides, state);
   assert.equal(status.phase, 'out');
   assert.deepEqual(status.leaders, ['p2']);
@@ -142,7 +212,11 @@ test('500 resolve: dropping to -500 puts a side out and the other wins', () => {
 
 test('500 resolve: hands after the deciding hand are ignored', () => {
   const win = handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } }); // p1 -> +500, wins
-  const extra = handFor({ bidderId: 'p2', bid: { kind: 'suit', suit: 'hearts', level: 6 }, tricks: { p2: 6, p1: 4 } });
+  const extra = handFor({
+    bidderId: 'p2',
+    bid: { kind: 'suit', suit: 'hearts', level: 6 },
+    tricks: { p2: 6, p1: 4 },
+  });
   const { totals, status } = five00.resolve(sides, { hands: [win, extra] });
   assert.equal(status.phase, 'complete');
   assert.deepEqual(status.leaders, ['p1']);
@@ -150,7 +224,11 @@ test('500 resolve: hands after the deciding hand are ignored', () => {
 });
 
 test('500 resolve: a winning banner reports the actual total, not the 500 target', () => {
-  const lead = handFor({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 7, p2: 3 } }); // p1 +140
+  const lead = handFor({
+    bidderId: 'p1',
+    bid: { kind: 'suit', suit: 'spades', level: 7 },
+    tricks: { p1: 7, p2: 3 },
+  }); // p1 +140
   const clinch = handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 0, p2: 0 } }); // p1 +500 -> 640, wins
   const { totals, status } = five00.resolve(sides, { hands: [lead, clinch] });
   assert.equal(status.phase, 'complete');
@@ -160,7 +238,11 @@ test('500 resolve: a winning banner reports the actual total, not the 500 target
 });
 
 test('500 resolve: an out banner reports the actual total, not the -500 threshold', () => {
-  const drop = handFor({ bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, tricks: { p1: 6, p2: 4 } }); // p1 -140, p2 +40
+  const drop = handFor({
+    bidderId: 'p1',
+    bid: { kind: 'suit', suit: 'spades', level: 7 },
+    tricks: { p1: 6, p2: 4 },
+  }); // p1 -140, p2 +40
   const bust = handFor({ bidderId: 'p1', bid: { kind: 'open' }, tricks: { p1: 3, p2: 0 } }); // p1 -500 -> -640, out
   const { totals, status } = five00.resolve(sides, { hands: [drop, bust] });
   assert.equal(status.phase, 'out');
@@ -221,7 +303,11 @@ test('Five Crowns orders: fixed modes stay aligned and random is a full shuffle'
   assert.equal(down.wildOrder[0], 'Kings');
   assert.equal(down.wildOrder[10], '3s');
   assert.equal(fiveCrowns.cardCount(0, down), 13);
-  assert.deepEqual(fiveCrowns.roundLabel(0, down), { num: '1', sub: 'Kings', hideRoundNumber: true });
+  assert.deepEqual(fiveCrowns.roundLabel(0, down), {
+    num: '1',
+    sub: 'Kings',
+    hideRoundNumber: true,
+  });
 
   const random = fiveCrowns.initVariant('random');
   assert.equal(random.variant, 'random');
@@ -254,11 +340,17 @@ test('Super Random deterministically shuffles every card count and wild exactly 
   assert.equal(superRandom.revealedCount, 0);
   assert.equal(superRandom.fakeOutMisses, 0);
   assert.deepEqual(superRandom.wildOrder, [...FIVE_CROWNS_WILDS.slice(1), FIVE_CROWNS_WILDS[0]]);
-  assert.deepEqual(superRandom.cardOrder, [...FIVE_CROWNS_CARD_COUNTS.slice(1), FIVE_CROWNS_CARD_COUNTS[0]]);
+  assert.deepEqual(superRandom.cardOrder, [
+    ...FIVE_CROWNS_CARD_COUNTS.slice(1),
+    FIVE_CROWNS_CARD_COUNTS[0],
+  ]);
   assert.equal(new Set(superRandom.wildOrder).size, FIVE_CROWNS_ROUNDS);
   assert.equal(new Set(superRandom.cardOrder).size, FIVE_CROWNS_ROUNDS);
   assert.deepEqual([...superRandom.wildOrder].sort(), [...FIVE_CROWNS_WILDS].sort());
-  assert.deepEqual([...superRandom.cardOrder].sort((a, b) => a - b), FIVE_CROWNS_CARD_COUNTS);
+  assert.deepEqual(
+    [...superRandom.cardOrder].sort((a, b) => a - b),
+    FIVE_CROWNS_CARD_COUNTS,
+  );
 });
 
 test('Dealer nomination rotates from the selected first dealer', () => {
@@ -271,7 +363,12 @@ test('Dealer nomination rotates from the selected first dealer', () => {
   assert.deepEqual(order, ['p2', 'p3', 'p1']);
   assert.deepEqual(fiveCrownsDealerRounds(order).slice(0, 5), ['p2', 'p3', 'p1', 'p2', 'p3']);
 
-  const state = { dealerEnabled: true, dealerOrder: order, dealerRounds: fiveCrownsDealerRounds(order), players };
+  const state = {
+    dealerEnabled: true,
+    dealerOrder: order,
+    dealerRounds: fiveCrownsDealerRounds(order),
+    players,
+  };
   assert.equal(fiveCrownsDealerId(0, state), 'p2');
   assert.equal(fiveCrownsDealerId(2, state), 'p1');
 });
@@ -281,7 +378,10 @@ test('Dealer rigging gives Dad the lowest and Mum the highest remaining count', 
   const dealers = ['Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam', 'Mum', 'Dad', 'Sam'];
   const order = fiveCrownsRigCardOrder(base, dealers, { dadLowCards: true, mumHighCards: true });
   assert.deepEqual(order.slice(0, 3), [3, 8, 13]);
-  assert.deepEqual([...order].sort((a, b) => a - b), FIVE_CROWNS_CARD_COUNTS);
+  assert.deepEqual(
+    [...order].sort((a, b) => a - b),
+    FIVE_CROWNS_CARD_COUNTS,
+  );
 });
 
 test('Super Random applies dealer rigging without constraining wilds', () => {
@@ -300,7 +400,10 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
   assert.deepEqual(state.dealerOrder, ['p1', 'p2', 'p3']);
   assert.deepEqual(state.dealerRounds.slice(0, 4), ['p1', 'p2', 'p3', 'p1']);
   assert.deepEqual(state.cardOrder.slice(0, 3), [3, 13, 4]);
-  assert.deepEqual(state.cardOrderBase, [...FIVE_CROWNS_CARD_COUNTS.slice(1), FIVE_CROWNS_CARD_COUNTS[0]]);
+  assert.deepEqual(state.cardOrderBase, [
+    ...FIVE_CROWNS_CARD_COUNTS.slice(1),
+    FIVE_CROWNS_CARD_COUNTS[0],
+  ]);
   assert.deepEqual(state.wildOrder, [...FIVE_CROWNS_WILDS.slice(1), FIVE_CROWNS_WILDS[0]]);
 
   fiveCrowns.applyDealerRig(state, { dadLowCards: false, mumHighCards: false });
@@ -345,12 +448,28 @@ test('Repeated mid-game additions share the same pending dealer cycle', () => {
   state.players.push({ id: 'p5', name: 'E' });
   fiveCrowns.onPlayerAdded(state, 'p5', {});
   assert.equal(state.dealerOrderStartsAt, 3);
-  assert.deepEqual(state.dealerRounds.slice(0, 9), ['p1', 'p2', 'p3', 'p1', 'p2', 'p3', 'p4', 'p5', 'p1']);
+  assert.deepEqual(state.dealerRounds.slice(0, 9), [
+    'p1',
+    'p2',
+    'p3',
+    'p1',
+    'p2',
+    'p3',
+    'p4',
+    'p5',
+    'p1',
+  ]);
 });
 
 test('Random wilds are gated by a spin: locked, then ready, then revealed', () => {
   const order = FIVE_CROWNS_WILDS;
-  const st = { variant: 'random', wildOrder: order, revealedCount: 0, players: sides, scores: { p1: [], p2: [] } };
+  const st = {
+    variant: 'random',
+    wildOrder: order,
+    revealedCount: 0,
+    players: sides,
+    scores: { p1: [], p2: [] },
+  };
 
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
     reels: [{ label: 'Wild', value: '3s' }],
@@ -358,25 +477,63 @@ test('Random wilds are gated by a spin: locked, then ready, then revealed', () =
   });
 
   // Round 0 starts ready (glowing, tappable), not yet revealed; round 1 is locked.
-  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: '?', hideRoundNumber: true, ready: true });
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', hideRoundNumber: true, masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), {
+    num: '1',
+    sub: '?',
+    hideRoundNumber: true,
+    ready: true,
+  });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), {
+    num: '2',
+    sub: '\u2014',
+    hideRoundNumber: true,
+    masked: true,
+  });
 
   // Opening round 0 (spin done) reveals its wild; round 1 stays locked until
   // round 0 is fully entered.
   st.revealedCount = 1;
-  assert.deepEqual(fiveCrowns.roundLabel(0, st), { num: '1', sub: order[0], hideRoundNumber: true });
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', hideRoundNumber: true, masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(0, st), {
+    num: '1',
+    sub: order[0],
+    hideRoundNumber: true,
+  });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), {
+    num: '2',
+    sub: '\u2014',
+    hideRoundNumber: true,
+    masked: true,
+  });
 
   st.scores.p1[0] = 5; // only one player scored round 0
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '\u2014', hideRoundNumber: true, masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), {
+    num: '2',
+    sub: '\u2014',
+    hideRoundNumber: true,
+    masked: true,
+  });
 
   st.scores.p2[0] = 3; // round 0 now complete -> round 1 becomes ready (not auto-revealed)
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: '?', hideRoundNumber: true, ready: true });
-  assert.deepEqual(fiveCrowns.roundLabel(2, st), { num: '3', sub: '\u2014', hideRoundNumber: true, masked: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), {
+    num: '2',
+    sub: '?',
+    hideRoundNumber: true,
+    ready: true,
+  });
+  assert.deepEqual(fiveCrowns.roundLabel(2, st), {
+    num: '3',
+    sub: '\u2014',
+    hideRoundNumber: true,
+    masked: true,
+  });
 
   // Spinning round 1 open reveals it.
   st.revealedCount = 2;
-  assert.deepEqual(fiveCrowns.roundLabel(1, st), { num: '2', sub: order[1], hideRoundNumber: true });
+  assert.deepEqual(fiveCrowns.roundLabel(1, st), {
+    num: '2',
+    sub: order[1],
+    hideRoundNumber: true,
+  });
 });
 
 test('Super Random hides and reveals the paired card count and wild', () => {
@@ -390,25 +547,46 @@ test('Super Random hides and reveals the paired card count and wild', () => {
   };
 
   assert.deepEqual(fiveCrowns.roundLabel(0, st), {
-    num: '1', cards: '? cards', cardsReady: true, sub: '?', hideRoundNumber: true, ready: true,
+    num: '1',
+    cards: '? cards',
+    cardsReady: true,
+    sub: '?',
+    hideRoundNumber: true,
+    ready: true,
   });
   assert.deepEqual(fiveCrowns.roundLabel(1, st), {
-    num: '2', cards: '\u2014', cardsMasked: true, sub: '\u2014', hideRoundNumber: true, masked: true,
+    num: '2',
+    cards: '\u2014',
+    cardsMasked: true,
+    sub: '\u2014',
+    hideRoundNumber: true,
+    masked: true,
   });
 
   st.revealedCount = 1;
   assert.deepEqual(fiveCrowns.roundLabel(0, st), {
-    num: '1', cards: '13 cards', sub: 'Kings', hideRoundNumber: true,
+    num: '1',
+    cards: '13 cards',
+    sub: 'Kings',
+    hideRoundNumber: true,
   });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    reels: [{ label: 'Cards', value: '13', tone: 'cards' }, { label: 'Wild', value: 'Kings' }],
+    reels: [
+      { label: 'Cards', value: '13', tone: 'cards' },
+      { label: 'Wild', value: 'Kings' },
+    ],
     result: '13 cards \u00b7 Kings wild!',
   });
 
   st.scores.p1[0] = 4;
   st.scores.p2[0] = 8;
   assert.deepEqual(fiveCrowns.roundLabel(1, st), {
-    num: '2', cards: '? cards', cardsReady: true, sub: '?', hideRoundNumber: true, ready: true,
+    num: '2',
+    cards: '? cards',
+    cardsReady: true,
+    sub: '?',
+    hideRoundNumber: true,
+    ready: true,
   });
 });
 
@@ -420,14 +598,25 @@ test('Super Random falls back to valid only-once orders for malformed saved data
     revealedCount: -3,
   };
   assert.deepEqual(fiveCrowns.roundLabel(0, st), {
-    num: '1', cards: '? cards', cardsReady: true, sub: '?', hideRoundNumber: true, ready: true,
+    num: '1',
+    cards: '? cards',
+    cardsReady: true,
+    sub: '?',
+    hideRoundNumber: true,
+    ready: true,
   });
   st.revealedCount = 1;
   assert.deepEqual(fiveCrowns.roundLabel(0, st), {
-    num: '1', cards: '3 cards', sub: '3s', hideRoundNumber: true,
+    num: '1',
+    cards: '3 cards',
+    sub: '3s',
+    hideRoundNumber: true,
   });
   assert.deepEqual(fiveCrowns.revealItems(st)[0], {
-    reels: [{ label: 'Cards', value: '3', tone: 'cards' }, { label: 'Wild', value: '3s' }],
+    reels: [
+      { label: 'Cards', value: '3', tone: 'cards' },
+      { label: 'Wild', value: '3s' },
+    ],
     result: '3 cards \u00b7 3s wild!',
   });
 });

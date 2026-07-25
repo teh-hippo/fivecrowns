@@ -2,18 +2,27 @@ import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fiveCrowns, FIVE_CROWNS_WILDS } from '../games.js';
 import {
-  loadDealerRigSettings, nextRecalledName, saveDealerRigSettings, saveGame,
+  loadDealerRigSettings,
+  nextRecalledName,
+  saveDealerRigSettings,
+  saveGame,
 } from '../lib/storage.js';
 
 function storageWith(values) {
   const data = new Map(Object.entries(values));
   return {
-    getItem(key) { return data.has(key) ? data.get(key) : null; },
-    setItem(key, value) { data.set(key, String(value)); },
+    getItem(key) {
+      return data.has(key) ? data.get(key) : null;
+    },
+    setItem(key, value) {
+      data.set(key, String(value));
+    },
   };
 }
 
-afterEach(() => { delete globalThis.localStorage; });
+afterEach(() => {
+  delete globalThis.localStorage;
+});
 
 test('saving a game remembers players by most recent roster', () => {
   globalThis.localStorage = storageWith({

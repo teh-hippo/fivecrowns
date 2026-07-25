@@ -1,17 +1,62 @@
-import { cap, unitSingular, objectFromEntries, lastFilledIndex, sumScores, leadersOf, joinNames, winnerText } from './rules/shared.js';
 import {
-  fiveCrowns, fiveCrownsWildOrder, fiveCrownsDealerOrder, fiveCrownsDealerRounds,
-  fiveCrownsDealerId, fiveCrownsRigCardOrder,
-  FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS, FIVE_CROWNS_ROUNDS,
+  cap,
+  unitSingular,
+  objectFromEntries,
+  lastFilledIndex,
+  sumScores,
+  leadersOf,
+  joinNames,
+  winnerText,
+} from './rules/shared.js';
+import {
+  fiveCrowns,
+  fiveCrownsWildOrder,
+  fiveCrownsDealerOrder,
+  fiveCrownsDealerRounds,
+  fiveCrownsDealerId,
+  fiveCrownsRigCardOrder,
+  FIVE_CROWNS_WILDS,
+  FIVE_CROWNS_CARD_COUNTS,
+  FIVE_CROWNS_ROUNDS,
 } from './rules/five-crowns.js';
 import { greed, greedRunningTotals } from './rules/greed.js';
-import { five00, contractValue, suitContractValue, bidLabel, buildBidOrder } from './rules/five00.js';
+import {
+  five00,
+  contractValue,
+  suitContractValue,
+  bidLabel,
+  buildBidOrder,
+} from './rules/five00.js';
 
-const GAME_LIST = [fiveCrowns, greed, five00]; const GAMES = objectFromEntries(GAME_LIST.map((game) => [game.id, game])); const GAME_ORDER = GAME_LIST.map((game) => game.id);
+const GAME_LIST = [fiveCrowns, greed, five00];
+const GAMES = objectFromEntries(GAME_LIST.map((game) => [game.id, game]));
+const GAME_ORDER = GAME_LIST.map((game) => game.id);
 
 export {
-  GAMES, GAME_ORDER, cap, unitSingular, objectFromEntries, lastFilledIndex, sumScores, leadersOf, joinNames,
-  winnerText, greedRunningTotals, contractValue, suitContractValue, bidLabel, buildBidOrder, fiveCrowns,
-  fiveCrownsWildOrder, fiveCrownsDealerOrder, fiveCrownsDealerRounds, fiveCrownsDealerId,
-  fiveCrownsRigCardOrder, greed, five00, FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS, FIVE_CROWNS_ROUNDS,
+  GAMES,
+  GAME_ORDER,
+  cap,
+  unitSingular,
+  objectFromEntries,
+  lastFilledIndex,
+  sumScores,
+  leadersOf,
+  joinNames,
+  winnerText,
+  greedRunningTotals,
+  contractValue,
+  suitContractValue,
+  bidLabel,
+  buildBidOrder,
+  fiveCrowns,
+  fiveCrownsWildOrder,
+  fiveCrownsDealerOrder,
+  fiveCrownsDealerRounds,
+  fiveCrownsDealerId,
+  fiveCrownsRigCardOrder,
+  greed,
+  five00,
+  FIVE_CROWNS_WILDS,
+  FIVE_CROWNS_CARD_COUNTS,
+  FIVE_CROWNS_ROUNDS,
 };

@@ -1,13 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultState, normalizeState, serializeState } from '../state.js';
-import {
-  fiveCrowns, greed, five00, FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS,
-} from '../games.js';
+import { fiveCrowns, greed, five00, FIVE_CROWNS_WILDS, FIVE_CROWNS_CARD_COUNTS } from '../games.js';
 
 test('defaultState is an empty, not-started game', () => {
   assert.deepEqual(defaultState(fiveCrowns), {
-    gameId: 'fivecrowns', started: false, players: [], nextId: 1, scores: {}, hands: [],
+    gameId: 'fivecrowns',
+    started: false,
+    players: [],
+    nextId: 1,
+    scores: {},
+    hands: [],
   });
 });
 
@@ -53,9 +56,19 @@ test('normalizeState gives a missing name a sensible default', () => {
 test('normalizeState keeps valid hands and discards malformed ones', () => {
   const s = normalizeState(five00, {
     started: true,
-    players: [{ id: 'p1', name: 'Us', seed: 0 }, { id: 'p2', name: 'Them', seed: 0 }],
+    players: [
+      { id: 'p1', name: 'Us', seed: 0 },
+      { id: 'p2', name: 'Them', seed: 0 },
+    ],
     hands: [
-      { id: 'h1', bidderId: 'p1', bid: { kind: 'open' }, made: true, tricks: {}, deltas: { p1: 500, p2: 0 } },
+      {
+        id: 'h1',
+        bidderId: 'p1',
+        bid: { kind: 'open' },
+        made: true,
+        tricks: {},
+        deltas: { p1: 500, p2: 0 },
+      },
       { nonsense: true },
       { bidderId: 'p2' }, // no deltas
     ],
@@ -76,15 +89,31 @@ test('serializeState trims trailing blanks for open cell games', () => {
 });
 
 test('serializeState writes scores for cell games and hands for hand games', () => {
-  const fc = serializeState(fiveCrowns, normalizeState(fiveCrowns, {
-    started: true, players: [{ id: 'p1', name: 'Zac', seed: 0 }], scores: { p1: [5] },
-  }));
+  const fc = serializeState(
+    fiveCrowns,
+    normalizeState(fiveCrowns, {
+      started: true,
+      players: [{ id: 'p1', name: 'Zac', seed: 0 }],
+      scores: { p1: [5] },
+    }),
+  );
   assert.ok('scores' in fc);
   assert.ok(!('hands' in fc));
 
   const f5 = serializeState(five00, {
-    started: true, players: [{ id: 'p1', name: 'Us', seed: 0 }], nextId: 2,
-    hands: [{ id: 'h1', bidderId: 'p1', bid: { kind: 'open' }, made: true, tricks: {}, deltas: { p1: 500 } }],
+    started: true,
+    players: [{ id: 'p1', name: 'Us', seed: 0 }],
+    nextId: 2,
+    hands: [
+      {
+        id: 'h1',
+        bidderId: 'p1',
+        bid: { kind: 'open' },
+        made: true,
+        tricks: {},
+        deltas: { p1: 500 },
+      },
+    ],
   });
   assert.ok('hands' in f5);
   assert.ok(!('scores' in f5));
@@ -93,7 +122,10 @@ test('serializeState writes scores for cell games and hands for hand games', () 
 test('serialize then normalize round-trips a Five Crowns game', () => {
   const original = normalizeState(fiveCrowns, {
     started: true,
-    players: [{ id: 'p1', name: 'Zac', seed: 0 }, { id: 'p2', name: 'Xavi', seed: 3 }],
+    players: [
+      { id: 'p1', name: 'Zac', seed: 0 },
+      { id: 'p2', name: 'Xavi', seed: 3 },
+    ],
     scores: { p1: new Array(11).fill(1), p2: new Array(11).fill(2) },
     variant: 'random',
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
@@ -120,7 +152,10 @@ test('serialize then normalize round-trips a Five Crowns game', () => {
 test('serialize then normalize round-trips Super Random card and wild orders', () => {
   const original = normalizeState(fiveCrowns, {
     started: true,
-    players: [{ id: 'p1', name: 'Zac', seed: 0 }, { id: 'p2', name: 'Xavi', seed: 0 }],
+    players: [
+      { id: 'p1', name: 'Zac', seed: 0 },
+      { id: 'p2', name: 'Xavi', seed: 0 },
+    ],
     scores: { p1: [1], p2: [2] },
     variant: 'super-random',
     wildOrder: [...FIVE_CROWNS_WILDS].reverse(),
@@ -142,8 +177,20 @@ test('serialize then normalize round-trips Super Random card and wild orders', (
 test('serialize then normalize round-trips a 500 game', () => {
   const original = normalizeState(five00, {
     started: true,
-    players: [{ id: 'p1', name: 'Us', seed: 0 }, { id: 'p2', name: 'Them', seed: 0 }],
-    hands: [{ id: 'h1', bidderId: 'p1', bid: { kind: 'suit', suit: 'spades', level: 7 }, made: true, tricks: { p1: 7, p2: 3 }, deltas: { p1: 140, p2: 30 } }],
+    players: [
+      { id: 'p1', name: 'Us', seed: 0 },
+      { id: 'p2', name: 'Them', seed: 0 },
+    ],
+    hands: [
+      {
+        id: 'h1',
+        bidderId: 'p1',
+        bid: { kind: 'suit', suit: 'spades', level: 7 },
+        made: true,
+        tricks: { p1: 7, p2: 3 },
+        deltas: { p1: 140, p2: 30 },
+      },
+    ],
   });
   const round = normalizeState(five00, serializeState(five00, original));
   assert.deepEqual(round.players, original.players);
