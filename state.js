@@ -1,4 +1,4 @@
-import { lastFilledIndex, cap, unitSingular, objectFromEntries } from './rules/shared.js';
+import { lastFilledIndex, nextUnitName, objectFromEntries } from './rules/shared.js';
 
 function defaultState(game) {
   return { gameId: game.id, started: false, players: [], nextId: 1, scores: {}, hands: [] };
@@ -28,7 +28,10 @@ function normaliseState(game, source) {
     const name =
       typeof player.name === 'string' && player.name.trim()
         ? player.name
-        : cap(unitSingular(game)) + ' ' + (base.players.length + 1);
+        : nextUnitName(
+            game,
+            base.players.map((existing) => existing.name),
+          );
     base.players.push({ id: player.id, name });
     const match = /^p(\d+)$/.exec(player.id);
     if (match) maxId = Math.max(maxId, parseInt(match[1], 10));

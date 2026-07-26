@@ -372,6 +372,46 @@ test('adding a player extends the scoreboard', async () => {
   assert.equal([...app.document.querySelectorAll('.name-input')].pop().value, 'Dana');
 });
 
+test('an auto-numbered name steps over one already on the sheet', async () => {
+  app = await bootApp();
+  // Removing the middle row leaves a gap: counting the roster would suggest
+  // "Player 3", which the remaining player already answers to.
+  app.document.querySelectorAll('.name-remove')[1].click();
+  assert.deepEqual(
+    nameInputs().map((input) => input.value),
+    ['Player 1', 'Player 3'],
+  );
+
+  app.byId('players-inc').click();
+  assert.deepEqual(
+    nameInputs().map((input) => input.value),
+    ['Player 1', 'Player 3', 'Player 4'],
+  );
+
+  start();
+  const labels = [...app.document.querySelectorAll('tr[data-round="0"] .score-input')].map(
+    (input) => input.getAttribute('aria-label'),
+  );
+  assert.equal(new Set(labels).size, labels.length, 'every column is distinguishable by name');
+});
+
+test('the add dialog never suggests a name a player already has', async () => {
+  app = await bootApp();
+  start();
+  const header = [...app.document.querySelectorAll('#head-row .name-input')];
+  type(app.window, header[1], 'Player 4');
+
+  app.byId('add-btn').click();
+  assert.equal(app.byId('add-name').value, 'Player 5', 'it skips the taken number');
+
+  type(app.window, app.byId('add-name'), '   '); // a blank name falls back the same way
+  app.byId('add-dialog').close('add');
+
+  const names = [...app.document.querySelectorAll('#head-row .name-input')].map((n) => n.value);
+  assert.deepEqual(names, ['Player 1', 'Player 4', 'Player 3', 'Player 5']);
+  assert.equal(new Set(names).size, names.length, 'no two columns share a name');
+});
+
 test('a player who joins part-way takes a 0 for every round already played', async () => {
   app = await bootApp();
   start();

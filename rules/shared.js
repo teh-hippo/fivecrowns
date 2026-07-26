@@ -17,6 +17,22 @@ function cap(s) {
 function unitSingular(game) {
   return game.unitLabel === 'sides' ? 'side' : 'player';
 }
+// Auto-numbered names count up from the size of the roster, so a gap in the
+// numbering would otherwise hand out a name someone already has. Two columns
+// sharing a name read identically to a screen reader.
+function nextUnitName(game, takenNames, from = takenNames.length + 1) {
+  const base = cap(unitSingular(game));
+  const taken = new Set(
+    takenNames.map((name) =>
+      String(name == null ? '' : name)
+        .trim()
+        .toLowerCase(),
+    ),
+  );
+  let n = Math.max(1, from);
+  while (taken.has((base + ' ' + n).toLowerCase())) n++;
+  return base + ' ' + n;
+}
 function objectFromEntries(entries) {
   const object = {};
   entries.forEach(([key, value]) => {
@@ -66,6 +82,7 @@ export {
   OPEN_ROUNDS,
   cap,
   unitSingular,
+  nextUnitName,
   objectFromEntries,
   sumScores,
   lastFilledIndex,

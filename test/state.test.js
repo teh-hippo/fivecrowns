@@ -53,6 +53,17 @@ test('normaliseState gives a missing name a sensible default', () => {
   assert.equal(sides.players[0].name, 'Side 1');
 });
 
+test('a default name never repeats one the roster already holds', () => {
+  const s = normaliseState(fiveCrowns, {
+    players: [{ id: 'p1', name: 'Player 2' }, { id: 'p2' }, { id: 'p3', name: '  ' }],
+  });
+  assert.deepEqual(
+    s.players.map((p) => p.name),
+    ['Player 2', 'Player 3', 'Player 4'],
+    'numbering steps over names already in use',
+  );
+});
+
 test('normaliseState keeps valid hands and discards malformed ones', () => {
   const s = normaliseState(five00, {
     started: true,

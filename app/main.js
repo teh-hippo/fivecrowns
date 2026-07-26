@@ -1,4 +1,4 @@
-import { GAMES, GAME_ORDER, lastFilledIndex, cap, unitSingular } from '../games.js';
+import { GAMES, GAME_ORDER, lastFilledIndex, cap, unitSingular, nextUnitName } from '../games.js';
 import { defaultState } from '../state.js';
 import { el, refs, onlyDigits, clamp, selectAllOnEdit } from '../lib/dom.js';
 import {
@@ -53,7 +53,11 @@ function createApp() {
   function addPlayerToState(name, startingScore) {
     const id = 'p' + state.nextId++;
     const clean =
-      (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (state.players.length + 1);
+      (name || '').trim() ||
+      nextUnitName(
+        activeGame,
+        state.players.map((p) => p.name),
+      );
     const scores = activeGame.entry === 'cell' ? joinScores(startingScore || 0) : null;
     state.players.push({ id, name: clean });
     if (scores) state.scores[id] = scores;

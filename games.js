@@ -1,6 +1,7 @@
 import {
   cap,
   unitSingular,
+  nextUnitName,
   objectFromEntries,
   lastFilledIndex,
   sumScores,
@@ -38,6 +39,7 @@ export {
   GAME_ORDER,
   cap,
   unitSingular,
+  nextUnitName,
   objectFromEntries,
   lastFilledIndex,
   sumScores,
