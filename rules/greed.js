@@ -12,10 +12,10 @@ const GREED_TARGET = 5000;
 const GREED_ON_BOARD = 500;
 const GREED_FINAL_ROUNDS_AFTER_TARGET = 1;
 
-function greedRunningTotals(seed, scores) {
+function greedRunningTotals(scores) {
   const out = [];
-  let onBoard = (seed || 0) > 0;
-  let running = seed || 0;
+  let onBoard = false;
+  let running = 0;
   for (let i = 0; i < scores.length; i++) {
     const v = typeof scores[i] === 'number' && Number.isFinite(scores[i]) ? scores[i] : 0;
     if (!onBoard && scores[i] != null && v >= GREED_ON_BOARD) onBoard = true;
@@ -42,10 +42,7 @@ const greed = {
   },
   resolve(players, state) {
     const runs = objectFromEntries(
-      players.map((player) => [
-        player.id,
-        greedRunningTotals(player.seed || 0, state.scores[player.id] || []),
-      ]),
+      players.map((player) => [player.id, greedRunningTotals(state.scores[player.id] || [])]),
     );
     const reached = players
       .map((player) => runs[player.id].findIndex((value) => value >= GREED_TARGET))
@@ -57,7 +54,7 @@ const greed = {
       players.map((player) => {
         const run = runs[player.id];
         const round = finalRound == null ? run.length - 1 : Math.min(finalRound, run.length - 1);
-        return [player.id, round < 0 ? player.seed || 0 : run[round]];
+        return [player.id, round < 0 ? 0 : run[round]];
       }),
     );
     const { best, leaders, distinct } = leadersOf(totals, 'high');

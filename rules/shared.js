@@ -5,6 +5,7 @@ const CELL_GAME = Object.freeze({
   loseAt: null,
   entry: 'cell',
   allowNegative: false,
+  allowMidGameJoin: true,
   minPlayers: 2,
   maxPlayers: 8,
 });

@@ -347,15 +347,15 @@ test('the add-player dialog validates the starting score against the target', as
   start();
   app.byId('add-btn').click();
 
-  const seed = app.byId('add-seed');
+  const startingScore = app.byId('add-start');
   const hint = app.byId('add-hint');
   assert.equal(hint.hidden, false, 'Greed has a target, so the hint shows');
 
-  type(app.window, seed, '5000');
+  type(app.window, startingScore, '5000');
   assert.equal(app.byId('add-confirm').disabled, true);
   assert.match(hint.textContent, /must be less than 5000/i);
 
-  type(app.window, seed, '100');
+  type(app.window, startingScore, '100');
   assert.equal(app.byId('add-confirm').disabled, false);
 });
 
@@ -370,6 +370,51 @@ test('adding a player extends the scoreboard', async () => {
 
   assert.equal(app.document.querySelectorAll('#head-row .player-col').length, 4);
   assert.equal([...app.document.querySelectorAll('.name-input')].pop().value, 'Dana');
+});
+
+test('a player who joins part-way takes a 0 for every round already played', async () => {
+  app = await bootApp();
+  start();
+  const inputs = scoreInputs();
+  type(app.window, inputs[0], '7'); // round 1
+  type(app.window, inputs[3], '4'); // round 2
+
+  app.byId('add-btn').click();
+  type(app.window, app.byId('add-name'), 'Dana');
+  app.byId('add-dialog').close('add');
+
+  const joined = () =>
+    [...app.document.querySelectorAll('#score-body .score-input')]
+      .filter((input) => input.getAttribute('data-pid') === 'p4')
+      .map((input) => input.value);
+  assert.deepEqual(joined().slice(0, 4), ['0', '0', '', ''], 'the missed rounds read 0, not blank');
+  assert.equal(totals().pop(), '0♛ leader');
+});
+
+test('a joining player carries their starting score on the latest played round', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  type(app.window, scoreInputs()[0], '600'); // round 1
+  type(app.window, scoreInputs()[2], '700'); // round 2
+
+  app.byId('add-btn').click();
+  type(app.window, app.byId('add-name'), 'Dana');
+  type(app.window, app.byId('add-start'), '1200');
+  app.byId('add-dialog').close('add');
+
+  const joined = [...app.document.querySelectorAll('#score-body .score-input')]
+    .filter((input) => input.getAttribute('data-pid') === 'p3')
+    .map((input) => input.value);
+  assert.deepEqual(joined, ['0', '1200', ''], 'the starting score lands on the last played round');
+  assert.equal(totals().pop(), '1200', 'and counts towards their total');
+});
+
+test('500 does not offer to add a side once the game is under way', async () => {
+  app = await bootApp();
+  choose('five00');
+  start();
+  assert.equal(app.byId('add-btn').hidden, true);
 });
 
 test('the menu can start a new game or return to setup', async () => {

@@ -50,16 +50,32 @@ function createApp() {
   function playerById(id) {
     return state.players.find((p) => p.id === id);
   }
-  function addPlayerToState(name, seed) {
+  function addPlayerToState(name, startingScore) {
     const id = 'p' + state.nextId++;
     const clean =
       (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (state.players.length + 1);
-    state.players.push({ id, name: clean, seed: seed || 0 });
-    if (activeGame.entry === 'cell') {
-      state.scores[id] =
-        activeGame.rounds.kind === 'fixed' ? new Array(activeGame.rounds.count).fill(null) : [];
-    }
+    const scores = activeGame.entry === 'cell' ? joinScores(startingScore || 0) : null;
+    state.players.push({ id, name: clean });
+    if (scores) state.scores[id] = scores;
     return id;
+  }
+  // Someone joining part-way scores nothing for the rounds they missed, so they
+  // take a 0 for each one and whatever they start on lands in the latest round.
+  function joinScores(startingScore) {
+    const fixed = activeGame.rounds.kind === 'fixed' ? activeGame.rounds.count : null;
+    let rows = Math.max(playedRoundCount(), startingScore ? 1 : 0);
+    if (fixed != null) rows = Math.min(rows, fixed);
+    const values = new Array(rows).fill(0);
+    if (rows) values[rows - 1] = startingScore;
+    if (fixed != null) while (values.length < fixed) values.push(null);
+    return values;
+  }
+  function playedRoundCount() {
+    let last = -1;
+    state.players.forEach((p) => {
+      last = Math.max(last, lastFilledIndex(state.scores[p.id] || []));
+    });
+    return last + 1;
   }
   function setScore(pid, round, value) {
     if (!Array.isArray(state.scores[pid])) state.scores[pid] = [];
@@ -131,7 +147,7 @@ function createApp() {
     addDialog,
     addTitle,
     addName,
-    addSeed,
+    addStart,
     addHint,
     addConfirm,
     addCancel,
@@ -162,7 +178,7 @@ function createApp() {
     players-dec players-inc name-list dealer-control dealer-toggle first-dealer-field first-dealer
     start-btn debug-controls debug-back debug-spin debug-reset debug-status
     game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
-    total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel
+    total-row winner-banner score-form add-dialog add-title add-name add-start add-hint add-confirm add-cancel
     confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
     hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title
     reel-action reel-effects reveal-wild-btn reel-picker
@@ -460,11 +476,7 @@ function createApp() {
   }
   function cellRowCount(st) {
     if (activeGame.rounds.kind === 'fixed') return activeGame.rounds.count;
-    let lastFilled = -1;
-    state.players.forEach((p) => {
-      lastFilled = Math.max(lastFilled, lastFilledIndex(state.scores[p.id] || []));
-    });
-    const started = lastFilled + 1;
+    const started = playedRoundCount();
     if (st && st.finalRound != null) return st.finalRound + 1; // capped final round (Greed)
     if (!st || st.phase === 'inProgress') return started + 1; // trailing empty row
     return started;
@@ -486,7 +498,7 @@ function createApp() {
     const inProgress = st.phase === 'inProgress';
     const ended = st.phase === 'complete' || st.phase === 'out';
     addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
-    addBtn.hidden = !inProgress;
+    addBtn.hidden = !inProgress || !activeGame.allowMidGameJoin;
     headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
     playAgainBtn.hidden = !ended;
     updateRevealButton();
@@ -1055,7 +1067,7 @@ function createApp() {
   function startGame() {
     state = defaultState(activeGame);
     state.started = true;
-    setupNames.forEach((n) => addPlayerToState(n, 0));
+    setupNames.forEach((n) => addPlayerToState(n));
     if (activeGame.variants) {
       Object.assign(
         state,
@@ -1081,7 +1093,7 @@ function createApp() {
     showSetup();
   }
   function playAgain() {
-    const keep = state.players.map((p) => ({ id: p.id, name: p.name, seed: 0 }));
+    const keep = state.players.map((p) => ({ id: p.id, name: p.name }));
     const fresh = defaultState(activeGame);
     fresh.started = true;
     fresh.players = keep;
@@ -1109,10 +1121,10 @@ function createApp() {
   }
 
   /* ---------- add-player dialog ---------- */
-  function validateSeed() {
-    const seed = parseInt(onlyDigits(addSeed.value), 10) || 0;
+  function validateStartingScore() {
+    const start = parseInt(onlyDigits(addStart.value), 10) || 0;
     const target = activeGame.target;
-    const invalid = target != null && seed >= target;
+    const invalid = target != null && start >= target;
     addHint.hidden = target == null;
     addHint.classList.toggle('error', invalid);
     if (target != null)
@@ -1129,8 +1141,8 @@ function createApp() {
   function openAddDialog() {
     addTitle.textContent = 'Add ' + unitSingular(activeGame);
     addName.value = nextRecalledName(state.players.map((p) => p.name));
-    addSeed.value = '0';
-    validateSeed();
+    addStart.value = '0';
+    validateStartingScore();
     showDialog(addDialog, addName);
   }
 
@@ -1284,9 +1296,9 @@ function createApp() {
   playAgainBtn.addEventListener('click', playAgain);
   headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
   selectAllOnEdit(addName);
-  addSeed.addEventListener('input', () => {
-    addSeed.value = onlyDigits(addSeed.value);
-    validateSeed();
+  addStart.addEventListener('input', () => {
+    addStart.value = onlyDigits(addStart.value);
+    validateStartingScore();
   });
   menuBtn.addEventListener('click', () => showDialog(menuDialog));
   switchBtn.addEventListener('click', () => {
@@ -1315,8 +1327,8 @@ function createApp() {
     addDialog,
     addCancel,
     (value) => {
-      if (value !== 'add' || !validateSeed()) return;
-      const id = addPlayerToState(addName.value, parseInt(onlyDigits(addSeed.value), 10) || 0);
+      if (value !== 'add' || !validateStartingScore()) return;
+      const id = addPlayerToState(addName.value, parseInt(onlyDigits(addStart.value), 10) || 0);
       if (typeof activeGame.onPlayerAdded === 'function')
         activeGame.onPlayerAdded(state, id, dealerPreferenceResolver(loadDealerRigSettings()));
       save();

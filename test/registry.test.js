@@ -47,6 +47,7 @@ test('every game implements the engine contract', () => {
     }
     assert.ok(['low', 'high'].includes(game.winDirection));
     assert.ok(['cell', 'hand'].includes(game.entry));
+    assert.equal(typeof game.allowMidGameJoin, 'boolean');
     assert.ok(game.maxPlayers >= game.minPlayers);
     assert.equal(typeof game.defaultNames, 'function');
     assert.equal(typeof game.roundLabel, 'function');

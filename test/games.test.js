@@ -27,8 +27,8 @@ import {
 } from '../games.js';
 
 const sides = [
-  { id: 'p1', name: 'Us', seed: 0 },
-  { id: 'p2', name: 'Them', seed: 0 },
+  { id: 'p1', name: 'Us' },
+  { id: 'p2', name: 'Them' },
 ];
 
 /* ---------- shared helpers ---------- */
@@ -255,10 +255,11 @@ test('500 resolve: an out banner reports the actual total, not the -500 threshol
 
 /* ---------- Greed ---------- */
 test('greedRunningTotals respects getting on the board', () => {
-  assert.deepEqual(greedRunningTotals(0, [300, 600, 100]), [0, 600, 700]);
-  assert.deepEqual(greedRunningTotals(0, [400]), [0]);
-  assert.deepEqual(greedRunningTotals(0, [500]), [500]);
-  assert.deepEqual(greedRunningTotals(100, [50, 200]), [150, 350]); // a positive seed is already on
+  assert.deepEqual(greedRunningTotals([300, 600, 100]), [0, 600, 700]);
+  assert.deepEqual(greedRunningTotals([400]), [0]);
+  assert.deepEqual(greedRunningTotals([500]), [500]);
+  // A joiner's backfilled 0s cost nothing and leave them off the board.
+  assert.deepEqual(greedRunningTotals([0, 0, 1200]), [0, 0, 1200]);
 });
 
 test('Greed resolve: in progress below the target', () => {
@@ -740,9 +741,9 @@ test('Super Random keeps the same 11-round scoring and lowest-total winner', () 
   assert.deepEqual(totals, { p1: 44, p2: 77 });
 });
 
-test('Five Crowns resolve: a seed is added to the total', () => {
-  const seeded = [{ id: 'p1', name: 'Us', seed: 10 }];
-  const { totals } = fiveCrowns.resolve(seeded, { scores: { p1: [5] } });
+test('Five Crowns resolve: a joiner scores from their filled rows alone', () => {
+  const joined = [{ id: 'p1', name: 'Us' }];
+  const { totals } = fiveCrowns.resolve(joined, { scores: { p1: [0, 0, 10, 5] } });
   assert.equal(totals.p1, 15);
 });
 

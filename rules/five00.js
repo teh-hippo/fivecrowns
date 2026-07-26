@@ -80,6 +80,8 @@ const five00 = {
   rounds: OPEN_ROUNDS,
   entry: 'hand',
   allowNegative: true,
+  // Sides are fixed for the night: a partnership cannot pick up a new player mid-game.
+  allowMidGameJoin: false,
   minPlayers: 2,
   maxPlayers: 6,
   defaultNames() {
@@ -121,7 +123,7 @@ const five00 = {
   },
   resolve(players, state) {
     const hands = Array.isArray(state.hands) ? state.hands : [];
-    const running = objectFromEntries(players.map((player) => [player.id, player.seed || 0]));
+    const running = objectFromEntries(players.map((player) => [player.id, 0]));
     let terminal = null;
     let terminalHand = null;
     for (let index = 0; index < hands.length; index++) {

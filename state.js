@@ -25,12 +25,11 @@ function normaliseState(game, source) {
   for (const player of Array.isArray(source.players) ? source.players : []) {
     if (!player || typeof player.id !== 'string' || seen.has(player.id)) continue;
     seen.add(player.id);
-    const seed = typeof player.seed === 'number' && Number.isFinite(player.seed) ? player.seed : 0;
     const name =
       typeof player.name === 'string' && player.name.trim()
         ? player.name
         : cap(unitSingular(game)) + ' ' + (base.players.length + 1);
-    base.players.push({ id: player.id, name, seed });
+    base.players.push({ id: player.id, name });
     const match = /^p(\d+)$/.exec(player.id);
     if (match) maxId = Math.max(maxId, parseInt(match[1], 10));
   }
@@ -84,7 +83,7 @@ function normaliseState(game, source) {
 function serializeState(game, state) {
   const out = {
     started: state.started,
-    players: state.players.map(({ id, name, seed }) => ({ id, name, seed })),
+    players: state.players.map(({ id, name }) => ({ id, name })),
     nextId: state.nextId,
   };
   if (game.entry === 'hand') out.hands = state.hands || [];

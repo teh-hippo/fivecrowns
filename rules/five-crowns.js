@@ -336,7 +336,7 @@ const fiveCrowns = {
   resolve(players, state) {
     const totals = {};
     players.forEach((p) => {
-      totals[p.id] = (p.seed || 0) + sumScores(state.scores[p.id] || []);
+      totals[p.id] = sumScores(state.scores[p.id] || []);
     });
     const { best, leaders, distinct } = leadersOf(totals, 'low');
     const complete =

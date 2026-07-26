@@ -25,7 +25,7 @@ test('normaliseState falls back to a default for missing or junk input', () => {
 test('normaliseState pads fixed-round scores to the full round count', () => {
   const s = normaliseState(fiveCrowns, {
     started: true,
-    players: [{ id: 'p1', name: 'Zac', seed: 0 }],
+    players: [{ id: 'p1', name: 'Zac' }],
     scores: { p1: [5, 12] },
   });
   assert.equal(s.scores.p1.length, 11);
@@ -36,7 +36,7 @@ test('normaliseState pads fixed-round scores to the full round count', () => {
 test('normaliseState drops duplicate, non-string and id-less players', () => {
   const s = normaliseState(fiveCrowns, {
     players: [
-      { id: 'p1', name: 'A', seed: 0 },
+      { id: 'p1', name: 'A' },
       { id: 'p1', name: 'B' },
       { id: 5, name: 'C' },
       { name: 'D' },
@@ -47,7 +47,7 @@ test('normaliseState drops duplicate, non-string and id-less players', () => {
 });
 
 test('normaliseState gives a missing name a sensible default', () => {
-  const s = normaliseState(fiveCrowns, { players: [{ id: 'p1', seed: 0 }] });
+  const s = normaliseState(fiveCrowns, { players: [{ id: 'p1' }] });
   assert.equal(s.players[0].name, 'Player 1');
   const sides = normaliseState(five00, { players: [{ id: 'p1' }] });
   assert.equal(sides.players[0].name, 'Side 1');
@@ -57,8 +57,8 @@ test('normaliseState keeps valid hands and discards malformed ones', () => {
   const s = normaliseState(five00, {
     started: true,
     players: [
-      { id: 'p1', name: 'Us', seed: 0 },
-      { id: 'p2', name: 'Them', seed: 0 },
+      { id: 'p1', name: 'Us' },
+      { id: 'p2', name: 'Them' },
     ],
     hands: [
       {
@@ -80,7 +80,7 @@ test('normaliseState keeps valid hands and discards malformed ones', () => {
 test('serializeState trims trailing blanks for open cell games', () => {
   const out = serializeState(greed, {
     started: true,
-    players: [{ id: 'p1', name: 'Zac', seed: 0 }],
+    players: [{ id: 'p1', name: 'Zac' }],
     nextId: 2,
     scores: { p1: [600, null, null] },
     hands: [],
@@ -93,7 +93,7 @@ test('serializeState writes scores for cell games and hands for hand games', () 
     fiveCrowns,
     normaliseState(fiveCrowns, {
       started: true,
-      players: [{ id: 'p1', name: 'Zac', seed: 0 }],
+      players: [{ id: 'p1', name: 'Zac' }],
       scores: { p1: [5] },
     }),
   );
@@ -102,7 +102,7 @@ test('serializeState writes scores for cell games and hands for hand games', () 
 
   const f5 = serializeState(five00, {
     started: true,
-    players: [{ id: 'p1', name: 'Us', seed: 0 }],
+    players: [{ id: 'p1', name: 'Us' }],
     nextId: 2,
     hands: [
       {
@@ -123,8 +123,8 @@ test('serialise then normalise round-trips a Five Crowns game', () => {
   const original = normaliseState(fiveCrowns, {
     started: true,
     players: [
-      { id: 'p1', name: 'Zac', seed: 0 },
-      { id: 'p2', name: 'Xavi', seed: 3 },
+      { id: 'p1', name: 'Zac' },
+      { id: 'p2', name: 'Xavi' },
     ],
     scores: { p1: new Array(11).fill(1), p2: new Array(11).fill(2) },
     variant: 'random',
@@ -153,8 +153,8 @@ test('serialise then normalise round-trips Super Random card and wild orders', (
   const original = normaliseState(fiveCrowns, {
     started: true,
     players: [
-      { id: 'p1', name: 'Zac', seed: 0 },
-      { id: 'p2', name: 'Xavi', seed: 0 },
+      { id: 'p1', name: 'Zac' },
+      { id: 'p2', name: 'Xavi' },
     ],
     scores: { p1: [1], p2: [2] },
     variant: 'super-random',
@@ -178,8 +178,8 @@ test('serialise then normalise round-trips a 500 game', () => {
   const original = normaliseState(five00, {
     started: true,
     players: [
-      { id: 'p1', name: 'Us', seed: 0 },
-      { id: 'p2', name: 'Them', seed: 0 },
+      { id: 'p1', name: 'Us' },
+      { id: 'p2', name: 'Them' },
     ],
     hands: [
       {

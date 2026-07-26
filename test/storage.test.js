@@ -33,7 +33,7 @@ test('saving a game remembers players by most recent roster', () => {
 
   saveGame(fiveCrowns, {
     started: true,
-    players: [{ id: 'p1', name: 'Blair', seed: 0 }],
+    players: [{ id: 'p1', name: 'Blair' }],
     nextId: 2,
     scores: { p1: new Array(11).fill(null) },
     variant: 'up',
