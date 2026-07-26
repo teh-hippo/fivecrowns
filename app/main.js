@@ -337,6 +337,25 @@ function createApp() {
     });
     renderDealerControl();
   }
+  // Mirrors the add-player dialog, where the recalled name arrives selected and
+  // ready to be typed over.
+  function focusSetupName(index) {
+    const input = nameList.querySelectorAll('.name-row input')[index];
+    if (!input) return;
+    const claim = () => {
+      input.focus();
+      try {
+        input.setSelectionRange(0, input.value.length);
+      } catch (_) {
+        /* unsupported input type */
+      }
+    };
+    // The first claim happens inside the tap so mobile keyboards open. Safari
+    // then focuses the stepper it was told to ignore, so claim it again once
+    // the gesture is over.
+    claim();
+    setTimeout(claim);
+  }
   const SVG_NS = 'http://www.w3.org/2000/svg';
   function dragIcon() {
     const svg = document.createElementNS(SVG_NS, 'svg');
@@ -1228,6 +1247,7 @@ function createApp() {
     if (setupNames.length < activeGame.maxPlayers) {
       setupNames.push(nextRecalledName(setupNames));
       renderNameList();
+      focusSetupName(setupNames.length - 1);
     }
   });
   playersDec.addEventListener('click', () => {

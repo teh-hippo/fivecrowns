@@ -49,6 +49,61 @@ test('the player stepper respects each game min and max', async () => {
   assert.equal(dec.disabled, true);
 });
 
+test('the menu add-player button hands over a selected recalled name', async () => {
+  app = await bootApp();
+  const input = () => app.document.activeElement;
+
+  app.byId('players-inc').click();
+
+  assert.equal(input(), nameInputs()[3], 'the new row takes focus, as the add dialog does');
+  assert.deepEqual([input().selectionStart, input().selectionEnd], [0, input().value.length]);
+});
+
+test('tapping a name box selects the whole name whenever focus lands', async () => {
+  app = await bootApp();
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const fire = (target, name) =>
+    target.dispatchEvent(new app.window.Event(name, { bubbles: true }));
+
+  for (const focusFirst of [true, false]) {
+    const input = nameInputs()[focusFirst ? 0 : 1];
+    // Chromium focuses between pointerdown and click; Safari focuses after
+    // pointerup and then drops a caret where the tap landed.
+    fire(input, 'pointerdown');
+    if (focusFirst) input.focus();
+    fire(input, 'pointerup');
+    if (!focusFirst) input.focus();
+    await tick();
+    input.setSelectionRange(3, 3);
+    fire(input, 'click');
+    await tick();
+
+    assert.deepEqual(
+      [input.selectionStart, input.selectionEnd],
+      [0, input.value.length],
+      focusFirst ? 'Chromium order' : 'Safari order',
+    );
+    input.blur();
+  }
+});
+
+test('tapping inside a focused name box moves the caret instead of reselecting', async () => {
+  app = await bootApp();
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const input = nameInputs()[0];
+  const fire = (name) => input.dispatchEvent(new app.window.Event(name, { bubbles: true }));
+
+  input.focus();
+  await tick();
+  fire('pointerdown');
+  input.setSelectionRange(2, 2);
+  fire('pointerup');
+  fire('click');
+  await tick();
+
+  assert.deepEqual([input.selectionStart, input.selectionEnd], [2, 2]);
+});
+
 test('switching game swaps the unit label and default names', async () => {
   app = await bootApp();
   assert.equal(app.byId('count-label').textContent, 'Players');
