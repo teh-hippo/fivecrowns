@@ -123,27 +123,32 @@ function fiveCrownsApplyDealerRig(state, preferenceFor) {
     .slice(0, revealed)
     .concat(fiveCrownsRigCardOrder(remaining, dealers, preferenceFor));
 }
-// Overriding a round's dealer re-anchors the rotation there: earlier rounds
-// keep the dealers they were dealt, later ones follow the new pick in seating
-// order. Returns false when nothing changed, so callers can skip a redraw.
+// Overriding a round's dealer is a reseat, not just a swap of nameplates:
+// someone has moved or the order was wrong. The new dealer takes the seat of
+// the one they replaced, everyone else shuffles down, and the deal follows the
+// new seating from that round on. Rounds already dealt keep their dealers.
+// Returns false when nothing changed, so callers can skip a redraw.
 function fiveCrownsSetDealer(state, round, id, preferenceFor) {
   if (!state || !state.dealerEnabled || typeof id !== 'string') return false;
   const at = Math.floor(round);
   if (!Number.isFinite(at) || at < 0 || at >= FIVE_CROWNS_ROUNDS) return false;
-  const current = fiveCrownsDealerOrder(
-    Array.isArray(state.players) ? state.players : [],
-    0,
-    state.dealerOrder,
-  );
-  const index = current.indexOf(id);
-  if (index === -1 || fiveCrownsDealerId(at, state) === id) return false;
-  const order = current.slice(index).concat(current.slice(0, index));
+  const players = Array.isArray(state.players) ? state.players : [];
+  const picked = players.find((player) => player.id === id);
+  const outgoing = fiveCrownsDealerId(at, state);
+  if (!picked || !outgoing || outgoing === id) return false;
+  const seated = players.filter((player) => player.id !== id);
+  const seat = seated.findIndex((player) => player.id === outgoing);
+  seated.splice(seat === -1 ? seated.length : seat, 0, picked);
+  const ids = seated.map((player) => player.id);
+  const from = ids.indexOf(id);
+  const order = ids.slice(from).concat(ids.slice(0, from));
   const rounds = (
     Array.isArray(state.dealerRounds) && state.dealerRounds.length === FIVE_CROWNS_ROUNDS
       ? state.dealerRounds
-      : fiveCrownsDealerRounds(current)
+      : fiveCrownsDealerRounds(order)
   ).slice(0, at);
   for (let i = at; i < FIVE_CROWNS_ROUNDS; i++) rounds[i] = order[(i - at) % order.length];
+  state.players = seated;
   state.dealerOrder = order;
   state.dealerRounds = rounds;
   state.dealerOrderStartsAt = at;

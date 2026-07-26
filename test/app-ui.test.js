@@ -376,7 +376,7 @@ test('Super Random labels the reveal as a round, not a wild', async () => {
   assert.match(app.byId('reveal-wild-btn').textContent, /Reveal round/);
 });
 
-test('the reveal offers a dealer override that re-rotates the deal', async () => {
+test('the reveal offers a dealer override that reseats the table', async () => {
   app = await bootApp({ animations: true });
   choose('random');
   const toggle = app.byId('dealer-toggle');
@@ -384,6 +384,8 @@ test('the reveal offers a dealer override that re-rotates the deal', async () =>
   toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
   start();
 
+  const columns = () =>
+    [...app.document.querySelectorAll('#head-row .player-col .name-input')].map((n) => n.value);
   const overlay = app.byId('reel-overlay');
   const picker = app.byId('reel-picker');
   assert.equal(overlay.hidden, false, 'round one opens the reel');
@@ -391,6 +393,7 @@ test('the reveal offers a dealer override that re-rotates the deal', async () =>
   const select = picker.querySelector('select');
   const names = [...select.options].map((option) => option.textContent);
   assert.equal(names.length, 3, 'one option per player');
+  assert.deepEqual(columns(), names);
   assert.equal(app.byId('reel-title').textContent, names[0] + ' deals \u00b7 Round 1');
 
   select.click();
@@ -401,6 +404,11 @@ test('the reveal offers a dealer override that re-rotates the deal', async () =>
 
   assert.equal(overlay.hidden, false, 'the reveal reopens on the new dealer');
   assert.equal(app.byId('reel-title').textContent, names[2] + ' deals \u00b7 Round 1');
+  assert.deepEqual(
+    columns(),
+    [names[2], names[0], names[1]],
+    'the new dealer takes the seat and the rest shuffle down',
+  );
   assert.equal(
     app.document.querySelector('#score-body .wild').classList.contains('wild-ready'),
     true,

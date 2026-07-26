@@ -416,31 +416,61 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
   assert.deepEqual(state.cardOrder, state.cardOrderBase);
 });
 
-test('Overriding a round dealer re-anchors the rotation from that round', () => {
+test('Overriding a round dealer reseats the table from that round', () => {
+  const players = [
+    { id: 'p1', name: 'A' },
+    { id: 'p2', name: 'B' },
+    { id: 'p3', name: 'C' },
+    { id: 'p4', name: 'D' },
+  ];
+  const order = ['p1', 'p2', 'p3', 'p4'];
+  const state = {
+    variant: 'random',
+    dealerEnabled: true,
+    dealerOrder: order,
+    dealerRounds: fiveCrownsDealerRounds(order),
+    dealerOrderStartsAt: 0,
+    revealedCount: 1,
+    players,
+  };
+
+  // B was down to deal round two; D takes that seat and the rest shuffle down.
+  assert.equal(fiveCrownsSetDealer(state, 1, 'p4'), true);
+  assert.deepEqual(
+    state.players.map((player) => player.id),
+    ['p1', 'p4', 'p2', 'p3'],
+  );
+  assert.deepEqual(state.dealerOrder, ['p4', 'p2', 'p3', 'p1']);
+  assert.equal(state.dealerOrderStartsAt, 1);
+  assert.deepEqual(state.dealerRounds.slice(0, 6), ['p1', 'p4', 'p2', 'p3', 'p1', 'p4']);
+  assert.equal(state.dealerRounds[0], 'p1', 'the round already dealt keeps its dealer');
+});
+
+test('Overriding a round dealer refuses picks that change nothing', () => {
   const players = [
     { id: 'p1', name: 'Dad' },
     { id: 'p2', name: 'Mum' },
     { id: 'p3', name: 'Sam' },
   ];
+  const order = ['p1', 'p2', 'p3'];
   const state = {
     variant: 'random',
     dealerEnabled: true,
-    dealerOrder: ['p1', 'p2', 'p3'],
-    dealerRounds: fiveCrownsDealerRounds(['p1', 'p2', 'p3']),
+    dealerOrder: order,
+    dealerRounds: fiveCrownsDealerRounds(order),
     dealerOrderStartsAt: 0,
     revealedCount: 2,
     players,
   };
 
-  assert.equal(fiveCrownsSetDealer(state, 2, 'p2'), true);
-  assert.deepEqual(state.dealerRounds.slice(0, 6), ['p1', 'p2', 'p2', 'p3', 'p1', 'p2']);
-  assert.deepEqual(state.dealerOrder, ['p2', 'p3', 'p1']);
-  assert.equal(state.dealerOrderStartsAt, 2);
-  assert.equal(fiveCrownsDealerId(2, state), 'p2');
-
-  assert.equal(fiveCrownsSetDealer(state, 2, 'p2'), false, 'the current dealer is not a change');
+  assert.equal(fiveCrownsSetDealer(state, 2, 'p3'), false, 'the current dealer is not a change');
   assert.equal(fiveCrownsSetDealer(state, 2, 'p9'), false, 'a stranger cannot deal');
   assert.equal(fiveCrownsSetDealer(state, 11, 'p1'), false, 'there is no round twelve');
+  assert.deepEqual(state.dealerOrder, order, 'a refused pick leaves the table alone');
+
+  assert.equal(fiveCrownsSetDealer(state, 2, 'p2'), true);
+  assert.deepEqual(state.dealerRounds.slice(0, 6), ['p1', 'p2', 'p2', 'p3', 'p1', 'p2']);
+  assert.equal(fiveCrownsDealerId(2, state), 'p2');
 });
 
 test('Overriding the dealer re-rigs the rounds still to come', () => {
@@ -463,8 +493,13 @@ test('Overriding the dealer re-rigs the rounds still to come', () => {
 
   assert.equal(state.cardOrder[0], 8, 'Sam deals first and gets no help');
   assert.equal(fiveCrownsSetDealer(state, 0, 'p1', prefer), true);
+  assert.deepEqual(
+    state.players.map((player) => player.id),
+    ['p2', 'p1', 'p3'],
+    'Dad takes the seat Sam was dealing from',
+  );
   assert.equal(state.cardOrder[0], 3, 'Dad now deals round one and gets the lowest count');
-  assert.equal(state.cardOrder[1], 13, 'Mum follows him and gets the highest');
+  assert.equal(state.cardOrder[2], 13, 'Mum deals round three and gets the highest');
   assert.deepEqual(
     [...state.cardOrder].sort((a, b) => a - b),
     FIVE_CROWNS_CARD_COUNTS,

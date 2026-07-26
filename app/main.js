@@ -822,15 +822,16 @@ function createApp() {
       target: targetReel.value,
     }));
   }
-  // The reveal is built from the state it opened with, so a new dealer means
-  // tearing the spin down and rebuilding it: rigging can change what lands.
+  // A reseat moves columns as well as the deal, so the whole board is rebuilt.
+  // The reveal is built from the state it opened with, so the spin is torn
+  // down and rebuilt too: rigging can change what lands.
   function chooseDealer(round, id) {
     const changed =
       typeof activeGame.setDealer === 'function' &&
       activeGame.setDealer(state, round, id, dealerPreferenceResolver(loadDealerRigSettings()));
     if (!changed) return;
     save();
-    refreshRevealRows();
+    renderGame();
     reel.dismiss();
     openRoundReveal(round);
   }
