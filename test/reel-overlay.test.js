@@ -8,18 +8,19 @@ afterEach(() => {
   harness = null;
 });
 
-async function openReel({ animations = false, reducedMotion = false } = {}) {
+async function openReel({ animations = false, reducedMotion = false, picker = null } = {}) {
   harness = bootDom({ animations, reducedMotion });
   const { window, byId } = harness;
   const { createReel } = await import('../reel.js');
   const overlay = byId('reel-overlay');
-  const state = { confirmed: 0, closed: 0 };
+  const state = { confirmed: 0, closed: 0, picked: [] };
   const reel = createReel({
     overlay,
     wheels: byId('reel-wheels'),
     title: byId('reel-title'),
     action: byId('reel-action'),
     effects: byId('reel-effects'),
+    picker: byId('reel-picker'),
     onBusyChange: () => {},
   });
   const show = () =>
@@ -28,7 +29,20 @@ async function openReel({ animations = false, reducedMotion = false } = {}) {
       resultText: '3s is wild!',
       round: 0,
       fullSetSize: 2,
-      options: {},
+      options: picker
+        ? {
+            picker: {
+              label: 'Dealer',
+              value: 'p1',
+              options: [
+                { value: 'p1', text: 'Ann' },
+                { value: 'p2', text: 'Bob' },
+                { value: 'p3', text: 'Cal' },
+              ],
+              onChange: (id) => state.picked.push(id),
+            },
+          }
+        : {},
       onConfirm: () => state.confirmed++,
       onClose: () => state.closed++,
     });
@@ -116,4 +130,68 @@ test('other keys are left alone', async () => {
 test('reduced motion keeps the reel from animating at all', async () => {
   const { reel } = await openReel({ animations: true, reducedMotion: true });
   assert.equal(reel.canAnimate(), false);
+});
+
+/* ---------- the dealer picker ---------- */
+
+const pickerSelect = () => harness.byId('reel-picker').querySelector('select');
+
+test('Escape closes the dealer dropdown instead of starting the spin', async () => {
+  const { window, byId, show, state } = await openReel({ animations: true, picker: true });
+  show();
+  const select = pickerSelect();
+  select.focus();
+
+  press(window, select, 'Escape');
+
+  assert.equal(byId('reel-action').textContent, 'Spin', 'the reel stays idle');
+  assert.equal(byId('reel-picker').hidden, false, 'and the dealer can still be changed');
+  assert.deepEqual(state.picked, []);
+});
+
+test('arrow keys browse the dealer list without reseating on every press', async () => {
+  const { window, byId, show, state } = await openReel({ animations: true, picker: true });
+  show();
+  const select = pickerSelect();
+  select.focus();
+
+  const arrowTo = (value) => {
+    press(window, select, 'ArrowDown');
+    select.value = value;
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  };
+  arrowTo('p2');
+  arrowTo('p3');
+  assert.deepEqual(state.picked, [], 'passing over a name does not move anyone');
+
+  press(window, select, 'Enter');
+  assert.deepEqual(state.picked, ['p3'], 'only the committed choice reseats the table');
+  assert.equal(byId('reel-action').textContent, 'Spin', 'and it does not start the spin');
+});
+
+test('tapping a dealer from the list applies it straight away', async () => {
+  const { window, show, state } = await openReel({ animations: true, picker: true });
+  show();
+  const select = pickerSelect();
+
+  select.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+  select.value = 'p2';
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+  assert.deepEqual(state.picked, ['p2'], 'a touch picker commits as it closes');
+});
+
+test('leaving the dealer dropdown commits whatever it was left on', async () => {
+  const { window, show, state } = await openReel({ animations: true, picker: true });
+  show();
+  const select = pickerSelect();
+  select.focus();
+
+  press(window, select, 'ArrowDown');
+  select.value = 'p2';
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.deepEqual(state.picked, []);
+
+  select.dispatchEvent(new window.Event('blur', { bubbles: true }));
+  assert.deepEqual(state.picked, ['p2']);
 });

@@ -345,8 +345,27 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       select.appendChild(el('option', { value: choice.value }, choice.text)),
     );
     select.value = String(spec.value);
+    // Arrow keys fire a change for every option they pass, and each one would
+    // reseat the table underneath the reader. A keyboard choice is only acted
+    // on once it is committed; pointer and touch pickers commit as they close,
+    // so those still apply straight away.
+    let byKey = false;
+    const commit = () => {
+      byKey = false;
+      if (select.value !== String(spec.value) && spec.onChange) spec.onChange(select.value);
+    };
+    select.addEventListener('pointerdown', () => {
+      byKey = false;
+    });
+    select.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === 'Tab') commit();
+      else byKey = true;
+    });
     select.addEventListener('change', () => {
-      if (spec.onChange) spec.onChange(select.value);
+      if (!byKey) commit();
+    });
+    select.addEventListener('blur', () => {
+      if (byKey) commit();
     });
     picker.append(el('span', { class: 'reel-picker-label' }, spec.label || ''), select);
     picker.hidden = false;
@@ -1449,6 +1468,9 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     // reveal, so a keyboard user cannot skip past an unconfirmed round.
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
+        // A native control owns its own Escape: closing the dealer dropdown
+        // must not start the spin and strip the choice away.
+        if (picker && picker.contains(event.target)) return;
         event.preventDefault();
         onTap();
         return;

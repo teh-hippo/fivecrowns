@@ -77,6 +77,12 @@ function createApp() {
     });
     return last + 1;
   }
+  // A save made before the cap was enforced can hold more players than the game
+  // allows, so this asks whether one more may join rather than whether the
+  // roster is legal.
+  function canAddPlayer() {
+    return !!activeGame.allowMidGameJoin && state.players.length < activeGame.maxPlayers;
+  }
   function setScore(pid, round, value) {
     if (!Array.isArray(state.scores[pid])) state.scores[pid] = [];
     const arr = state.scores[pid];
@@ -477,9 +483,27 @@ function createApp() {
   function cellRowCount(st) {
     if (activeGame.rounds.kind === 'fixed') return activeGame.rounds.count;
     const started = playedRoundCount();
-    if (st && st.finalRound != null) return st.finalRound + 1; // capped final round (Greed)
+    // Rounds played past the final one are kept on the sheet rather than
+    // dropped, so an edit that moves the finish line does not look like it ate
+    // the scores that came after it.
+    if (st && st.finalRound != null) return Math.max(st.finalRound + 1, started);
     if (!st || st.phase === 'inProgress') return started + 1; // trailing empty row
     return started;
+  }
+  // Mirrors voidHandFrom: rounds from here on scored nothing because the game
+  // was already over, but they stay editable so an edit can bring them back.
+  function voidRoundFrom(st) {
+    return st && st.finalRound != null ? st.finalRound + 1 : null;
+  }
+  function markVoidRounds(voidFrom) {
+    Array.prototype.forEach.call(scoreBody.children, (tr) => {
+      const r = Number(tr.getAttribute('data-round'));
+      if (Number.isNaN(r)) return;
+      const isVoid = voidFrom != null && r >= voidFrom;
+      if (tr.classList.contains('round-void') === isVoid) return;
+      tr.classList.toggle('round-void', isVoid);
+      applyRoundRow(tr, r); // the cell labels carry the "not counted" note
+    });
   }
   function renderGame() {
     const { totals, status } = resolve();
@@ -498,7 +522,7 @@ function createApp() {
     const inProgress = st.phase === 'inProgress';
     const ended = st.phase === 'complete' || st.phase === 'out';
     addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
-    addBtn.hidden = !inProgress || !activeGame.allowMidGameJoin;
+    addBtn.hidden = !inProgress || !canAddPlayer();
     headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
     playAgainBtn.hidden = !ended;
     updateRevealButton();
@@ -569,13 +593,18 @@ function createApp() {
     }
     scoreCellsInRow(input)[target].focus();
   }
-  function scoreCellLabel(name, label) {
+  function scoreCellLabel(name, label, isVoid) {
     // Hidden details are not spoken, so screen readers do not spoil the reveal.
     const details = [];
     if (label.cards && !label.cardsMasked && !label.cardsReady) details.push(label.cards);
     if (label.sub && !label.masked && !label.ready) details.push(label.sub + ' wild');
     return (
-      name + ', round ' + label.num + (details.length ? ', ' + details.join(', ') : '') + ' score'
+      name +
+      ', round ' +
+      label.num +
+      (details.length ? ', ' + details.join(', ') : '') +
+      ' score' +
+      (isVoid ? ', after the game ended, not counted' : '')
     );
   }
   function refreshScoreLabels(pid) {
@@ -583,7 +612,15 @@ function createApp() {
     if (!p) return;
     scoreBody.querySelectorAll('.score-input[data-pid="' + pid + '"]').forEach((input) => {
       const r = Number(input.getAttribute('data-round'));
-      input.setAttribute('aria-label', scoreCellLabel(p.name, activeGame.roundLabel(r, state)));
+      const row = input.closest('tr');
+      input.setAttribute(
+        'aria-label',
+        scoreCellLabel(
+          p.name,
+          activeGame.roundLabel(r, state),
+          !!row && row.classList.contains('round-void'),
+        ),
+      );
     });
   }
   function handEditLabel(index, summary, isVoid) {
@@ -617,6 +654,7 @@ function createApp() {
     } else {
       const rows = cellRowCount(st);
       for (let r = 0; r < rows; r++) scoreBody.appendChild(buildCellRow(r));
+      markVoidRounds(voidRoundFrom(st));
     }
   }
   function setRoundKeyText(node, value, kind, labelled) {
@@ -673,10 +711,11 @@ function createApp() {
     const th = tr.querySelector('.round-col');
     if (th) applyRoundHeader(th, label);
     const lock = !!label.masked || !!label.ready;
+    const isVoid = tr.classList.contains('round-void');
     tr.querySelectorAll('.score-input').forEach((inp) => {
       inp.disabled = lock;
       const p = playerById(inp.getAttribute('data-pid'));
-      if (p) inp.setAttribute('aria-label', scoreCellLabel(p.name, label));
+      if (p) inp.setAttribute('aria-label', scoreCellLabel(p.name, label, isVoid));
     });
   }
   function buildCellRow(r) {
@@ -825,6 +864,7 @@ function createApp() {
     ) {
       scoreBody.removeChild(scoreBody.lastChild);
     }
+    markVoidRounds(voidRoundFrom(status));
     refreshRevealRows();
   }
   function refreshRevealRows() {
@@ -875,6 +915,18 @@ function createApp() {
       onChange: (id) => chooseDealer(round, id),
     };
   }
+  // The reel hands focus back to whatever opened it, but a revealed round
+  // header stops being a button and the Reveal button is usually disabled by
+  // then, so neither can take it. Park it on the round that was just revealed.
+  function focusRevealedRound(round) {
+    const active = document.activeElement;
+    const stranded = !active || active === document.body || reelOverlay.contains(active);
+    if (!stranded) return;
+    const th = scoreBody.querySelector('tr[data-round="' + round + '"] .round-col');
+    if (!th) return;
+    if (!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '-1');
+    th.focus();
+  }
   function openRoundReveal(round) {
     if (reel.isBusy() || !usesRoundReveal()) return;
     const label = activeGame.roundLabel(round, state);
@@ -909,6 +961,7 @@ function createApp() {
       onLand(_effect, fakeOut) {
         didFakeOut = fakeOut;
       },
+      onClose: () => focusRevealedRound(round),
     });
     if (!shown) commitReveal(round);
   }
@@ -1327,7 +1380,7 @@ function createApp() {
     addDialog,
     addCancel,
     (value) => {
-      if (value !== 'add' || !validateStartingScore()) return;
+      if (value !== 'add' || !canAddPlayer() || !validateStartingScore()) return;
       const id = addPlayerToState(addName.value, parseInt(onlyDigits(addStart.value), 10) || 0);
       if (typeof activeGame.onPlayerAdded === 'function')
         activeGame.onPlayerAdded(state, id, dealerPreferenceResolver(loadDealerRigSettings()));

@@ -417,6 +417,73 @@ test('500 does not offer to add a side once the game is under way', async () => 
   assert.equal(app.byId('add-btn').hidden, true);
 });
 
+test('the in-game add button stops at the same cap as the setup stepper', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+
+  for (let i = 0; i < 10 && !app.byId('add-btn').hidden; i++) {
+    app.byId('add-btn').click();
+    type(app.window, app.byId('add-name'), 'Extra ' + i);
+    app.byId('add-dialog').close('add');
+  }
+
+  assert.equal(app.document.querySelectorAll('#head-row .player-col').length, 8, 'caps at eight');
+  assert.equal(app.byId('add-btn').hidden, true, 'and the button goes away at the cap');
+});
+
+test('an over-cap roster would stop names being remembered, so it never forms', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  for (let i = 0; i < 10 && !app.byId('add-btn').hidden; i++) {
+    app.byId('add-btn').click();
+    type(app.window, app.byId('add-name'), 'Extra ' + i);
+    app.byId('add-dialog').close('add');
+  }
+
+  app.byId('menu-btn').click();
+  app.byId('newgame-btn').click();
+  app.byId('confirm-dialog').close('ok');
+
+  assert.equal(nameInputs().length, 8, 'the whole roster comes back');
+  assert.equal(nameInputs()[7].value, 'Extra 5', 'rather than falling back to default names');
+});
+
+test('Greed keeps rounds played after the game ended, marked as not counting', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  const fill = (round, first, second) => {
+    type(app.window, scoreInputs()[round * 2], String(first));
+    type(app.window, scoreInputs()[round * 2 + 1], String(second));
+  };
+  for (let round = 0; round < 4; round++) fill(round, 700, 600);
+
+  const rows = () => [...app.document.querySelectorAll('#score-body tr')];
+  assert.equal(rows().length, 5, 'four played rounds plus a blank one');
+
+  // Correcting round one hands the game to Player 1 far earlier than it ended.
+  type(app.window, scoreInputs()[0], '5000');
+
+  const marked = rows().map((row) => row.classList.contains('round-void'));
+  assert.deepEqual(marked, [false, false, true, true], 'the rounds after the final one stay put');
+  assert.deepEqual(totals(), ['5700♛ leader', '1200'], 'and score nothing');
+  assert.match(
+    app.document.querySelector('tr[data-round="3"] .score-input').getAttribute('aria-label'),
+    /not counted/,
+    'screen readers are told why',
+  );
+
+  type(app.window, scoreInputs()[0], '700');
+  assert.equal(
+    rows().every((row) => !row.classList.contains('round-void')),
+    true,
+    'undoing the correction brings them back into play',
+  );
+  assert.deepEqual(totals(), ['2800♛ leader', '2400']);
+});
+
 test('the menu can start a new game or return to setup', async () => {
   app = await bootApp();
   start();
@@ -517,6 +584,40 @@ test('the reveal offers a dealer override that reseats the table', async () => {
 
   app.byId('reel-action').click();
   assert.equal(app.byId('reel-picker').hidden, true, 'the override closes once the reel spins');
+});
+
+test('confirming a reveal hands focus back to the round it opened from', async () => {
+  app = await bootApp({ animations: true });
+  choose('random');
+  start();
+
+  // Round one auto-reveals; clear it so round two can be opened by hand.
+  app.byId('reel-action').click();
+  app.window.finishAnimations();
+  app.byId('reel-action').click();
+  app.window.finishAnimations();
+  scoreInputs()
+    .slice(0, 3)
+    .forEach((input) => type(app.window, input, '5'));
+
+  const header = app.document.querySelector('#score-body tr[data-round="1"] .round-col');
+  header.focus();
+  press(app.window, header, 'Enter');
+  assert.equal(app.byId('reel-overlay').hidden, false, 'the round header opens the reel');
+
+  app.byId('reel-action').click();
+  app.window.finishAnimations();
+  app.byId('reel-action').click();
+  app.window.finishAnimations();
+
+  const active = app.document.activeElement;
+  assert.equal(app.byId('reel-overlay').hidden, true);
+  assert.equal(
+    app.byId('reel-overlay').contains(active),
+    false,
+    'focus does not stay inside the hidden reel',
+  );
+  assert.equal(active.closest('tr').getAttribute('data-round'), '1', 'it lands on the round');
 });
 
 test('reduced motion reveals without opening the reel', async () => {

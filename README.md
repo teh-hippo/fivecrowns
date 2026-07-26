@@ -7,12 +7,12 @@ Live app: https://teh-hippo.github.io/fivecrowns/
 ## Games
 
 - **Five Crowns**: lowest total wins across 11 rounds. Random shuffles wilds; Super Random independently shuffles card counts and wilds, then reveals them on opposite, staggered reels. Random modes can optionally nominate a first dealer and rotate the deal each round, and the reveal carries a dropdown to hand a round to someone else, which reseats the table from that round on.
-- **Greed**: get on the board with 500 in one turn and race to 5000, followed by one final round.
+- **Greed**: get on the board with 500 in one turn and race to 5000, followed by one final round. Rounds played past that final one stay on the sheet, struck through, so correcting an earlier score never looks like it swallowed them.
 - **500**: record each contract and tricks. Reach 500 on a made bid to win; falling to -500 puts a side out. Sides are fixed once the game starts, so nobody joins part-way.
 
 Games save separately in local storage. The interface supports remembered player names, iOS numeric entry, live totals, mid-game additions and installed home-screen use.
 
-Anyone joining part-way is scored on the sheet rather than through a hidden offset: they take a 0 for every round already played, and any starting score they are given lands on the most recent of those rounds.
+Anyone joining part-way is scored on the sheet rather than through a hidden offset: they take a 0 for every round already played, and any starting score they are given lands on the most recent of those rounds. Each game's player limit applies to those additions as well as to setup.
 
 A service worker caches the whole app on first visit, so once it has loaded it keeps working with no signal at all. Fresh visits go to the network first, so a deploy is picked up on the next online load.
 

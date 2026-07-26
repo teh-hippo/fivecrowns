@@ -386,6 +386,17 @@ tfoot .round-col {
   opacity: 0.55;
 }
 
+/* Rounds played after the game was already decided: kept on the sheet so an
+   edit can bring them back, but plainly not part of the score. */
+.round-void .round-col,
+.round-void .score-input {
+  opacity: 0.55;
+}
+
+.round-void .score-input {
+  text-decoration: line-through;
+}
+
 .total-cell .needs {
   display: block;
   margin-top: 0.1rem;

@@ -3,8 +3,10 @@
   inset: 0;
   z-index: 60;
   display: grid;
-  place-items: center;
+  place-items: safe center;
   padding: 1.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: rgb(0 0 0 / 82%);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
