@@ -129,6 +129,34 @@
   }
 }
 
+.reel-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.reel-picker[hidden] {
+  display: none;
+}
+
+.reel-picker-select {
+  min-height: var(--tap-target);
+  max-width: 11rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .reel-action {
   min-width: 9rem;
   margin-top: 0.2rem;

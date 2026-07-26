@@ -85,6 +85,9 @@ function createApp() {
   function dealerNameForRound(round) {
     return typeof activeGame.dealerName === 'function' ? activeGame.dealerName(round, state) : '';
   }
+  function dealerIdForRound(round) {
+    return typeof activeGame.dealerId === 'function' ? activeGame.dealerId(round, state) : null;
+  }
   const {
     setupScreen,
     gameScreen,
@@ -149,6 +152,7 @@ function createApp() {
     reelOverlay,
     reelWheels,
     reelTitle,
+    reelPicker,
     reelAction,
     reelEffects,
     revealWildBtn,
@@ -161,7 +165,7 @@ function createApp() {
     total-row winner-banner score-form add-dialog add-title add-name add-seed add-hint add-confirm add-cancel
     confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
     hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title
-    reel-action reel-effects reveal-wild-btn
+    reel-action reel-effects reveal-wild-btn reel-picker
   `);
   const screens = [setupScreen, gameScreen, debugScreen];
   const reel = createReel({
@@ -170,6 +174,7 @@ function createApp() {
     title: reelTitle,
     action: reelAction,
     effects: reelEffects,
+    picker: reelPicker,
     onBusyChange: updateRevealButton,
   });
   function showOnly(screen) {
@@ -817,6 +822,27 @@ function createApp() {
       target: targetReel.value,
     }));
   }
+  // The reveal is built from the state it opened with, so a new dealer means
+  // tearing the spin down and rebuilding it: rigging can change what lands.
+  function chooseDealer(round, id) {
+    const changed =
+      typeof activeGame.setDealer === 'function' &&
+      activeGame.setDealer(state, round, id, dealerPreferenceResolver(loadDealerRigSettings()));
+    if (!changed) return;
+    save();
+    refreshRevealRows();
+    reel.dismiss();
+    openRoundReveal(round);
+  }
+  function dealerPicker(round) {
+    if (typeof activeGame.setDealer !== 'function' || state.players.length < 2) return null;
+    return {
+      label: 'Dealer',
+      value: dealerIdForRound(round),
+      options: state.players.map((player) => ({ value: player.id, text: player.name })),
+      onChange: (id) => chooseDealer(round, id),
+    };
+  }
   function openRoundReveal(round) {
     if (reel.isBusy() || !usesRoundReveal()) return;
     const label = activeGame.roundLabel(round, state);
@@ -833,7 +859,10 @@ function createApp() {
     const options = {};
     let didFakeOut = false;
     if (progressiveFakeOut) options.fakeOutChance = fakeOutChanceForMisses(state.fakeOutMisses);
-    if (dealer) options.title = dealer + ' deals \u00b7 Round ' + (round + 1);
+    if (dealer) {
+      options.title = dealer + ' deals \u00b7 Round ' + (round + 1);
+      options.picker = dealerPicker(round);
+    }
     const shown = reel.show({
       reels: revealReels(items, round),
       resultText: dealer ? dealer + ' deals \u00b7 ' + target.result : target.result,

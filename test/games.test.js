@@ -14,6 +14,7 @@ import {
   fiveCrownsDealerOrder,
   fiveCrownsDealerRounds,
   fiveCrownsDealerId,
+  fiveCrownsSetDealer,
   fiveCrownsRigCardOrder,
   FIVE_CROWNS_WILDS,
   FIVE_CROWNS_CARD_COUNTS,
@@ -413,6 +414,61 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
 
   fiveCrowns.applyDealerRig(state, dealerPreferenceResolver({}));
   assert.deepEqual(state.cardOrder, state.cardOrderBase);
+});
+
+test('Overriding a round dealer re-anchors the rotation from that round', () => {
+  const players = [
+    { id: 'p1', name: 'Dad' },
+    { id: 'p2', name: 'Mum' },
+    { id: 'p3', name: 'Sam' },
+  ];
+  const state = {
+    variant: 'random',
+    dealerEnabled: true,
+    dealerOrder: ['p1', 'p2', 'p3'],
+    dealerRounds: fiveCrownsDealerRounds(['p1', 'p2', 'p3']),
+    dealerOrderStartsAt: 0,
+    revealedCount: 2,
+    players,
+  };
+
+  assert.equal(fiveCrownsSetDealer(state, 2, 'p2'), true);
+  assert.deepEqual(state.dealerRounds.slice(0, 6), ['p1', 'p2', 'p2', 'p3', 'p1', 'p2']);
+  assert.deepEqual(state.dealerOrder, ['p2', 'p3', 'p1']);
+  assert.equal(state.dealerOrderStartsAt, 2);
+  assert.equal(fiveCrownsDealerId(2, state), 'p2');
+
+  assert.equal(fiveCrownsSetDealer(state, 2, 'p2'), false, 'the current dealer is not a change');
+  assert.equal(fiveCrownsSetDealer(state, 2, 'p9'), false, 'a stranger cannot deal');
+  assert.equal(fiveCrownsSetDealer(state, 11, 'p1'), false, 'there is no round twelve');
+});
+
+test('Overriding the dealer re-rigs the rounds still to come', () => {
+  const state = {
+    variant: 'super-random',
+    dealerEnabled: true,
+    dealerOrder: ['p3', 'p1', 'p2'],
+    dealerRounds: fiveCrownsDealerRounds(['p3', 'p1', 'p2']),
+    dealerOrderStartsAt: 0,
+    revealedCount: 0,
+    cardOrderBase: [8, 3, 12, 4, 13, 5, 11, 6, 10, 7, 9],
+    cardOrder: [8, 3, 12, 4, 13, 5, 11, 6, 10, 7, 9],
+    players: [
+      { id: 'p1', name: 'Dad' },
+      { id: 'p2', name: 'Mum' },
+      { id: 'p3', name: 'Sam' },
+    ],
+  };
+  const prefer = dealerPreferenceResolver({ dadLowCards: true, mumHighCards: true });
+
+  assert.equal(state.cardOrder[0], 8, 'Sam deals first and gets no help');
+  assert.equal(fiveCrownsSetDealer(state, 0, 'p1', prefer), true);
+  assert.equal(state.cardOrder[0], 3, 'Dad now deals round one and gets the lowest count');
+  assert.equal(state.cardOrder[1], 13, 'Mum follows him and gets the highest');
+  assert.deepEqual(
+    [...state.cardOrder].sort((a, b) => a - b),
+    FIVE_CROWNS_CARD_COUNTS,
+  );
 });
 
 test('A mid-game player joins the dealer rotation after the current cycle', () => {

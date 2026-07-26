@@ -123,6 +123,33 @@ function fiveCrownsApplyDealerRig(state, preferenceFor) {
     .slice(0, revealed)
     .concat(fiveCrownsRigCardOrder(remaining, dealers, preferenceFor));
 }
+// Overriding a round's dealer re-anchors the rotation there: earlier rounds
+// keep the dealers they were dealt, later ones follow the new pick in seating
+// order. Returns false when nothing changed, so callers can skip a redraw.
+function fiveCrownsSetDealer(state, round, id, preferenceFor) {
+  if (!state || !state.dealerEnabled || typeof id !== 'string') return false;
+  const at = Math.floor(round);
+  if (!Number.isFinite(at) || at < 0 || at >= FIVE_CROWNS_ROUNDS) return false;
+  const current = fiveCrownsDealerOrder(
+    Array.isArray(state.players) ? state.players : [],
+    0,
+    state.dealerOrder,
+  );
+  const index = current.indexOf(id);
+  if (index === -1 || fiveCrownsDealerId(at, state) === id) return false;
+  const order = current.slice(index).concat(current.slice(0, index));
+  const rounds = (
+    Array.isArray(state.dealerRounds) && state.dealerRounds.length === FIVE_CROWNS_ROUNDS
+      ? state.dealerRounds
+      : fiveCrownsDealerRounds(current)
+  ).slice(0, at);
+  for (let i = at; i < FIVE_CROWNS_ROUNDS; i++) rounds[i] = order[(i - at) % order.length];
+  state.dealerOrder = order;
+  state.dealerRounds = rounds;
+  state.dealerOrderStartsAt = at;
+  fiveCrownsApplyDealerRig(state, preferenceFor);
+  return true;
+}
 function fiveCrownsAddDealer(state, id, preferenceFor) {
   if (!state || !state.dealerEnabled || typeof id !== 'string') return;
   const players = Array.isArray(state.players) ? state.players : [];
@@ -259,7 +286,9 @@ const fiveCrowns = {
     return extra;
   },
   cardCount: fiveCrownsCardCount,
+  dealerId: fiveCrownsDealerId,
   dealerName: fiveCrownsDealerName,
+  setDealer: fiveCrownsSetDealer,
   applyDealerRig: fiveCrownsApplyDealerRig,
   onPlayerAdded: fiveCrownsAddDealer,
   revealNoun(state) {
@@ -332,6 +361,7 @@ export {
   fiveCrownsDealerOrder,
   fiveCrownsDealerRounds,
   fiveCrownsDealerId,
+  fiveCrownsSetDealer,
   fiveCrownsRigCardOrder,
   FIVE_CROWNS_WILDS,
   FIVE_CROWNS_FIRST_HAND,

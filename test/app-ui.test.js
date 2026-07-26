@@ -376,6 +376,41 @@ test('Super Random labels the reveal as a round, not a wild', async () => {
   assert.match(app.byId('reveal-wild-btn').textContent, /Reveal round/);
 });
 
+test('the reveal offers a dealer override that re-rotates the deal', async () => {
+  app = await bootApp({ animations: true });
+  choose('random');
+  const toggle = app.byId('dealer-toggle');
+  toggle.checked = true;
+  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+  start();
+
+  const overlay = app.byId('reel-overlay');
+  const picker = app.byId('reel-picker');
+  assert.equal(overlay.hidden, false, 'round one opens the reel');
+  assert.equal(picker.hidden, false, 'the dealer can be overridden before the spin');
+  const select = picker.querySelector('select');
+  const names = [...select.options].map((option) => option.textContent);
+  assert.equal(names.length, 3, 'one option per player');
+  assert.equal(app.byId('reel-title').textContent, names[0] + ' deals \u00b7 Round 1');
+
+  select.click();
+  assert.equal(app.byId('reel-action').textContent, 'Spin', 'touching the picker does not spin');
+
+  select.value = select.options[2].value;
+  select.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+
+  assert.equal(overlay.hidden, false, 'the reveal reopens on the new dealer');
+  assert.equal(app.byId('reel-title').textContent, names[2] + ' deals \u00b7 Round 1');
+  assert.equal(
+    app.document.querySelector('#score-body .wild').classList.contains('wild-ready'),
+    true,
+    'switching dealer does not commit the round',
+  );
+
+  app.byId('reel-action').click();
+  assert.equal(app.byId('reel-picker').hidden, true, 'the override closes once the reel spins');
+});
+
 test('reduced motion reveals without opening the reel', async () => {
   app = await bootApp({ animations: true, reducedMotion: true });
   choose('random');

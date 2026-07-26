@@ -322,10 +322,35 @@ function cancelAll(node) {
   return { stopped, failed };
 }
 
-function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
+function createReel({ overlay, wheels, title, action, effects, picker, onBusyChange }) {
   let spinning = false,
     animationUnavailable = false,
-    effectCleanup = null;
+    effectCleanup = null,
+    activeClose = null;
+  // The overlay treats any tap as "advance the reveal", so the picker has to
+  // keep its own taps to itself.
+  if (picker) picker.addEventListener('click', (event) => event.stopPropagation());
+  const clearPicker = () => {
+    if (!picker) return;
+    picker.hidden = true;
+    picker.innerHTML = '';
+  };
+  // A picker only earns its place when there is something to choose between.
+  const renderPicker = (spec) => {
+    clearPicker();
+    const choices = spec && Array.isArray(spec.options) ? spec.options : [];
+    if (!picker || choices.length < 2) return;
+    const select = el('select', { class: 'reel-picker-select' });
+    choices.forEach((choice) =>
+      select.appendChild(el('option', { value: choice.value }, choice.text)),
+    );
+    select.value = String(spec.value);
+    select.addEventListener('change', () => {
+      if (spec.onChange) spec.onChange(select.value);
+    });
+    picker.append(el('span', { class: 'reel-picker-label' }, spec.label || ''), select);
+    picker.hidden = false;
+  };
   const setBusy = (value) => {
     spinning = value;
     if (onBusyChange) onBusyChange();
@@ -1250,6 +1275,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     if (!valid || animationUnavailable || !clearTracks()) return false;
     setBusy(true);
     title.textContent = settings.title;
+    renderPicker(supplied.picker);
     action.textContent = 'Spin';
     const restoreFocusTo = document.activeElement;
     const restoreBackground = deactivateBackground(overlay);
@@ -1286,6 +1312,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     const land = () => {
       if (phase === 'confirm' || phase === 'closed') return;
       phase = 'confirm';
+      clearPicker();
       clearTimers();
       stopAnimations(idles);
       stopAnimations(selections);
@@ -1304,16 +1331,20 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
       startEffects(type, settings.effectAmount);
       if (onLand) onLand(type, fakeOutShown);
     };
-    const close = () => {
+    // A dismissed reveal is one the caller means to reopen, so it does not
+    // count as confirmed and the round stays hidden.
+    const close = (confirmed = true) => {
       if (phase === 'closed') return;
       phase = 'closed';
+      activeClose = null;
       overlay.removeEventListener('click', onTap);
       overlay.removeEventListener('keydown', onKeyDown);
       clearTimers();
+      clearPicker();
       stopAnimations(idles);
       stopAnimations(selections);
       stopEffects();
-      if (onConfirm) onConfirm();
+      if (confirmed && onConfirm) onConfirm();
       overlay.hidden = true;
       restoreBackground();
       if (restoreFocusTo && typeof restoreFocusTo.focus === 'function') {
@@ -1387,6 +1418,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
     const spin = () => {
       if (phase !== 'idle') return;
       phase = 'spin';
+      clearPicker();
       action.textContent = 'Skip';
       safetyTimer = setTimeout(() => {
         safetyTimer = null;
@@ -1441,6 +1473,7 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
         first.focus();
       }
     };
+    activeClose = close;
     overlay.addEventListener('click', onTap);
     overlay.addEventListener('keydown', onKeyDown);
     action.focus();
@@ -1467,6 +1500,11 @@ function createReel({ overlay, wheels, title, action, effects, onBusyChange }) {
   }
   return {
     show,
+    // Closes an open reveal without committing it, for callers that need to
+    // rebuild the spin from changed state.
+    dismiss: () => {
+      if (activeClose) activeClose(false);
+    },
     isBusy: () => spinning,
     canAnimate: () => !reducedMotion() && hasAnimation(wheels) && !animationUnavailable,
   };
