@@ -336,15 +336,20 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     picker.innerHTML = '';
   };
   // A picker only earns its place when there is something to choose between.
-  const renderPicker = (spec) => {
+  // A required picker opens on a placeholder rather than a name, so the reveal
+  // is asking a question instead of offering to correct an answer. Returns
+  // whether the reel is now waiting on one, which holds the spin back.
+  const renderPicker = (spec, onCommit) => {
     clearPicker();
     const choices = spec && Array.isArray(spec.options) ? spec.options : [];
-    if (!picker || choices.length < 2) return;
+    if (!picker || choices.length < 2) return false;
+    const waiting = !!spec.required;
     const select = el('select', { class: 'reel-picker-select' });
+    if (waiting) select.appendChild(el('option', { value: '' }, spec.placeholder || 'Choose'));
     choices.forEach((choice) =>
       select.appendChild(el('option', { value: choice.value }, choice.text)),
     );
-    select.value = String(spec.value);
+    select.value = waiting ? '' : String(spec.value);
     // Arrow keys fire a change for every option they pass, and each one would
     // reseat the table underneath the reader. A keyboard choice is only acted
     // on once it is committed; pointer and touch pickers commit as they close,
@@ -352,7 +357,9 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     let byKey = false;
     const commit = () => {
       byKey = false;
+      if (!select.value) return;
       if (select.value !== String(spec.value) && spec.onChange) spec.onChange(select.value);
+      if (onCommit) onCommit(select.value);
     };
     select.addEventListener('pointerdown', () => {
       byKey = false;
@@ -369,6 +376,7 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     });
     picker.append(el('span', { class: 'reel-picker-label' }, spec.label || ''), select);
     picker.hidden = false;
+    return waiting;
   };
   const setBusy = (value) => {
     spinning = value;
@@ -1294,8 +1302,15 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     if (!valid || animationUnavailable || !clearTracks()) return false;
     setBusy(true);
     title.textContent = settings.title;
-    renderPicker(supplied.picker);
+    action.hidden = false;
     action.textContent = 'Spin';
+    // An unanswered picker holds the reel: nothing spins until the question
+    // it asks has been answered.
+    let awaitingPick = renderPicker(supplied.picker, () => {
+      awaitingPick = false;
+      action.disabled = false;
+    });
+    action.disabled = awaitingPick;
     const restoreFocusTo = document.activeElement;
     const restoreBackground = deactivateBackground(overlay);
     overlay.hidden = false;
@@ -1345,7 +1360,13 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
         return winner ? winner.textContent : '';
       });
       title.textContent = resultText || results.filter(Boolean).join(' \u00b7 ') || settings.title;
+      action.hidden = false;
+      action.disabled = false;
       action.textContent = 'Confirm';
+      // Focus was parked on the overlay for the spin. Hand it back now there
+      // is something to press again, so the keyboard can confirm the round.
+      const focused = document.activeElement;
+      if (focused === overlay || !overlay.contains(focused)) action.focus();
       const type = effectType(settings.effect);
       startEffects(type, settings.effectAmount);
       if (onLand) onLand(type, fakeOutShown);
@@ -1363,6 +1384,10 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       stopAnimations(idles);
       stopAnimations(selections);
       stopEffects();
+      // The button is shared with every later reveal, so it is never left
+      // hidden or held back by a reveal that has finished with it.
+      action.hidden = false;
+      action.disabled = false;
       if (confirmed && onConfirm) onConfirm();
       overlay.hidden = true;
       restoreBackground();
@@ -1435,10 +1460,16 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       }, settings.fakeOutHoldMs);
     };
     const spin = () => {
-      if (phase !== 'idle') return;
+      if (phase !== 'idle' || awaitingPick) return;
       phase = 'spin';
       clearPicker();
-      action.textContent = 'Skip';
+      // A spin runs its course: there is nothing to press while it does, so
+      // the button steps aside rather than offering a way to cut it short.
+      // The overlay takes focus first, because a dialog with nothing focusable
+      // in it drops focus to the document, and the key handling and the Tab
+      // trap are bound to the overlay.
+      overlay.focus();
+      action.hidden = true;
       safetyTimer = setTimeout(() => {
         safetyTimer = null;
         if (phase === 'spin') land();
@@ -1461,11 +1492,11 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     };
     const onTap = () => {
       if (phase === 'idle') spin();
-      else if (phase === 'spin') land();
-      else close();
+      else if (phase === 'confirm') close();
     };
     // Escape follows the same progression as a tap rather than abandoning the
-    // reveal, so a keyboard user cannot skip past an unconfirmed round.
+    // reveal, so a keyboard user cannot skip past an unconfirmed round. A spin
+    // in flight ignores both: it is watched, not raced.
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         // A native control owns its own Escape: closing the dealer dropdown
@@ -1498,7 +1529,11 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     activeClose = close;
     overlay.addEventListener('click', onTap);
     overlay.addEventListener('keydown', onKeyDown);
-    action.focus();
+    // Focus goes to whatever the reveal wants next: the question when there is
+    // one to answer, the button when there is not.
+    const waitingSelect = awaitingPick && picker ? picker.querySelector('select') : null;
+    if (waitingSelect) waitingSelect.focus();
+    else action.focus();
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i],
         geo = geos[i];

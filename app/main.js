@@ -881,8 +881,14 @@ function createApp() {
   }
 
   /* ---------- Hidden round-reveal wheel ---------- */
+  // Nominating a dealer each round means asking who deals, not just offering
+  // to correct a rotation, so every reveal puts the question before the spin.
+  // This remembers the round that has been answered, because answering it
+  // rebuilds the reveal and the question must not come back.
+  let dealerChosenRound = -1;
   function commitReveal(round) {
     state.revealedCount = Math.max(Math.floor(state.revealedCount || 0), round + 1);
+    dealerChosenRound = -1;
     save();
     refreshRevealRows();
   }
@@ -899,22 +905,28 @@ function createApp() {
   }
   // A reseat moves columns as well as the deal, so the whole board is rebuilt.
   // The reveal is built from the state it opened with, so the spin is torn
-  // down and rebuilt too: rigging can change what lands.
+  // down and rebuilt too: rigging can change what lands. An answer that keeps
+  // the same dealer changes nothing to save, but the reveal is still rebuilt
+  // so it can drop the question and name who deals.
   function chooseDealer(round, id) {
     const changed =
       typeof activeGame.setDealer === 'function' &&
       activeGame.setDealer(state, round, id, dealerPreferenceResolver(loadDealerRigSettings()));
-    if (!changed) return;
-    save();
-    renderGame();
+    dealerChosenRound = round;
+    if (changed) {
+      save();
+      renderGame();
+    }
     reel.dismiss();
     openRoundReveal(round);
   }
-  function dealerPicker(round) {
+  function dealerPicker(round, ask) {
     if (typeof activeGame.setDealer !== 'function' || state.players.length < 2) return null;
     return {
       label: 'Dealer',
-      value: dealerIdForRound(round),
+      required: ask,
+      placeholder: 'Who deals?',
+      value: ask ? null : dealerIdForRound(round),
       options: state.players.map((player) => ({ value: player.id, text: player.name })),
       onChange: (id) => chooseDealer(round, id),
     };
@@ -947,9 +959,12 @@ function createApp() {
     const options = {};
     let didFakeOut = false;
     if (progressiveFakeOut) options.fakeOutChance = fakeOutChanceForMisses(state.fakeOutMisses);
-    if (dealer) {
-      options.title = dealer + ' deals \u00b7 Round ' + (round + 1);
-      options.picker = dealerPicker(round);
+    if (dealerIdForRound(round)) {
+      const ask = dealerChosenRound !== round;
+      options.title = ask
+        ? 'Who deals Round ' + (round + 1) + '?'
+        : dealer + ' deals \u00b7 Round ' + (round + 1);
+      options.picker = dealerPicker(round, ask);
     }
     const shown = reel.show({
       reels: revealReels(items, round),

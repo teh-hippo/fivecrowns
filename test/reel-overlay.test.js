@@ -8,7 +8,12 @@ afterEach(() => {
   harness = null;
 });
 
-async function openReel({ animations = false, reducedMotion = false, picker = null } = {}) {
+async function openReel({
+  animations = false,
+  reducedMotion = false,
+  picker = null,
+  askDealer = false,
+} = {}) {
   harness = bootDom({ animations, reducedMotion });
   const { window, byId } = harness;
   const { createReel } = await import('../reel.js');
@@ -33,7 +38,9 @@ async function openReel({ animations = false, reducedMotion = false, picker = nu
         ? {
             picker: {
               label: 'Dealer',
-              value: 'p1',
+              required: askDealer,
+              placeholder: 'Who deals?',
+              value: askDealer ? null : 'p1',
               options: [
                 { value: 'p1', text: 'Ann' },
                 { value: 'p2', text: 'Bob' },
@@ -101,7 +108,7 @@ test('Tab is trapped inside the overlay', async () => {
 });
 
 test('Escape advances the reveal rather than abandoning it', async () => {
-  const { window, overlay, show, state } = await openReel({ animations: true });
+  const { window, byId, overlay, show, state } = await openReel({ animations: true });
   show();
   assert.equal(overlay.hidden, false);
 
@@ -109,13 +116,41 @@ test('Escape advances the reveal rather than abandoning it', async () => {
   assert.equal(overlay.hidden, false, 'the first Escape starts the spin');
   assert.equal(state.confirmed, 0, 'nothing is committed yet');
 
-  press(window, overlay, 'Escape'); // spin -> land
-  assert.equal(overlay.hidden, false, 'the second Escape skips to the result');
+  window.finishAnimations(); // spin -> land
+  assert.equal(byId('reel-action').textContent, 'Confirm');
   assert.equal(state.confirmed, 0);
 
   press(window, overlay, 'Escape'); // land -> confirm
   assert.equal(overlay.hidden, true);
   assert.equal(state.confirmed, 1, 'only the final Escape commits');
+});
+
+test('a spin in flight cannot be cut short', async () => {
+  const { window, byId, overlay, show, state } = await openReel({ animations: true });
+  show();
+  press(window, overlay, 'Escape'); // idle -> spin
+  assert.equal(byId('reel-action').hidden, true, 'there is nothing to press mid-spin');
+
+  overlay.click();
+  press(window, overlay, 'Escape');
+  assert.notEqual(byId('reel-title').textContent, '3s is wild!', 'the reel is still spinning');
+  assert.equal(state.confirmed, 0);
+
+  window.finishAnimations();
+  assert.equal(byId('reel-action').hidden, false, 'the button comes back with the result');
+  assert.equal(byId('reel-title').textContent, '3s is wild!');
+});
+
+test('the dialog keeps hold of focus while the spin runs', async () => {
+  const { window, byId, overlay, show } = await openReel({ animations: true });
+  show();
+  press(window, overlay, 'Escape'); // idle -> spin
+
+  assert.equal(harness.document.activeElement, overlay, 'the dialog holds focus for the spin');
+  assert.equal(press(window, overlay, 'Tab'), false, 'so Tab is still trapped');
+
+  window.finishAnimations();
+  assert.equal(harness.document.activeElement, byId('reel-action'), 'the button takes it back');
 });
 
 test('other keys are left alone', async () => {
@@ -194,4 +229,35 @@ test('leaving the dealer dropdown commits whatever it was left on', async () => 
 
   select.dispatchEvent(new window.Event('blur', { bubbles: true }));
   assert.deepEqual(state.picked, ['p2']);
+});
+
+test('a required dealer is asked for before the reel will spin', async () => {
+  const { window, byId, overlay, show, state } = await openReel({
+    animations: true,
+    picker: true,
+    askDealer: true,
+  });
+  show();
+  const select = pickerSelect();
+
+  assert.equal(select.value, '', 'nobody is chosen for you');
+  assert.equal(select.options[0].textContent, 'Who deals?');
+  assert.equal(harness.document.activeElement, select, 'focus lands on the question');
+  assert.equal(byId('reel-action').disabled, true, 'and the spin is held back');
+
+  overlay.click();
+  press(window, overlay, 'Escape');
+  press(window, select, 'Tab'); // committing the placeholder answers nothing
+  assert.deepEqual(state.picked, []);
+  assert.equal(byId('reel-picker').hidden, false, 'the reveal waits on an answer');
+  assert.equal(byId('reel-action').textContent, 'Spin');
+
+  select.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+  select.value = 'p2';
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.deepEqual(state.picked, ['p2']);
+  assert.equal(byId('reel-action').disabled, false, 'answering releases the spin');
+
+  press(window, overlay, 'Escape');
+  assert.equal(byId('reel-picker').hidden, true, 'and the reel spins');
 });

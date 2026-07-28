@@ -583,7 +583,7 @@ test('Super Random labels the reveal as a round, not a wild', async () => {
   assert.match(app.byId('reveal-wild-btn').textContent, /Reveal round/);
 });
 
-test('the reveal offers a dealer override that reseats the table', async () => {
+test('the reveal asks who deals and reseats the table around the answer', async () => {
   app = await bootApp({ animations: true });
   choose('random');
   const toggle = app.byId('dealer-toggle');
@@ -596,21 +596,24 @@ test('the reveal offers a dealer override that reseats the table', async () => {
   const overlay = app.byId('reel-overlay');
   const picker = app.byId('reel-picker');
   assert.equal(overlay.hidden, false, 'round one opens the reel');
-  assert.equal(picker.hidden, false, 'the dealer can be overridden before the spin');
+  assert.equal(picker.hidden, false, 'and asks who deals before it spins');
   const select = picker.querySelector('select');
-  const names = [...select.options].map((option) => option.textContent);
+  const names = [...select.options].slice(1).map((option) => option.textContent);
   assert.equal(names.length, 3, 'one option per player');
   assert.deepEqual(columns(), names);
-  assert.equal(app.byId('reel-title').textContent, names[0] + ' deals \u00b7 Round 1');
+  assert.equal(select.value, '', 'nobody is chosen for you');
+  assert.equal(app.byId('reel-title').textContent, 'Who deals Round 1?');
+  assert.equal(app.byId('reel-action').disabled, true, 'the spin waits on an answer');
 
   select.click();
   assert.equal(app.byId('reel-action').textContent, 'Spin', 'touching the picker does not spin');
 
-  select.value = select.options[2].value;
+  select.value = select.options[3].value;
   select.dispatchEvent(new app.window.Event('change', { bubbles: true }));
 
-  assert.equal(overlay.hidden, false, 'the reveal reopens on the new dealer');
+  assert.equal(overlay.hidden, false, 'the reveal reopens on the answer');
   assert.equal(app.byId('reel-title').textContent, names[2] + ' deals \u00b7 Round 1');
+  assert.equal(app.byId('reel-action').disabled, false, 'and the spin is released');
   assert.deepEqual(
     columns(),
     [names[2], names[0], names[1]],
@@ -619,11 +622,38 @@ test('the reveal offers a dealer override that reseats the table', async () => {
   assert.equal(
     app.document.querySelector('#score-body .wild').classList.contains('wild-ready'),
     true,
-    'switching dealer does not commit the round',
+    'naming the dealer does not commit the round',
   );
 
   app.byId('reel-action').click();
-  assert.equal(app.byId('reel-picker').hidden, true, 'the override closes once the reel spins');
+  assert.equal(app.byId('reel-picker').hidden, true, 'the question closes once the reel spins');
+  assert.equal(app.byId('reel-action').hidden, true, 'and the spin cannot be cut short');
+});
+
+test('naming the dealer the rotation already had leaves the table alone', async () => {
+  app = await bootApp({ animations: true });
+  choose('random');
+  const toggle = app.byId('dealer-toggle');
+  toggle.checked = true;
+  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+  start();
+
+  const columns = () =>
+    [...app.document.querySelectorAll('#head-row .player-col .name-input')].map((n) => n.value);
+  const seating = columns();
+  const select = app.byId('reel-picker').querySelector('select');
+
+  select.value = select.options[1].value;
+  select.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+
+  assert.deepEqual(columns(), seating, 'nobody moves');
+  assert.equal(app.byId('reel-title').textContent, seating[0] + ' deals \u00b7 Round 1');
+  assert.equal(app.byId('reel-action').disabled, false, 'the answer still releases the spin');
+  assert.equal(
+    app.byId('reel-picker').querySelector('select').value,
+    select.value,
+    'and the question is not asked again',
+  );
 });
 
 test('confirming a reveal hands focus back to the round it opened from', async () => {
