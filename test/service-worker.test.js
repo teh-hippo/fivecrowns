@@ -78,3 +78,29 @@ test('stale caches are dropped when a new version activates', () => {
   assert.match(source, /caches\.delete/);
   assert.match(source, /clients\.claim/);
 });
+
+// The stale build this repository shipped for a fortnight was cached code, not
+// a bad deploy: Pages serves the default branch with no fingerprinted
+// filenames, so a cache-first read of app.js can never tell one build from the
+// next.
+test('the app is read from the network first so a deploy is picked up', () => {
+  assert.match(source, /function networkFirst\(/, 'there is a network-first strategy');
+  assert.match(
+    source,
+    /networkFirst\(request\)\s*:\s*cacheFirst\(request\)/,
+    'code takes it and everything else falls back to cache-first',
+  );
+  const code = source.match(/const CODE = ([^;]+);/);
+  assert.ok(code, 'sw.js declares which paths count as code');
+  for (const path of ['app.js', 'app/main.js', 'reel.js', 'css/reel.css', 'index.html']) {
+    assert.match(path, new RegExp(code[1].trim().slice(1, -1)), `"${path}" is treated as code`);
+  }
+  for (const path of ['icon-192.png', 'favicon.svg']) {
+    assert.doesNotMatch(path, new RegExp(code[1].trim().slice(1, -1)), `"${path}" is not`);
+  }
+});
+
+test('navigations and assets both survive going offline', () => {
+  assert.match(source, /offlineFallback\(\)/, 'a navigation falls back to the cached shell');
+  assert.match(source, /status: 504/, 'and an uncached asset fails loudly rather than hanging');
+});

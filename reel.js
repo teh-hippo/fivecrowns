@@ -119,6 +119,10 @@ const GEOMETRY = Object.freeze({
 });
 const DECEL = 'cubic-bezier(0.16, 0.9, 0.22, 1)';
 const FAKEOUT_EASE = 'cubic-bezier(0.4, 0, 0.15, 1)';
+const PODIUM_POP = 'cubic-bezier(0.2, 1.5, 0.4, 1)';
+// Long enough for a place to land and be read before the next one arrives.
+const PODIUM_STEP_MS = 950;
+const PODIUM_IN_MS = 460;
 const EFFECT_COLORS = ['#a78bfa', '#e3c14e', '#5fe39a', '#ff6b5e', '#ececf3'];
 const EXPLOSION_COLORS = ['#fff3a3', '#ffd166', '#ff8c42', '#ff4d3d'];
 const LASER_COLORS = ['#71f6ff', '#ff5cf4', '#a78bfa'];
@@ -322,14 +326,75 @@ function cancelAll(node) {
   return { stopped, failed };
 }
 
-function createReel({ overlay, wheels, title, action, effects, picker, onBusyChange }) {
+function createReel({
+  overlay,
+  wheels,
+  title,
+  action,
+  effects,
+  picker,
+  podium,
+  replay,
+  onBusyChange,
+}) {
   let spinning = false,
     animationUnavailable = false,
     effectCleanup = null,
-    activeClose = null;
+    activeClose = null,
+    activeReplay = null;
   // The overlay treats any tap as "advance the reveal", so the picker has to
-  // keep its own taps to itself.
+  // keep its own taps to itself. Replaying is a step back rather than on, so it
+  // does the same.
   if (picker) picker.addEventListener('click', (event) => event.stopPropagation());
+  if (replay)
+    replay.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (activeReplay) activeReplay();
+    });
+  const clearPodium = () => {
+    if (!podium) return;
+    podium.querySelectorAll('.podium-row').forEach((row) => cancelAll(row));
+    podium.hidden = true;
+    podium.textContent = '';
+  };
+  // Opening and closing a hand-rolled modal is the same job whatever it shows.
+  const beginModal = () => {
+    const restoreFocusTo = document.activeElement;
+    const restoreBackground = deactivateBackground(overlay);
+    overlay.hidden = false;
+    return () => {
+      overlay.hidden = true;
+      restoreBackground();
+      if (restoreFocusTo && typeof restoreFocusTo.focus === 'function') {
+        try {
+          restoreFocusTo.focus();
+        } catch (_) {
+          /* the opener has gone, leave focus where the browser put it */
+        }
+      }
+    };
+  };
+  // Tab never leaves the dialog: it wraps at both ends and pulls stray focus in.
+  const keepTabInside = (event) => {
+    const focusable = focusableWithin(overlay);
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (!overlay.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   const clearPicker = () => {
     if (!picker) return;
     picker.hidden = true;
@@ -482,9 +547,12 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       fakeOutY: -(fakeIndex - 1) * itemH,
     };
   };
+  // Effects burst from whatever the overlay is showing: the reels during a
+  // reveal, the podium at the end of a game.
+  const focalNode = () => (podium && !podium.hidden ? podium : wheels);
   const bounds = () => {
     const rect = effects.getBoundingClientRect(),
-      windowRect = wheels.getBoundingClientRect();
+      windowRect = focalNode().getBoundingClientRect();
     return {
       width: rect.width || window.innerWidth,
       height: rect.height || window.innerHeight,
@@ -1300,6 +1368,7 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       );
     stopEffects();
     if (!valid || animationUnavailable || !clearTracks()) return false;
+    clearPodium();
     setBusy(true);
     title.textContent = settings.title;
     action.hidden = false;
@@ -1311,9 +1380,7 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       action.disabled = false;
     });
     action.disabled = awaitingPick;
-    const restoreFocusTo = document.activeElement;
-    const restoreBackground = deactivateBackground(overlay);
-    overlay.hidden = false;
+    const endModal = beginModal();
     const tracks = renderTracks(reels);
     const geos = tracks.map((track) => geometry(track, fullSetSize, settings.spinCycles));
     const fakeOut =
@@ -1389,15 +1456,7 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
       action.hidden = false;
       action.disabled = false;
       if (confirmed && onConfirm) onConfirm();
-      overlay.hidden = true;
-      restoreBackground();
-      if (restoreFocusTo && typeof restoreFocusTo.focus === 'function') {
-        try {
-          restoreFocusTo.focus();
-        } catch (_) {
-          /* the opener has gone, leave focus where the browser put it */
-        }
-      }
+      endModal();
       setBusy(false);
       if (onClose) onClose();
     };
@@ -1507,24 +1566,7 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = focusableWithin(overlay);
-      if (!focusable.length) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (!overlay.contains(active)) {
-        event.preventDefault();
-        first.focus();
-      } else if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      keepTabInside(event);
     };
     activeClose = close;
     overlay.addEventListener('click', onTap);
@@ -1555,8 +1597,162 @@ function createReel({ overlay, wheels, title, action, effects, picker, onBusyCha
     }
     return true;
   }
+
+  // The end of a game deserves more than a line of text, so the overlay counts
+  // the podium down: third, then second, then whoever won, each arriving on its
+  // own. The places arrive in the order they are to be revealed. Nothing is
+  // committed either way, so it can be watched again without ending anything
+  // twice.
+  function celebrate({ title: heading, places, resultText, effect, effectAmount, onClose }) {
+    const listed = (Array.isArray(places) ? places : []).filter(
+      (place) => place && place.name != null,
+    );
+    if (spinning || !podium || !replay || !listed.length) return false;
+    stopEffects();
+    clearTracks();
+    clearPicker();
+    clearPodium();
+    setBusy(true);
+    // A static podium still says who won, so an engine that cannot animate gets
+    // the standings rather than nothing at all.
+    const animated = !reducedMotion() && hasAnimation(podium);
+    podium.hidden = false;
+    const rows = listed.map((place) => {
+      const row = el('li', {
+        class: 'podium-row' + (place.place === 1 ? ' podium-first' : ''),
+        'data-place': String(place.place),
+      });
+      row.append(
+        el('span', { class: 'podium-place' }, place.label),
+        el('span', { class: 'podium-name' }, place.name),
+        el('span', { class: 'podium-score' }, String(place.score)),
+      );
+      podium.appendChild(row);
+      return row;
+    });
+    const endModal = beginModal();
+    let phase = 'reveal',
+      stepTimer = null;
+    const announce = (place) => place.label + ' \u00b7 ' + place.name + ' \u00b7 ' + place.score;
+    const revealRow = (row, winner) => {
+      if (!animated) return;
+      animate(
+        row,
+        [
+          {
+            opacity: 0,
+            transform: winner ? 'translateY(28px) scale(0.84)' : 'translateY(18px) scale(0.96)',
+          },
+          { opacity: 1, transform: 'none' },
+        ],
+        {
+          duration: winner ? PODIUM_IN_MS * 1.5 : PODIUM_IN_MS,
+          easing: winner ? PODIUM_POP : DECEL,
+          fill: 'backwards',
+        },
+      );
+    };
+    const finish = (text) => {
+      if (phase === 'closed') return;
+      phase = 'done';
+      title.textContent = text;
+      action.hidden = false;
+      action.disabled = false;
+      action.textContent = 'Done';
+      replay.hidden = false;
+      replay.disabled = false;
+      replay.textContent = 'Replay';
+      startEffects(effectType(effect), effectAmount);
+      const focused = document.activeElement;
+      if (focused === overlay || !overlay.contains(focused)) action.focus();
+    };
+    const play = () => {
+      if (phase === 'closed') return;
+      phase = 'reveal';
+      if (stepTimer != null) clearTimeout(stepTimer);
+      stepTimer = null;
+      stopEffects();
+      rows.forEach((row) => {
+        cancelAll(row);
+        row.hidden = true;
+      });
+      title.textContent = heading || '';
+      replay.hidden = true;
+      if (!animated) {
+        rows.forEach((row) => {
+          row.hidden = false;
+        });
+        finish(resultText || heading || '');
+        return;
+      }
+      // Nothing to press while the countdown runs, the same as a spin in
+      // flight, so the dialog holds focus rather than letting it fall out.
+      action.hidden = true;
+      overlay.focus();
+      let index = 0;
+      const step = () => {
+        stepTimer = null;
+        if (phase !== 'reveal') return;
+        const place = listed[index];
+        const row = rows[index];
+        const winner = index === rows.length - 1;
+        index++;
+        row.hidden = false;
+        revealRow(row, winner);
+        if (winner) finish(resultText || announce(place));
+        else {
+          title.textContent = announce(place);
+          stepTimer = setTimeout(step, PODIUM_STEP_MS);
+        }
+      };
+      step();
+    };
+    const close = () => {
+      if (phase === 'closed') return;
+      phase = 'closed';
+      activeClose = null;
+      activeReplay = null;
+      overlay.removeEventListener('click', onTap);
+      overlay.removeEventListener('keydown', onKeyDown);
+      if (stepTimer != null) clearTimeout(stepTimer);
+      stepTimer = null;
+      stopEffects();
+      clearPodium();
+      replay.hidden = true;
+      replay.disabled = false;
+      // Both buttons are shared with every later reveal, so neither is left
+      // hidden or held back by one that has finished with them.
+      action.hidden = false;
+      action.disabled = false;
+      endModal();
+      setBusy(false);
+      if (onClose) onClose();
+    };
+    const onTap = () => {
+      if (phase === 'done') close();
+    };
+    // A countdown runs its course, as a spin does, so Escape only answers once
+    // there is a result to dismiss.
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onTap();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      keepTabInside(event);
+    };
+    activeClose = close;
+    activeReplay = play;
+    overlay.addEventListener('click', onTap);
+    overlay.addEventListener('keydown', onKeyDown);
+    play();
+    return true;
+  }
+
   return {
     show,
+    celebrate,
     // Closes an open reveal without committing it, for callers that need to
     // rebuild the spin from changed state.
     dismiss: () => {

@@ -1,7 +1,14 @@
 // The app ships from the root of a GitHub Pages project site, so every path is
 // resolved against this file's own location rather than the origin root.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'fivecrowns-' + VERSION;
+
+// Pages serves this repository's default branch directly, with no build step to
+// fingerprint filenames, so nothing here can be told apart by its URL between
+// one deploy and the next. Anything the app is built from is read from the
+// network first for that reason; only the images, which carry no behaviour, are
+// cheap enough to serve stale.
+const CODE = /\.(?:js|css|html|webmanifest)$/;
 
 const SHELL = [
   './',
@@ -61,26 +68,39 @@ function offlineFallback() {
   });
 }
 
-// Navigations go to the network first so a deploy is picked up on the next
-// online load. Pages serves this repository's default branch directly, with no
-// build step to fingerprint filenames, so a cache-first shell would pin users
-// to a stale version indefinitely.
-function handleNavigation(request) {
-  return fetch(request)
-    .then((response) => {
-      const copy = response.clone();
-      caches
-        .open(CACHE)
-        .then((cache) => cache.put(new URL('index.html', self.registration.scope), copy))
-        .catch(() => {});
-      return response;
-    })
-    .catch(() => caches.match(request).then((cached) => cached || offlineFallback()));
+function store(key, response) {
+  if (!response || !response.ok) return;
+  const copy = response.clone();
+  caches
+    .open(CACHE)
+    .then((cache) => cache.put(key, copy))
+    .catch(() => {});
 }
 
-// Static assets are served from cache immediately and refreshed in the
-// background, so a reveal never waits on the network mid-game.
-function handleAsset(request) {
+// The network decides what the app is; the cache only answers when it cannot be
+// reached. Writing the fresh copy back as it passes keeps the offline shell one
+// deploy behind at worst, rather than pinning it to whatever landed first.
+function networkFirst(request, key = request) {
+  return fetch(request)
+    .then((response) => {
+      store(key, response);
+      return response;
+    })
+    .catch(() =>
+      caches.match(key).then((cached) => {
+        if (cached) return cached;
+        if (request.mode === 'navigate') return offlineFallback();
+        return new Response('Offline and this file is not cached.', {
+          status: 504,
+          headers: { 'Content-Type': 'text/plain' },
+        });
+      }),
+    );
+}
+
+// Images never change how the app behaves, so they are served from cache
+// immediately and refreshed in the background rather than made to wait.
+function cacheFirst(request) {
   return caches.open(CACHE).then((cache) =>
     cache.match(request).then((cached) => {
       const network = fetch(request)
@@ -103,8 +123,8 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(handleNavigation(request));
+    event.respondWith(networkFirst(request, new URL('index.html', self.registration.scope)));
     return;
   }
-  event.respondWith(handleAsset(request));
+  event.respondWith(CODE.test(url.pathname) ? networkFirst(request) : cacheFirst(request));
 });

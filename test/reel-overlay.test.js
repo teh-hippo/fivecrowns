@@ -261,3 +261,167 @@ test('a required dealer is asked for before the reel will spin', async () => {
   press(window, overlay, 'Escape');
   assert.equal(byId('reel-picker').hidden, true, 'and the reel spins');
 });
+
+/* ---------- the end-of-game podium ---------- */
+
+// The countdown steps on a timer, so the tests move the clock by hand.
+async function openPodium({ animations = true, reducedMotion = false } = {}) {
+  harness = bootDom({ animations, reducedMotion });
+  const { window, byId } = harness;
+  const { createReel } = await import('../reel.js');
+  const overlay = byId('reel-overlay');
+  const state = { closed: 0 };
+  const reel = createReel({
+    overlay,
+    wheels: byId('reel-wheels'),
+    title: byId('reel-title'),
+    action: byId('reel-action'),
+    effects: byId('reel-effects'),
+    picker: byId('reel-picker'),
+    podium: byId('reel-podium'),
+    replay: byId('reel-replay'),
+    onBusyChange: () => {},
+  });
+  const shown = () =>
+    [...byId('reel-podium').querySelectorAll('.podium-row')]
+      .filter((row) => !row.hidden)
+      .map((row) => row.getAttribute('data-place'));
+  const celebrate = () =>
+    reel.celebrate({
+      title: 'How it finished',
+      places: [
+        { place: 3, label: '3rd', name: 'Sam', score: 90 },
+        { place: 2, label: '2nd', name: 'Mum', score: 30 },
+        { place: 1, label: '1st', name: 'Dad', score: 14 },
+      ],
+      resultText: '\u{1F3C6} Dad wins with 14!',
+      effect: 'fireworks',
+      onClose: () => state.closed++,
+    });
+  return { window, byId, overlay, reel, celebrate, shown, state };
+}
+
+const tick = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const STEP = 1000; // just past the reel's own step, so each place has landed
+
+test('the podium counts down third, second, then the winner', async () => {
+  const { byId, celebrate, shown } = await openPodium();
+
+  assert.equal(celebrate(), true);
+  assert.deepEqual(shown(), ['3'], 'the lowest place goes first');
+  assert.equal(byId('reel-title').textContent, '3rd \u00b7 Sam \u00b7 90');
+  assert.equal(byId('reel-action').hidden, true, 'there is nothing to press mid-countdown');
+
+  await tick(STEP);
+  assert.deepEqual(shown(), ['3', '2']);
+  assert.equal(byId('reel-title').textContent, '2nd \u00b7 Mum \u00b7 30');
+
+  await tick(STEP);
+  assert.deepEqual(shown(), ['3', '2', '1'], 'the winner lands last');
+  assert.equal(byId('reel-title').textContent, '\u{1F3C6} Dad wins with 14!');
+  assert.equal(byId('reel-action').textContent, 'Done');
+  assert.equal(byId('reel-effects').dataset.effect, 'fireworks');
+});
+
+test('the winner is marked out from the rest of the podium', async () => {
+  const { byId, celebrate } = await openPodium();
+  celebrate();
+  const rows = [...byId('reel-podium').querySelectorAll('.podium-row')];
+  assert.deepEqual(
+    rows.map((row) => row.classList.contains('podium-first')),
+    [false, false, true],
+  );
+  assert.deepEqual(
+    [...rows[2].children].map((cell) => cell.textContent),
+    ['1st', 'Dad', '14'],
+  );
+});
+
+test('the countdown cannot be cut short but a result can be dismissed', async () => {
+  const { window, overlay, byId, celebrate, shown, state } = await openPodium();
+  celebrate();
+
+  overlay.click();
+  press(window, overlay, 'Escape');
+  assert.equal(overlay.hidden, false, 'the countdown runs its course');
+  assert.deepEqual(shown(), ['3']);
+
+  await tick(STEP * 2);
+  press(window, overlay, 'Escape');
+  assert.equal(overlay.hidden, true);
+  assert.equal(state.closed, 1);
+  assert.equal(byId('reel-replay').hidden, true, 'the shared buttons are handed back');
+  assert.equal(byId('reel-action').hidden, false);
+});
+
+test('replaying runs the countdown again without closing', async () => {
+  const { byId, celebrate, shown, state } = await openPodium();
+  celebrate();
+  await tick(STEP * 2);
+  assert.equal(byId('reel-replay').hidden, false);
+
+  byId('reel-replay').click();
+  assert.deepEqual(shown(), ['3'], 'it starts over from the lowest place');
+  assert.equal(byId('reel-replay').hidden, true, 'and steps aside while it runs');
+  assert.equal(byId('reel-effects').dataset.effect, undefined, 'the effects stop with it');
+  assert.equal(state.closed, 0, 'nothing has been dismissed');
+
+  await tick(STEP * 2);
+  assert.deepEqual(shown(), ['3', '2', '1']);
+  assert.equal(state.closed, 0);
+});
+
+test('the podium holds focus and hands it to the result', async () => {
+  const { byId, overlay, celebrate } = await openPodium();
+  byId('menu-btn').focus();
+  celebrate();
+  assert.equal(harness.document.activeElement, overlay, 'the dialog holds focus mid-countdown');
+  assert.equal(harness.document.querySelector('main').inert, true);
+
+  await tick(STEP * 2);
+  assert.equal(harness.document.activeElement, byId('reel-action'));
+
+  byId('reel-action').click();
+  assert.equal(harness.document.activeElement, byId('menu-btn'), 'focus goes back to the opener');
+  assert.equal(harness.document.querySelector('main').inert, false);
+});
+
+test('an engine that cannot animate still shows the standings', async () => {
+  const { byId, celebrate, shown } = await openPodium({ animations: false });
+  assert.equal(celebrate(), true);
+  assert.deepEqual(shown(), ['3', '2', '1'], 'every place arrives at once');
+  assert.equal(byId('reel-title').textContent, '\u{1F3C6} Dad wins with 14!');
+  assert.equal(byId('reel-action').textContent, 'Done');
+});
+
+test('reduced motion shows the standings without the countdown', async () => {
+  const { celebrate, shown } = await openPodium({ reducedMotion: true });
+  celebrate();
+  assert.deepEqual(shown(), ['3', '2', '1']);
+});
+
+test('a podium with nothing to show is refused', async () => {
+  const { reel } = await openPodium();
+  assert.equal(reel.celebrate({ places: [] }), false);
+  assert.equal(reel.celebrate({ places: null }), false);
+  assert.equal(harness.byId('reel-overlay').hidden, true);
+});
+
+test('the podium and the reel never share the overlay', async () => {
+  const { byId, reel, celebrate } = await openPodium();
+  celebrate();
+  await tick(STEP * 2);
+  byId('reel-action').click();
+
+  reel.show({
+    reels: [{ label: 'Wild', full: ['3s', '4s'], remaining: ['3s', '4s'], target: '3s' }],
+    resultText: '3s is wild!',
+    round: 0,
+    fullSetSize: 2,
+    options: {},
+    onConfirm: () => {},
+  });
+  assert.equal(byId('reel-podium').hidden, true, 'the reel clears the podium behind it');
+  assert.equal(byId('reel-podium').childElementCount, 0);
+  assert.equal(byId('reel-action').textContent, 'Spin');
+});

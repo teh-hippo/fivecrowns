@@ -21,17 +21,23 @@ test('every rig rule declares a dealer, a direction and a label', () => {
   assert.equal(new Set(keys).size, keys.length, 'rule keys are unique');
 });
 
-test('settings default off and coerce junk to booleans', () => {
+test('settings default on and coerce junk to booleans', () => {
   const defaults = defaultDealerRigSettings();
   assert.deepEqual(
     Object.values(defaults),
-    DEALER_RIG_RULES.map(() => false),
+    DEALER_RIG_RULES.map((rule) => rule.default),
+  );
+  assert.deepEqual(
+    Object.values(defaults),
+    DEALER_RIG_RULES.map(() => true),
+    'both rigs are on out of the box',
   );
   assert.deepEqual(normaliseDealerRigSettings(null), defaults);
-  assert.deepEqual(normaliseDealerRigSettings({ dadLowCards: 'yes' }), {
+  assert.deepEqual(normaliseDealerRigSettings({ dadLowCards: '' }), {
     ...defaults,
-    dadLowCards: true,
+    dadLowCards: false,
   });
+  // An absent key is a setting never made, so the rule's own default stands.
   assert.deepEqual(normaliseDealerRigSettings({ unknown: true }), defaults);
 });
 
@@ -49,7 +55,11 @@ test('a disabled rule stops resolving', () => {
   const prefer = dealerPreferenceResolver({ dadLowCards: false, mumHighCards: true });
   assert.equal(prefer('Dad'), null);
   assert.equal(prefer('Mum'), 'high');
-  assert.equal(dealerPreferenceResolver({})('Mum'), null);
+  assert.equal(dealerPreferenceResolver({ dadLowCards: false, mumHighCards: false })('Mum'), null);
+});
+
+test('every rule declares the default it falls back on', () => {
+  for (const rule of DEALER_RIG_RULES) assert.equal(typeof rule.default, 'boolean');
 });
 
 test('the rules layer honours any resolver, not just the configured names', () => {
@@ -64,7 +74,8 @@ test('the rules layer honours any resolver, not just the configured names', () =
 
 test('rig ordering falls back to the base order without a resolver', () => {
   const base = [3, 4, 5, 6];
+  const nobody = dealerPreferenceResolver({ dadLowCards: false, mumHighCards: false });
   assert.deepEqual(fiveCrownsRigCardOrder(base, ['Dad', 'Mum'], undefined), base);
-  assert.deepEqual(fiveCrownsRigCardOrder(base, [], dealerPreferenceResolver({})), base);
-  assert.deepEqual(fiveCrownsRigCardOrder(null, ['Dad'], dealerPreferenceResolver({})), []);
+  assert.deepEqual(fiveCrownsRigCardOrder(base, [], nobody), base);
+  assert.deepEqual(fiveCrownsRigCardOrder(null, ['Dad'], nobody), []);
 });

@@ -7,6 +7,8 @@ test('defaultState is an empty, not-started game', () => {
   assert.deepEqual(defaultState(fiveCrowns), {
     gameId: 'fivecrowns',
     started: false,
+    endedEarly: false,
+    celebrated: false,
     players: [],
     nextId: 1,
     scores: {},

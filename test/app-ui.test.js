@@ -699,3 +699,167 @@ test('reduced motion reveals without opening the reel', async () => {
   const first = app.document.querySelector('#score-body .wild');
   assert.equal(first.classList.contains('wild-masked'), false, 'round one is revealed outright');
 });
+
+/* ---------- ending a game and revealing the winner ---------- */
+
+// Booted without the Web Animations API, the podium arrives all at once, which
+// keeps these about the wiring rather than the countdown.
+const podium = () =>
+  [...app.document.querySelectorAll('.podium-row')].map((row) => [
+    ...[...row.children].map((cell) => cell.textContent),
+    row.classList.contains('podium-first'),
+  ]);
+const openMenu = () => app.byId('menu-btn').click();
+const namePlayers = (...names) => {
+  nameInputs().forEach((input, i) => {
+    if (names[i]) type(app.window, input, names[i]);
+  });
+};
+const endEarly = () => {
+  openMenu();
+  app.byId('endgame-btn').click();
+  app.byId('confirm-ok').click();
+  app.byId('confirm-dialog').close('ok');
+};
+
+test('the menu ends a game early and settles it on the scores so far', async () => {
+  app = await bootApp();
+  namePlayers('Dad', 'Mum', 'Sam');
+  start();
+  [3, 9, 20, 4, 8, 25].forEach((value, i) => type(app.window, scoreInputs()[i], String(value)));
+
+  openMenu();
+  assert.equal(app.byId('results-btn').hidden, true, 'there is no result to show yet');
+  assert.equal(app.byId('endgame-btn').textContent, 'End game now');
+
+  app.byId('endgame-btn').click();
+  assert.equal(app.byId('confirm-dialog').hasAttribute('open'), true, 'it asks first');
+  app.byId('confirm-ok').click();
+  app.byId('confirm-dialog').close('ok');
+
+  assert.equal(app.byId('winner-banner').textContent, '\u{1F3C6} Dad wins with 7!');
+  assert.equal(app.byId('play-again-btn').hidden, false);
+});
+
+test('ending a game early reveals the podium from third place to the winner', async () => {
+  app = await bootApp();
+  namePlayers('Dad', 'Mum', 'Sam');
+  start();
+  [3, 9, 20, 4, 8, 25].forEach((value, i) => type(app.window, scoreInputs()[i], String(value)));
+  endEarly();
+
+  assert.equal(app.byId('reel-overlay').hidden, false, 'the reveal comes up by itself');
+  assert.deepEqual(podium(), [
+    ['3rd', 'Sam', '45', false],
+    ['2nd', 'Mum', '17', false],
+    ['1st', 'Dad', '7', true],
+  ]);
+  assert.equal(app.byId('reel-title').textContent, '\u{1F3C6} Dad wins with 7!');
+  assert.equal(app.byId('reel-action').textContent, 'Done');
+  assert.equal(app.byId('reel-replay').hidden, false, 'and it can be watched again');
+});
+
+test('a game called early can be picked back up from the menu', async () => {
+  app = await bootApp();
+  start();
+  type(app.window, scoreInputs()[0], '9');
+  endEarly();
+  app.byId('reel-action').click();
+
+  openMenu();
+  assert.equal(app.byId('results-btn').hidden, false, 'the result stays reachable');
+  assert.equal(app.byId('endgame-btn').textContent, 'Resume scoring');
+
+  app.byId('endgame-btn').click();
+  assert.equal(app.byId('winner-banner').hidden, true, 'the verdict is withdrawn');
+  assert.equal(app.byId('play-again-btn').hidden, true);
+
+  openMenu();
+  assert.equal(app.byId('endgame-btn').textContent, 'End game now');
+  assert.equal(app.byId('results-btn').hidden, true);
+});
+
+test('the menu shows the result again without ending anything twice', async () => {
+  app = await bootApp();
+  namePlayers('Dad', 'Mum', 'Sam');
+  start();
+  [3, 9, 20].forEach((value, i) => type(app.window, scoreInputs()[i], String(value)));
+  endEarly();
+  app.byId('reel-action').click();
+  assert.equal(app.byId('reel-overlay').hidden, true);
+
+  openMenu();
+  app.byId('results-btn').click();
+  assert.equal(app.byId('reel-overlay').hidden, false, 'it opens again on demand');
+  assert.deepEqual(
+    podium().map((row) => row[1]),
+    ['Sam', 'Mum', 'Dad'],
+  );
+
+  app.byId('reel-action').click();
+  assert.equal(app.byId('reel-overlay').hidden, true);
+  assert.equal(app.byId('winner-banner').textContent.length > 0, true, 'the game is still over');
+});
+
+test('a game the rules finished cannot also be called early', async () => {
+  app = await bootApp();
+  namePlayers('Dad', 'Mum', 'Sam');
+  start();
+  scoreInputs().forEach((input, i) => type(app.window, input, String((i % 3) + 1)));
+
+  assert.equal(app.byId('winner-banner').textContent, '\u{1F3C6} Dad wins with 11!');
+  openMenu();
+  assert.equal(app.byId('endgame-btn').hidden, true, 'there is nothing left to cut short');
+  assert.equal(app.byId('results-btn').hidden, false);
+});
+
+test('the winner reveal waits for the score box to be left', async () => {
+  app = await bootApp();
+  namePlayers('Dad', 'Mum', 'Sam');
+  start();
+  const inputs = scoreInputs();
+  inputs.forEach((input, i) => {
+    if (i < inputs.length - 1) type(app.window, input, String((i % 3) + 1));
+  });
+
+  const last = inputs[inputs.length - 1];
+  last.focus();
+  type(app.window, last, '3');
+  assert.equal(app.byId('reel-overlay').hidden, true, 'a score still being typed is left alone');
+
+  last.blur();
+  assert.equal(app.byId('reel-overlay').hidden, false, 'leaving the box brings up the reveal');
+  assert.deepEqual(
+    podium().map((row) => row[1]),
+    ['Sam', 'Mum', 'Dad'],
+  );
+});
+
+test('the reveal comes up once, not on every redraw', async () => {
+  app = await bootApp();
+  start();
+  type(app.window, scoreInputs()[0], '9');
+  endEarly();
+  app.byId('reel-action').click();
+
+  // Any edit redraws the sheet; the game is still over but has been seen.
+  type(app.window, scoreInputs()[1], '4');
+  assert.equal(app.byId('reel-overlay').hidden, true);
+
+  openMenu();
+  app.byId('switch-btn').click();
+  app.byId('resume-btn').click();
+  assert.equal(app.byId('reel-overlay').hidden, true, 'nor on picking the game back up');
+});
+
+test('a hand-scored game reaches the podium too, and a tie shares a place', async () => {
+  app = await bootApp();
+  choose('five00');
+  namePlayers('Us', 'Them');
+  start();
+  endEarly();
+
+  assert.equal(app.byId('reel-overlay').hidden, false);
+  assert.deepEqual(podium(), [['1st', 'Us & Them', '0', true]], 'level sides share first');
+  assert.match(app.byId('winner-banner').textContent, /Tie at 0/);
+});

@@ -16,6 +16,8 @@ import {
   fiveCrownsDealerId,
   fiveCrownsSetDealer,
   fiveCrownsRigCardOrder,
+  standings,
+  endedEarlyStatus,
   FIVE_CROWNS_WILDS,
   FIVE_CROWNS_CARD_COUNTS,
   FIVE_CROWNS_ROUNDS,
@@ -777,4 +779,101 @@ test('500 resolve reports which hand ended the game', () => {
   });
   assert.equal(out.status.phase, 'out');
   assert.equal(out.status.terminalHand, 0);
+});
+
+/* ---------- final standings ---------- */
+
+const ROSTER = [
+  { id: 'p1', name: 'Dad' },
+  { id: 'p2', name: 'Mum' },
+  { id: 'p3', name: 'Sam' },
+];
+
+test('standings rank a low-scoring game from the front', () => {
+  const places = standings(ROSTER, { p1: 14, p2: 30, p3: 90 }, 'low', ['p1']);
+  assert.deepEqual(
+    places.map((place) => [place.place, place.label, place.names, place.score]),
+    [
+      [1, '1st', ['Dad'], 14],
+      [2, '2nd', ['Mum'], 30],
+      [3, '3rd', ['Sam'], 90],
+    ],
+  );
+});
+
+test('standings rank a high-scoring game from the front', () => {
+  const places = standings(ROSTER, { p1: 100, p2: 5000, p3: 900 }, 'high', ['p2']);
+  assert.deepEqual(
+    places.map((place) => place.names[0]),
+    ['Mum', 'Sam', 'Dad'],
+  );
+});
+
+test('an equal score shares a place and the next one steps over it', () => {
+  const places = standings(ROSTER, { p1: 20, p2: 20, p3: 90 }, 'low', []);
+  assert.deepEqual(
+    places.map((place) => [place.place, place.label, place.names]),
+    [
+      [1, '1st', ['Dad', 'Mum']],
+      [3, '3rd', ['Sam']],
+    ],
+  );
+});
+
+// 500 hands the game to the side that made its bid, or to whoever is left
+// standing, and neither is always the highest total.
+test('whoever the rules call a winner leads, however they scored', () => {
+  const places = standings(ROSTER, { p1: 520, p2: 700, p3: -500 }, 'high', ['p1']);
+  assert.deepEqual(
+    places.map((place) => [place.place, place.names[0], place.score]),
+    [
+      [1, 'Dad', 520],
+      [2, 'Mum', 700],
+      [3, 'Sam', -500],
+    ],
+  );
+});
+
+test('several winners are ranked among themselves before everyone else', () => {
+  const places = standings(ROSTER, { p1: 10, p2: 90, p3: 400 }, 'high', ['p1', 'p2']);
+  assert.deepEqual(
+    places.map((place) => place.names[0]),
+    ['Mum', 'Dad', 'Sam'],
+  );
+});
+
+test('standings stop at the podium and cope with an empty table', () => {
+  const wide = Array.from({ length: 6 }, (_, i) => ({ id: 'p' + i, name: 'P' + i }));
+  const totals = {};
+  wide.forEach((player, i) => {
+    totals[player.id] = i * 10;
+  });
+  assert.equal(standings(wide, totals, 'low', []).length, 3);
+  assert.deepEqual(standings([], {}, 'low', []), []);
+  assert.deepEqual(standings(null, null, 'low'), []);
+});
+
+test('a missing total counts as nothing rather than breaking the ranking', () => {
+  const places = standings(ROSTER, { p1: 14 }, 'low', []);
+  assert.deepEqual(
+    places.map((place) => [place.place, place.names, place.score]),
+    [
+      [1, ['Mum', 'Sam'], 0],
+      [3, ['Dad'], 14],
+    ],
+  );
+});
+
+test('ending early settles the game on the scores as they stand', () => {
+  const status = endedEarlyStatus(ROSTER, { p1: 14, p2: 30, p3: 90 }, 'low');
+  assert.equal(status.phase, 'complete');
+  assert.equal(status.endedEarly, true);
+  assert.deepEqual(status.leaders, ['p1']);
+  assert.match(status.text, /Dad wins with 14/);
+});
+
+test('a tie at the top of an early end stays a tie', () => {
+  const status = endedEarlyStatus(ROSTER, { p1: 20, p2: 20, p3: 20 }, 'low');
+  assert.deepEqual(status.leaders, [], 'nobody is highlighted when everyone is level');
+  assert.match(status.text, /Tie at 20/);
 });

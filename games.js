@@ -8,6 +8,8 @@ import {
   leadersOf,
   joinNames,
   winnerText,
+  endedEarlyStatus,
+  standings,
 } from './rules/shared.js';
 import {
   fiveCrowns,
@@ -46,6 +48,8 @@ export {
   leadersOf,
   joinNames,
   winnerText,
+  endedEarlyStatus,
+  standings,
   greedRunningTotals,
   contractValue,
   suitContractValue,

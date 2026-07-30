@@ -1,4 +1,13 @@
-import { GAMES, GAME_ORDER, lastFilledIndex, cap, unitSingular, nextUnitName } from '../games.js';
+import {
+  GAMES,
+  GAME_ORDER,
+  lastFilledIndex,
+  cap,
+  unitSingular,
+  nextUnitName,
+  endedEarlyStatus,
+  standings,
+} from '../games.js';
 import { defaultState } from '../state.js';
 import { el, refs, onlyDigits, clamp, selectAllOnEdit } from '../lib/dom.js';
 import {
@@ -95,7 +104,21 @@ function createApp() {
     save();
   }
   function resolve() {
-    return activeGame.resolve(state.players, state);
+    const result = activeGame.resolve(state.players, state);
+    // A game the rules have already settled cannot also be called early, so the
+    // early end only ever stands in for a verdict that is not there yet.
+    if (!state.endedEarly || isEnded(result.status)) return { ...result, calledEarly: false };
+    return {
+      totals: result.totals,
+      calledEarly: true,
+      status: {
+        ...result.status,
+        ...endedEarlyStatus(state.players, result.totals, activeGame.winDirection),
+      },
+    };
+  }
+  function isEnded(st) {
+    return !!st && (st.phase === 'complete' || st.phase === 'out');
   }
   function usesRoundReveal() {
     return !!(
@@ -162,9 +185,13 @@ function createApp() {
     addConfirm,
     addCancel,
     confirmDialog,
+    confirmTitle,
+    confirmNote,
     confirmCancel,
     confirmOk,
     menuDialog,
+    resultsBtn,
+    endgameBtn,
     switchBtn,
     newgameBtn,
     menuClose,
@@ -179,7 +206,9 @@ function createApp() {
     reelWheels,
     reelTitle,
     reelPicker,
+    reelPodium,
     reelAction,
+    reelReplay,
     reelEffects,
     revealWildBtn,
   } = refs(`
@@ -189,9 +218,10 @@ function createApp() {
     start-btn debug-controls debug-back debug-spin debug-reset debug-status
     game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
     total-row winner-banner score-form add-dialog add-title add-name add-start add-hint add-confirm add-cancel
-    confirm-dialog confirm-cancel confirm-ok menu-dialog switch-btn newgame-btn menu-close hand-dialog
+    confirm-dialog confirm-title confirm-note confirm-cancel confirm-ok menu-dialog results-btn endgame-btn
+    switch-btn newgame-btn menu-close hand-dialog
     hand-title hand-body hand-preview hand-delete hand-cancel hand-save reel-overlay reel-wheels reel-title
-    reel-action reel-effects reveal-wild-btn reel-picker
+    reel-action reel-effects reveal-wild-btn reel-picker reel-podium reel-replay
   `);
   const screens = [setupScreen, gameScreen, debugScreen];
   const reel = createReel({
@@ -201,6 +231,8 @@ function createApp() {
     action: reelAction,
     effects: reelEffects,
     picker: reelPicker,
+    podium: reelPodium,
+    replay: reelReplay,
     onBusyChange: updateRevealButton,
   });
   function showOnly(screen) {
@@ -521,14 +553,14 @@ function createApp() {
     buildFoot();
     updateTotalsAndBanner(totals, status);
     maybeAutoReveal();
+    maybeCelebrate();
   }
   function renderHeaderActions(st) {
     const inProgress = st.phase === 'inProgress';
-    const ended = st.phase === 'complete' || st.phase === 'out';
     addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
     addBtn.hidden = !inProgress || !canAddPlayer();
     headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
-    playAgainBtn.hidden = !ended;
+    playAgainBtn.hidden = !isEnded(st);
     updateRevealButton();
   }
   function playerNameChanged(player) {
@@ -749,6 +781,7 @@ function createApp() {
         handleCellChange();
       });
       input.addEventListener('focus', () => revealScoreInput(input));
+      input.addEventListener('blur', maybeCelebrate);
       input.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -870,6 +903,7 @@ function createApp() {
     }
     markVoidRounds(voidRoundFrom(status));
     refreshRevealRows();
+    maybeCelebrate();
   }
   function refreshRevealRows() {
     if (!usesRoundReveal()) return;
@@ -1000,6 +1034,68 @@ function createApp() {
   }
   function maybeAutoReveal() {
     if (!gameScreen.hidden && !reel.isBusy() && readyRoundIndex() === 0) openRoundReveal(0);
+  }
+
+  /* ---------- end-of-game reveal ---------- */
+  function placeName(names) {
+    if (names.length <= 1) return names[0] || '';
+    return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+  }
+  // Counted down from the lowest place on the podium to the winner.
+  function podiumPlaces(totals, st) {
+    return standings(state.players, totals, activeGame.winDirection, st.leaders)
+      .map((place) => ({ ...place, name: placeName(place.names) }))
+      .reverse();
+  }
+  function openWinnerReveal() {
+    const { totals, status, calledEarly } = resolve();
+    if (!isEnded(status) || reel.isBusy()) return;
+    reel.celebrate({
+      title: calledEarly ? 'Called early \u00b7 how it stands' : 'How it finished',
+      places: podiumPlaces(totals, status),
+      resultText: status.text,
+      effect: 'fireworks',
+      onClose: () => {
+        // The reveal hands focus back to whatever opened it, but a game that
+        // ended as the last score was typed was opened by nothing at all.
+        const active = document.activeElement;
+        if (active && active !== document.body && !reelOverlay.contains(active)) return;
+        (playAgainBtn.hidden ? menuBtn : playAgainBtn).focus();
+      },
+    });
+  }
+  // The reveal belongs to the moment the game ends, so it comes up once and
+  // then waits in the menu. A score still being typed may yet change who won,
+  // so it holds off until the box is left.
+  function maybeCelebrate() {
+    const ended = isEnded(resolve().status);
+    if (!ended || gameScreen.hidden) {
+      if (!state.celebrated) return;
+      state.celebrated = false;
+      save();
+      return;
+    }
+    if (state.celebrated || reel.isBusy()) return;
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains('score-input')) return;
+    state.celebrated = true;
+    save();
+    openWinnerReveal();
+  }
+  function syncMenu() {
+    const { status, calledEarly } = resolve();
+    const ended = isEnded(status);
+    resultsBtn.hidden = !ended;
+    // A game the rules have finished cannot be cut short, and one that was cut
+    // short can always be picked back up.
+    endgameBtn.hidden = ended && !calledEarly;
+    endgameBtn.textContent = calledEarly ? 'Resume scoring' : 'End game now';
+  }
+  function setGameEndedEarly(value) {
+    state.endedEarly = value;
+    state.celebrated = false;
+    save();
+    renderGame();
   }
   const debugFields = {},
     debugRigInputs = {};
@@ -1210,6 +1306,26 @@ function createApp() {
     dialog.showModal();
     if (focus) focus.focus();
   }
+  // One dialog asks every question that needs a yes before something is undone,
+  // and carries the answer back to whoever asked it.
+  let confirmRun = null;
+  function askConfirm({ title, note, ok }, run) {
+    confirmTitle.textContent = title;
+    confirmNote.textContent = note;
+    confirmOk.textContent = ok;
+    confirmRun = run;
+    showDialog(confirmDialog);
+  }
+  function askNewGame() {
+    askConfirm(
+      {
+        title: 'Start a new game?',
+        note: "This clears the current game's scores.",
+        ok: 'New game',
+      },
+      newGame,
+    );
+  }
   function openAddDialog() {
     addTitle.textContent = 'Add ' + unitSingular(activeGame);
     addName.value = nextRecalledName(state.players.map((p) => p.name));
@@ -1345,7 +1461,7 @@ function createApp() {
   });
   startBtn.addEventListener('click', startGame);
   resumeBtn.addEventListener('click', resumeGame);
-  newFromSetupBtn.addEventListener('click', () => showDialog(confirmDialog));
+  newFromSetupBtn.addEventListener('click', () => askNewGame());
   // The form exists for iOS Previous/Next controls and must never submit.
   scoreForm.addEventListener('submit', (e) => e.preventDefault());
   scoreBody.addEventListener('click', (e) => {
@@ -1372,7 +1488,29 @@ function createApp() {
     addStart.value = onlyDigits(addStart.value);
     validateStartingScore();
   });
-  menuBtn.addEventListener('click', () => showDialog(menuDialog));
+  menuBtn.addEventListener('click', () => {
+    syncMenu();
+    showDialog(menuDialog);
+  });
+  resultsBtn.addEventListener('click', () => {
+    menuDialog.close('cancel');
+    openWinnerReveal();
+  });
+  endgameBtn.addEventListener('click', () => {
+    menuDialog.close('cancel');
+    if (resolve().calledEarly) {
+      setGameEndedEarly(false);
+      return;
+    }
+    askConfirm(
+      {
+        title: 'End the game now?',
+        note: 'Whoever leads the sheet wins. You can pick it back up from the menu.',
+        ok: 'End game',
+      },
+      () => setGameEndedEarly(true),
+    );
+  });
   switchBtn.addEventListener('click', () => {
     menuDialog.close('cancel');
     save();
@@ -1380,7 +1518,7 @@ function createApp() {
   });
   newgameBtn.addEventListener('click', () => {
     menuDialog.close('cancel');
-    showDialog(confirmDialog);
+    askNewGame();
   });
   confirmOk.addEventListener('click', () => confirmDialog.close('ok'));
   handDeleteBtn.addEventListener('click', () => handDialog.close('delete'));
@@ -1413,7 +1551,9 @@ function createApp() {
     confirmDialog,
     confirmCancel,
     (value) => {
-      if (value === 'ok') newGame();
+      const run = confirmRun;
+      confirmRun = null;
+      if (value === 'ok' && run) run();
     },
     false,
   );

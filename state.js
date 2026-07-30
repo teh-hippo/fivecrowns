@@ -1,7 +1,16 @@
 import { lastFilledIndex, nextUnitName, objectFromEntries } from './rules/shared.js';
 
 function defaultState(game) {
-  return { gameId: game.id, started: false, players: [], nextId: 1, scores: {}, hands: [] };
+  return {
+    gameId: game.id,
+    started: false,
+    endedEarly: false,
+    celebrated: false,
+    players: [],
+    nextId: 1,
+    scores: {},
+    hands: [],
+  };
 }
 
 function copyGameFields(game, source, target) {
@@ -37,6 +46,8 @@ function normaliseState(game, source) {
     if (match) maxId = Math.max(maxId, parseInt(match[1], 10));
   }
   base.started = !!source.started;
+  base.endedEarly = !!source.endedEarly;
+  base.celebrated = !!source.celebrated;
   base.nextId = Math.max(
     maxId + 1,
     typeof source.nextId === 'number' ? source.nextId : 0,
@@ -86,6 +97,8 @@ function normaliseState(game, source) {
 function serializeState(game, state) {
   const out = {
     started: state.started,
+    endedEarly: !!state.endedEarly,
+    celebrated: !!state.celebrated,
     players: state.players.map(({ id, name }) => ({ id, name })),
     nextId: state.nextId,
   };

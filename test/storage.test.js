@@ -45,9 +45,9 @@ test('saving a game remembers players by most recent roster', () => {
   assert.equal(nextRecalledName(fiveCrowns, ['Blair']), 'Casey');
 });
 
-test('dealer rig settings default off and persist independently', () => {
+test('dealer rig settings default on and persist independently', () => {
   globalThis.localStorage = storageWith({});
-  assert.deepEqual(loadDealerRigSettings(), { dadLowCards: false, mumHighCards: false });
+  assert.deepEqual(loadDealerRigSettings(), { dadLowCards: true, mumHighCards: true });
   saveDealerRigSettings({ dadLowCards: true, mumHighCards: false });
   assert.deepEqual(loadDealerRigSettings(), { dadLowCards: true, mumHighCards: false });
 });

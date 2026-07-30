@@ -173,8 +173,8 @@
 
     <dialog id="confirm-dialog" class="sheet">
       <form method="dialog">
-        <h2>Start a new game?</h2>
-        <p class="dialog-note">This clears the current game's scores.</p>
+        <h2 id="confirm-title">Start a new game?</h2>
+        <p id="confirm-note" class="dialog-note">This clears the current game's scores.</p>
         <menu class="dialog-actions">
           <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
           <button id="confirm-ok" type="button" class="danger">New game</button>
@@ -186,6 +186,10 @@
       <form method="dialog">
         <h2>Menu</h2>
         <div class="menu-list">
+          <button id="results-btn" type="button" class="primary big" hidden>
+            Show the results
+          </button>
+          <button id="endgame-btn" type="button" class="ghost big">End game now</button>
           <button id="switch-btn" type="button" class="ghost big">Switch game</button>
           <button id="newgame-btn" type="button" class="danger big">New game</button>
         </div>
@@ -220,8 +224,14 @@
       <div class="reel-card">
         <p id="reel-title" class="reel-title" aria-live="polite" aria-atomic="true"></p>
         <div id="reel-wheels" class="reel-wheels"></div>
+        <ol id="reel-podium" class="reel-podium" hidden></ol>
         <label id="reel-picker" class="reel-picker" hidden></label>
-        <button id="reel-action" type="button" class="primary big reel-action">Spin</button>
+        <div class="reel-buttons">
+          <button id="reel-replay" type="button" class="ghost big reel-replay" hidden>
+            Replay
+          </button>
+          <button id="reel-action" type="button" class="primary big reel-action">Spin</button>
+        </div>
       </div>
       <div id="reel-effects" class="reel-effects" aria-hidden="true"></div>
     </div>
