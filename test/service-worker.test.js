@@ -69,6 +69,15 @@ test('the service worker is registered and scoped to the app', () => {
   assert.match(app, /new URL\('sw\.js', import\.meta\.url\)/, 'scope follows the deployed path');
 });
 
+// A deploy once left the app showing buttons from the new index.html wired to
+// handlers from a cached older app/main.js, so they did nothing when tapped.
+test('a worker taking over mid-session reloads the page it replaced', () => {
+  const app = readFileSync(resolve(root, 'app.js'), 'utf8');
+  assert.match(app, /'controllerchange'/, 'the takeover is noticed');
+  assert.match(app, /location\.reload\(\)/, 'and the page is put back in step');
+  assert.match(app, /hadController/, 'a first visit has no controller to change, so it is spared');
+});
+
 test('the service worker ignores requests it must not touch', () => {
   assert.match(source, /request\.method !== 'GET'/, 'non-GET requests pass through');
   assert.match(source, /url\.origin !== self\.location\.origin/, 'cross-origin passes through');
