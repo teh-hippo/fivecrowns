@@ -43,7 +43,7 @@ function createApp() {
   let state = null;
   let setupNames = [];
   let setupVariant = null;
-  let setupDealerEnabled = false;
+  let setupDealerEnabled = true;
   let setupFirstDealerIndex = 0;
   let handEditIndex = null;
   let handDraft = null;
@@ -330,7 +330,7 @@ function createApp() {
     }
     setupNames = recalledNames(activeGame);
     setupVariant = activeGame.variants ? activeGame.variants.default : null;
-    setupDealerEnabled = false;
+    setupDealerEnabled = true;
     setupFirstDealerIndex = 0;
     renderVariantControl();
     renderNameList();

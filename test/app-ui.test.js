@@ -17,6 +17,12 @@ const choose = (value) => {
 const scoreInputs = () => [...app.document.querySelectorAll('#score-body .score-input')];
 const totals = () => [...app.document.querySelectorAll('.total-cell')].map((n) => n.textContent);
 const nameInputs = () => [...app.document.querySelectorAll('.name-row input')];
+// Nominating a dealer is on by default, so tests that care either way say so.
+const nominateDealer = (on) => {
+  const toggle = app.byId('dealer-toggle');
+  toggle.checked = on;
+  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+};
 const start = () => app.byId('start-btn').click();
 
 /* ---------- setup screen ---------- */
@@ -140,11 +146,12 @@ test('the dealer control only appears for random Five Crowns variants', async ()
   assert.equal(dealer.hidden, false);
 
   const toggle = app.byId('dealer-toggle');
-  assert.equal(app.byId('first-dealer-field').hidden, true);
-  toggle.checked = true;
-  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+  assert.equal(toggle.checked, true, 'nominating the dealer is on by default');
   assert.equal(app.byId('first-dealer-field').hidden, false);
   assert.equal(app.byId('first-dealer').options.length, 3, 'one option per player');
+
+  nominateDealer(false);
+  assert.equal(app.byId('first-dealer-field').hidden, true, 'turning it off drops the choice');
 
   choose('up');
   assert.equal(dealer.hidden, true, 'hidden again for a fixed order');
@@ -586,9 +593,7 @@ test('Super Random labels the reveal as a round, not a wild', async () => {
 test('the reveal asks who deals and reseats the table around the answer', async () => {
   app = await bootApp({ animations: true });
   choose('random');
-  const toggle = app.byId('dealer-toggle');
-  toggle.checked = true;
-  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+  nominateDealer(true);
   start();
 
   const columns = () =>
@@ -633,9 +638,7 @@ test('the reveal asks who deals and reseats the table around the answer', async 
 test('naming the dealer the rotation already had leaves the table alone', async () => {
   app = await bootApp({ animations: true });
   choose('random');
-  const toggle = app.byId('dealer-toggle');
-  toggle.checked = true;
-  toggle.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+  nominateDealer(true);
   start();
 
   const columns = () =>
@@ -659,6 +662,7 @@ test('naming the dealer the rotation already had leaves the table alone', async 
 test('confirming a reveal hands focus back to the round it opened from', async () => {
   app = await bootApp({ animations: true });
   choose('random');
+  nominateDealer(false);
   start();
 
   // Round one auto-reveals; clear it so round two can be opened by hand.
