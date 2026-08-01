@@ -56,7 +56,7 @@ function fiveCrownsDealerRounds(order) {
   return Array.from({ length: FIVE_CROWNS_ROUNDS }, (_, i) => order[i % order.length]);
 }
 function fiveCrownsDealerId(i, state) {
-  if (!state || !state.dealerEnabled) return null;
+  if (!state || !fiveCrownsRevealVariant(state.variant)) return null;
   const players = Array.isArray(state.players) ? state.players : [];
   const allowed = new Set(players.map((player) => player.id));
   const scheduled = Array.isArray(state.dealerRounds) ? state.dealerRounds[i] : null;
@@ -113,7 +113,7 @@ function cardCountText(count) {
   return String(count) + ' cards';
 }
 function fiveCrownsApplyDealerRig(state, preferenceFor) {
-  if (!state || state.variant !== 'super-random' || !state.dealerEnabled) return;
+  if (!state || state.variant !== 'super-random') return;
   const cards = fiveCrownsCardsFromState(state);
   const revealed = fiveCrownsRevealedCount(state);
   const used = new Set(cards.slice(0, revealed));
@@ -129,7 +129,7 @@ function fiveCrownsApplyDealerRig(state, preferenceFor) {
 // new seating from that round on. Rounds already dealt keep their dealers.
 // Returns false when nothing changed, so callers can skip a redraw.
 function fiveCrownsSetDealer(state, round, id, preferenceFor) {
-  if (!state || !state.dealerEnabled || typeof id !== 'string') return false;
+  if (!state || !fiveCrownsRevealVariant(state.variant) || typeof id !== 'string') return false;
   const at = Math.floor(round);
   if (!Number.isFinite(at) || at < 0 || at >= FIVE_CROWNS_ROUNDS) return false;
   const players = Array.isArray(state.players) ? state.players : [];
@@ -156,7 +156,7 @@ function fiveCrownsSetDealer(state, round, id, preferenceFor) {
   return true;
 }
 function fiveCrownsAddDealer(state, id, preferenceFor) {
-  if (!state || !state.dealerEnabled || typeof id !== 'string') return;
+  if (!state || !fiveCrownsRevealVariant(state.variant) || typeof id !== 'string') return;
   const players = Array.isArray(state.players) ? state.players : [];
   const existingIds = players.map((player) => player.id).filter((playerId) => playerId !== id);
   const preferred = Array.isArray(state.dealerOrder)
@@ -255,7 +255,6 @@ const fiveCrowns = {
     'cardOrderBase',
     'revealedCount',
     'fakeOutMisses',
-    'dealerEnabled',
     'dealerOrder',
     'dealerRounds',
     'dealerOrderStartsAt',
@@ -264,12 +263,11 @@ const fiveCrowns = {
     const known = this.variants.options.some((o) => o.value === variant);
     const v = known ? variant : this.variants.default;
     const players = Array.isArray(context.players) ? context.players : [];
-    const dealerEnabled =
-      fiveCrownsRevealVariant(v) && !!context.dealerEnabled && players.length > 0;
-    const dealerOrder = dealerEnabled
+    const deals = fiveCrownsRevealVariant(v) && players.length > 0;
+    const dealerOrder = deals
       ? fiveCrownsDealerOrder(players, context.firstDealerIndex, context.dealerOrder)
       : [];
-    const dealerRounds = dealerEnabled ? fiveCrownsDealerRounds(dealerOrder) : [];
+    const dealerRounds = deals ? fiveCrownsDealerRounds(dealerOrder) : [];
     const extra = { variant: v, wildOrder: fiveCrownsWildOrder(v, random) };
     if (v === 'super-random') {
       const cards = fiveCrownsSuperRandomCardOrder(random);
@@ -283,7 +281,6 @@ const fiveCrowns = {
     if (fiveCrownsRevealVariant(v)) {
       extra.revealedCount = 0;
       extra.fakeOutMisses = 0;
-      extra.dealerEnabled = dealerEnabled;
       extra.dealerOrder = dealerOrder;
       extra.dealerRounds = dealerRounds;
       extra.dealerOrderStartsAt = 0;

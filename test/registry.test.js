@@ -27,7 +27,6 @@ test('Five Crowns registers Super Random and its persisted card order', () => {
   assert.ok(game.stateFields.includes('cardOrder'));
   assert.ok(game.stateFields.includes('cardOrderBase'));
   assert.ok(game.stateFields.includes('fakeOutMisses'));
-  assert.ok(game.stateFields.includes('dealerEnabled'));
   assert.ok(game.stateFields.includes('dealerRounds'));
   assert.ok(game.stateFields.includes('dealerOrderStartsAt'));
 });

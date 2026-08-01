@@ -369,7 +369,7 @@ test('Dealer nomination rotates from the selected first dealer', () => {
   assert.deepEqual(fiveCrownsDealerRounds(order).slice(0, 5), ['p2', 'p3', 'p1', 'p2', 'p3']);
 
   const state = {
-    dealerEnabled: true,
+    variant: 'random',
     dealerOrder: order,
     dealerRounds: fiveCrownsDealerRounds(order),
     players,
@@ -401,11 +401,9 @@ test('Super Random applies dealer rigging without constraining wilds', () => {
   ];
   const state = fiveCrowns.initVariant('super-random', () => 0, {
     players,
-    dealerEnabled: true,
     firstDealerIndex: 0,
     preferenceFor: dealerPreferenceResolver({ dadLowCards: true, mumHighCards: true }),
   });
-  assert.equal(state.dealerEnabled, true);
   assert.deepEqual(state.dealerOrder, ['p1', 'p2', 'p3']);
   assert.deepEqual(state.dealerRounds.slice(0, 4), ['p1', 'p2', 'p3', 'p1']);
   assert.deepEqual(state.cardOrder.slice(0, 3), [3, 13, 4]);
@@ -429,7 +427,6 @@ test('Overriding a round dealer reseats the table from that round', () => {
   const order = ['p1', 'p2', 'p3', 'p4'];
   const state = {
     variant: 'random',
-    dealerEnabled: true,
     dealerOrder: order,
     dealerRounds: fiveCrownsDealerRounds(order),
     dealerOrderStartsAt: 0,
@@ -458,7 +455,6 @@ test('Overriding a round dealer refuses picks that change nothing', () => {
   const order = ['p1', 'p2', 'p3'];
   const state = {
     variant: 'random',
-    dealerEnabled: true,
     dealerOrder: order,
     dealerRounds: fiveCrownsDealerRounds(order),
     dealerOrderStartsAt: 0,
@@ -479,7 +475,6 @@ test('Overriding a round dealer refuses picks that change nothing', () => {
 test('Overriding the dealer re-rigs the rounds still to come', () => {
   const state = {
     variant: 'super-random',
-    dealerEnabled: true,
     dealerOrder: ['p3', 'p1', 'p2'],
     dealerRounds: fiveCrownsDealerRounds(['p3', 'p1', 'p2']),
     dealerOrderStartsAt: 0,
@@ -512,7 +507,6 @@ test('Overriding the dealer re-rigs the rounds still to come', () => {
 test('A mid-game player joins the dealer rotation after the current cycle', () => {
   const state = {
     variant: 'random',
-    dealerEnabled: true,
     dealerOrder: ['p2', 'p3', 'p1'],
     dealerRounds: fiveCrownsDealerRounds(['p2', 'p3', 'p1']),
     revealedCount: 4,
@@ -531,7 +525,6 @@ test('A mid-game player joins the dealer rotation after the current cycle', () =
 test('Repeated mid-game additions share the same pending dealer cycle', () => {
   const state = {
     variant: 'random',
-    dealerEnabled: true,
     dealerOrder: ['p1', 'p2', 'p3'],
     dealerRounds: fiveCrownsDealerRounds(['p1', 'p2', 'p3']),
     dealerOrderStartsAt: 0,

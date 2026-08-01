@@ -401,20 +401,17 @@ function createReel({
     picker.innerHTML = '';
   };
   // A picker only earns its place when there is something to choose between.
-  // A required picker opens on a placeholder rather than a name, so the reveal
-  // is asking a question instead of offering to correct an answer. Returns
-  // whether the reel is now waiting on one, which holds the spin back.
-  const renderPicker = (spec, onCommit) => {
+  // It opens on whoever the reveal already has, so it offers to correct an
+  // answer rather than asking a question.
+  const renderPicker = (spec) => {
     clearPicker();
     const choices = spec && Array.isArray(spec.options) ? spec.options : [];
-    if (!picker || choices.length < 2) return false;
-    const waiting = !!spec.required;
+    if (!picker || choices.length < 2) return;
     const select = el('select', { class: 'reel-picker-select' });
-    if (waiting) select.appendChild(el('option', { value: '' }, spec.placeholder || 'Choose'));
     choices.forEach((choice) =>
       select.appendChild(el('option', { value: choice.value }, choice.text)),
     );
-    select.value = waiting ? '' : String(spec.value);
+    select.value = String(spec.value);
     // Arrow keys fire a change for every option they pass, and each one would
     // reseat the table underneath the reader. A keyboard choice is only acted
     // on once it is committed; pointer and touch pickers commit as they close,
@@ -424,7 +421,6 @@ function createReel({
       byKey = false;
       if (!select.value) return;
       if (select.value !== String(spec.value) && spec.onChange) spec.onChange(select.value);
-      if (onCommit) onCommit(select.value);
     };
     select.addEventListener('pointerdown', () => {
       byKey = false;
@@ -441,7 +437,6 @@ function createReel({
     });
     picker.append(el('span', { class: 'reel-picker-label' }, spec.label || ''), select);
     picker.hidden = false;
-    return waiting;
   };
   const setBusy = (value) => {
     spinning = value;
@@ -1373,13 +1368,7 @@ function createReel({
     title.textContent = settings.title;
     action.hidden = false;
     action.textContent = 'Spin';
-    // An unanswered picker holds the reel: nothing spins until the question
-    // it asks has been answered.
-    let awaitingPick = renderPicker(supplied.picker, () => {
-      awaitingPick = false;
-      action.disabled = false;
-    });
-    action.disabled = awaitingPick;
+    renderPicker(supplied.picker);
     const endModal = beginModal();
     const tracks = renderTracks(reels);
     const geos = tracks.map((track) => geometry(track, fullSetSize, settings.spinCycles));
@@ -1428,7 +1417,6 @@ function createReel({
       });
       title.textContent = resultText || results.filter(Boolean).join(' \u00b7 ') || settings.title;
       action.hidden = false;
-      action.disabled = false;
       action.textContent = 'Confirm';
       // Focus was parked on the overlay for the spin. Hand it back now there
       // is something to press again, so the keyboard can confirm the round.
@@ -1452,9 +1440,8 @@ function createReel({
       stopAnimations(selections);
       stopEffects();
       // The button is shared with every later reveal, so it is never left
-      // hidden or held back by a reveal that has finished with it.
+      // hidden by a reveal that has finished with it.
       action.hidden = false;
-      action.disabled = false;
       if (confirmed && onConfirm) onConfirm();
       endModal();
       setBusy(false);
@@ -1519,7 +1506,7 @@ function createReel({
       }, settings.fakeOutHoldMs);
     };
     const spin = () => {
-      if (phase !== 'idle' || awaitingPick) return;
+      if (phase !== 'idle') return;
       phase = 'spin';
       clearPicker();
       // A spin runs its course: there is nothing to press while it does, so
@@ -1571,11 +1558,7 @@ function createReel({
     activeClose = close;
     overlay.addEventListener('click', onTap);
     overlay.addEventListener('keydown', onKeyDown);
-    // Focus goes to whatever the reveal wants next: the question when there is
-    // one to answer, the button when there is not.
-    const waitingSelect = awaitingPick && picker ? picker.querySelector('select') : null;
-    if (waitingSelect) waitingSelect.focus();
-    else action.focus();
+    action.focus();
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i],
         geo = geos[i];

@@ -8,12 +8,7 @@ afterEach(() => {
   harness = null;
 });
 
-async function openReel({
-  animations = false,
-  reducedMotion = false,
-  picker = null,
-  askDealer = false,
-} = {}) {
+async function openReel({ animations = false, reducedMotion = false, picker = null } = {}) {
   harness = bootDom({ animations, reducedMotion });
   const { window, byId } = harness;
   const { createReel } = await import('../reel.js');
@@ -38,9 +33,7 @@ async function openReel({
         ? {
             picker: {
               label: 'Dealer',
-              required: askDealer,
-              placeholder: 'Who deals?',
-              value: askDealer ? null : 'p1',
+              value: 'p1',
               options: [
                 { value: 'p1', text: 'Ann' },
                 { value: 'p2', text: 'Bob' },
@@ -231,35 +224,15 @@ test('leaving the dealer dropdown commits whatever it was left on', async () => 
   assert.deepEqual(state.picked, ['p2']);
 });
 
-test('a required dealer is asked for before the reel will spin', async () => {
-  const { window, byId, overlay, show, state } = await openReel({
-    animations: true,
-    picker: true,
-    askDealer: true,
-  });
+test('the dealer list opens on whoever is already dealing', async () => {
+  const { byId, show } = await openReel({ animations: true, picker: true });
   show();
   const select = pickerSelect();
 
-  assert.equal(select.value, '', 'nobody is chosen for you');
-  assert.equal(select.options[0].textContent, 'Who deals?');
-  assert.equal(harness.document.activeElement, select, 'focus lands on the question');
-  assert.equal(byId('reel-action').disabled, true, 'and the spin is held back');
-
-  overlay.click();
-  press(window, overlay, 'Escape');
-  press(window, select, 'Tab'); // committing the placeholder answers nothing
-  assert.deepEqual(state.picked, []);
-  assert.equal(byId('reel-picker').hidden, false, 'the reveal waits on an answer');
-  assert.equal(byId('reel-action').textContent, 'Spin');
-
-  select.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
-  select.value = 'p2';
-  select.dispatchEvent(new window.Event('change', { bubbles: true }));
-  assert.deepEqual(state.picked, ['p2']);
-  assert.equal(byId('reel-action').disabled, false, 'answering releases the spin');
-
-  press(window, overlay, 'Escape');
-  assert.equal(byId('reel-picker').hidden, true, 'and the reel spins');
+  assert.equal(select.value, 'p1', 'the rotation is chosen for you');
+  assert.equal(select.options.length, 3, 'and nothing stands in for an answer');
+  assert.equal(harness.document.activeElement, byId('reel-action'), 'focus lands on the spin');
+  assert.equal(byId('reel-action').disabled, false, 'which is ready straight away');
 });
 
 /* ---------- the end-of-game podium ---------- */

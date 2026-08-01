@@ -43,7 +43,6 @@ function createApp() {
   let state = null;
   let setupNames = [];
   let setupVariant = null;
-  let setupDealerEnabled = true;
   let setupFirstDealerIndex = 0;
   let handEditIndex = null;
   let handDraft = null;
@@ -156,8 +155,6 @@ function createApp() {
     playersInc,
     nameList,
     dealerControl,
-    dealerToggle,
-    firstDealerField,
     firstDealer,
     startBtn,
     debugControls,
@@ -214,7 +211,7 @@ function createApp() {
   } = refs(`
     setup-screen game-screen debug-screen game-picker setup-fresh variant-control variant-legend
     variant-options setup-resume resume-note resume-btn new-from-setup-btn count-label players-count
-    players-dec players-inc name-list dealer-control dealer-toggle first-dealer-field first-dealer
+    players-dec players-inc name-list dealer-control first-dealer
     start-btn debug-controls debug-back debug-spin debug-reset debug-status
     game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
     total-row winner-banner score-form add-dialog add-title add-name add-start add-hint add-confirm add-cancel
@@ -310,8 +307,6 @@ function createApp() {
     dealerControl.hidden = !available;
     if (!available) return;
     setupFirstDealerIndex = Math.max(0, Math.min(setupNames.length - 1, setupFirstDealerIndex));
-    dealerToggle.checked = setupDealerEnabled;
-    firstDealerField.hidden = !setupDealerEnabled;
     firstDealer.innerHTML = '';
     setupNames.forEach((name, index) => {
       const text = (name || '').trim() || cap(unitSingular(activeGame)) + ' ' + (index + 1);
@@ -330,7 +325,6 @@ function createApp() {
     }
     setupNames = recalledNames(activeGame);
     setupVariant = activeGame.variants ? activeGame.variants.default : null;
-    setupDealerEnabled = true;
     setupFirstDealerIndex = 0;
     renderVariantControl();
     renderNameList();
@@ -915,14 +909,8 @@ function createApp() {
   }
 
   /* ---------- Hidden round-reveal wheel ---------- */
-  // Nominating a dealer each round means asking who deals, not just offering
-  // to correct a rotation, so every reveal puts the question before the spin.
-  // This remembers the round that has been answered, because answering it
-  // rebuilds the reveal and the question must not come back.
-  let dealerChosenRound = -1;
   function commitReveal(round) {
     state.revealedCount = Math.max(Math.floor(state.revealedCount || 0), round + 1);
-    dealerChosenRound = -1;
     save();
     refreshRevealRows();
   }
@@ -939,28 +927,24 @@ function createApp() {
   }
   // A reseat moves columns as well as the deal, so the whole board is rebuilt.
   // The reveal is built from the state it opened with, so the spin is torn
-  // down and rebuilt too: rigging can change what lands. An answer that keeps
-  // the same dealer changes nothing to save, but the reveal is still rebuilt
-  // so it can drop the question and name who deals.
+  // down and rebuilt too: rigging can change what lands.
   function chooseDealer(round, id) {
     const changed =
       typeof activeGame.setDealer === 'function' &&
       activeGame.setDealer(state, round, id, dealerPreferenceResolver(loadDealerRigSettings()));
-    dealerChosenRound = round;
-    if (changed) {
-      save();
-      renderGame();
-    }
+    if (!changed) return;
+    save();
+    renderGame();
     reel.dismiss();
     openRoundReveal(round);
   }
-  function dealerPicker(round, ask) {
+  // The rotation already knows who deals, so the reveal names them and leaves
+  // the list there to correct a seating that has drifted.
+  function dealerPicker(round) {
     if (typeof activeGame.setDealer !== 'function' || state.players.length < 2) return null;
     return {
       label: 'Dealer',
-      required: ask,
-      placeholder: 'Who deals?',
-      value: ask ? null : dealerIdForRound(round),
+      value: dealerIdForRound(round),
       options: state.players.map((player) => ({ value: player.id, text: player.name })),
       onChange: (id) => chooseDealer(round, id),
     };
@@ -994,11 +978,8 @@ function createApp() {
     let didFakeOut = false;
     if (progressiveFakeOut) options.fakeOutChance = fakeOutChanceForMisses(state.fakeOutMisses);
     if (dealerIdForRound(round)) {
-      const ask = dealerChosenRound !== round;
-      options.title = ask
-        ? 'Who deals Round ' + (round + 1) + '?'
-        : dealer + ' deals \u00b7 Round ' + (round + 1);
-      options.picker = dealerPicker(round, ask);
+      options.title = dealer + ' deals \u00b7 Round ' + (round + 1);
+      options.picker = dealerPicker(round);
     }
     const shown = reel.show({
       reels: revealReels(items, round),
@@ -1241,7 +1222,6 @@ function createApp() {
         state,
         activeGame.initVariant(setupVariant, Math.random, {
           players: state.players,
-          dealerEnabled: setupDealerEnabled,
           firstDealerIndex: setupFirstDealerIndex,
           preferenceFor: dealerPreferenceResolver(loadDealerRigSettings()),
         }),
@@ -1271,7 +1251,6 @@ function createApp() {
         fresh,
         activeGame.initVariant(state.variant, Math.random, {
           players: keep,
-          dealerEnabled: !!state.dealerEnabled,
           dealerOrder: state.dealerOrder,
           preferenceFor: dealerPreferenceResolver(loadDealerRigSettings()),
         }),
@@ -1435,10 +1414,6 @@ function createApp() {
     [debugSpinBtn, runDebugSpin],
     [debugReset, resetDebugControls],
   ].forEach(([node, handler]) => node.addEventListener('click', handler));
-  dealerToggle.addEventListener('change', () => {
-    setupDealerEnabled = dealerToggle.checked;
-    renderDealerControl();
-  });
   firstDealer.addEventListener('change', () => {
     setupFirstDealerIndex = Number(firstDealer.value) || 0;
     markSetupDealerRow();
