@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>teh-hippo/common-repo-configs//renovate/default.json5"]
+  "extends": ["github>teh-hippo/common-repo-configs//renovate/default.json5"],
+  "packageRules": [
+    {
+      "matchPackageNames": ["stylelint", "stylelint-config-standard"],
+      "groupName": "Stylelint",
+      "groupSlug": "stylelint",
+      "separateMajorMinor": false
+    }
+  ]
 }
