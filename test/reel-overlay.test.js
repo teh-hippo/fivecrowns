@@ -70,6 +70,7 @@ test('opening moves focus in and hides the background from assistive tech', asyn
 
 test('closing restores the background and returns focus to the opener', async () => {
   const { window, byId, overlay, show, main, state } = await openReel();
+  byId('game-screen').hidden = false;
   const opener = byId('menu-btn');
   opener.focus();
   show();
@@ -346,6 +347,7 @@ test('replaying runs the countdown again without closing', async () => {
 
 test('the podium holds focus and hands it to the result', async () => {
   const { byId, overlay, celebrate } = await openPodium();
+  byId('game-screen').hidden = false;
   byId('menu-btn').focus();
   celebrate();
   assert.equal(harness.document.activeElement, overlay, 'the dialog holds focus mid-countdown');
