@@ -66,7 +66,12 @@ function createApp() {
         activeGame,
         state.players.map((p) => p.name),
       );
-    const scores = activeGame.entry === 'cell' ? joinScores(startingScore || 0) : null;
+    const scores =
+      activeGame.entry === 'cell'
+        ? activeGame.id === 'greed'
+          ? []
+          : joinScores(startingScore || 0)
+        : null;
     state.players.push({ id, name: clean });
     if (scores) state.scores[id] = scores;
     return id;
@@ -99,7 +104,10 @@ function createApp() {
     if (!Array.isArray(state.scores[pid])) state.scores[pid] = [];
     const arr = state.scores[pid];
     while (arr.length <= round) arr.push(null);
-    arr[round] = value;
+    arr[round] =
+      value != null && typeof activeGame.normaliseScore === 'function'
+        ? activeGame.normaliseScore(value)
+        : value;
     save();
   }
   function resolve() {
@@ -165,6 +173,8 @@ function createApp() {
     gameName,
     scoreHandBtn: headerScoreHandBtn,
     playAgainBtn,
+    completeGameBtn,
+    scoreEffect,
     addBtn,
     menuBtn,
     tableCaption: caption,
@@ -213,7 +223,7 @@ function createApp() {
     variant-options setup-resume resume-note resume-btn new-from-setup-btn count-label players-count
     players-dec players-inc name-list dealer-control first-dealer
     start-btn debug-controls debug-back debug-spin debug-reset debug-status
-    game-name score-hand-btn play-again-btn add-btn menu-btn table-caption score-table head-row score-body
+    game-name score-hand-btn play-again-btn complete-game-btn score-effect add-btn menu-btn table-caption score-table head-row score-body
     total-row winner-banner score-form add-dialog add-title add-name add-start add-hint add-confirm add-cancel
     confirm-dialog confirm-title confirm-note confirm-cancel confirm-ok menu-dialog results-btn endgame-btn
     switch-btn newgame-btn menu-close hand-dialog
@@ -233,6 +243,7 @@ function createApp() {
     onBusyChange: updateRevealButton,
   });
   function showOnly(screen) {
+    clearScoreEffect();
     screens.forEach((node) => {
       node.hidden = node !== screen;
     });
@@ -552,9 +563,10 @@ function createApp() {
   function renderHeaderActions(st) {
     const inProgress = st.phase === 'inProgress';
     addBtn.textContent = '+ ' + cap(unitSingular(activeGame));
-    addBtn.hidden = !inProgress || !canAddPlayer();
+    addBtn.hidden = isEnded(st) || !canAddPlayer();
     headerScoreHandBtn.hidden = !(activeGame.entry === 'hand' && inProgress);
     playAgainBtn.hidden = !isEnded(st);
+    completeGameBtn.hidden = activeGame.id !== 'greed' || st.phase !== 'targetReached';
     updateRevealButton();
   }
   function playerNameChanged(player) {
@@ -775,7 +787,14 @@ function createApp() {
         handleCellChange();
       });
       input.addEventListener('focus', () => revealScoreInput(input));
-      input.addEventListener('blur', maybeCelebrate);
+      input.addEventListener('blur', () => {
+        const value = (state.scores[p.id] || [])[r];
+        if (activeGame.id === 'greed' && value != null) {
+          input.value = String(value);
+          showScoreEffect(value);
+        }
+        maybeCelebrate();
+      });
       input.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -859,7 +878,16 @@ function createApp() {
         cell.appendChild(el('span', { class: 'leader-mark', 'aria-hidden': 'true' }, '\u265B'));
         cell.appendChild(el('span', { class: 'visually-hidden' }, ' leader'));
       }
-      if (activeGame.onBoardMin && t === 0 && lastFilledIndex(state.scores[p.id] || []) >= 0) {
+      if (st.phase === 'targetReached' && st.needed) {
+        const needed = st.needed[p.id];
+        cell.appendChild(
+          el('span', { class: 'needs' }, needed === 0 ? 'Leading' : 'needs ' + needed + ' to win'),
+        );
+      } else if (
+        activeGame.onBoardMin &&
+        t === 0 &&
+        lastFilledIndex(state.scores[p.id] || []) >= 0
+      ) {
         cell.appendChild(
           el(
             'span',
@@ -1269,6 +1297,11 @@ function createApp() {
 
   /* ---------- add-player dialog ---------- */
   function validateStartingScore() {
+    if (activeGame.id === 'greed') {
+      addHint.hidden = true;
+      addConfirm.disabled = false;
+      return true;
+    }
     const start = parseInt(onlyDigits(addStart.value), 10) || 0;
     const target = activeGame.target;
     const invalid = target != null && start >= target;
@@ -1309,11 +1342,26 @@ function createApp() {
     addTitle.textContent = 'Add ' + unitSingular(activeGame);
     addName.value = nextRecalledName(state.players.map((p) => p.name));
     addStart.value = '0';
+    addStart.closest('label').hidden = activeGame.id === 'greed';
     validateStartingScore();
     showDialog(addDialog, addName);
   }
 
   /* ---------- generic UI helpers ---------- */
+  let scoreEffectTimer = null;
+  function clearScoreEffect() {
+    window.clearTimeout(scoreEffectTimer);
+    scoreEffect.hidden = true;
+    scoreEffect.textContent = '';
+  }
+  function showScoreEffect(value) {
+    clearScoreEffect();
+    if (value > 350 || gameScreen.hidden) return;
+    scoreEffect.textContent = Math.random() < 0.5 ? 'Booring...' : 'Boring!';
+    scoreEffect.className = 'score-effect ' + (Math.random() < 0.5 ? 'score-pop' : 'score-tilt');
+    scoreEffect.hidden = false;
+    scoreEffectTimer = window.setTimeout(clearScoreEffect, 1800);
+  }
   function chip(label, selected, onClick, ariaLabel) {
     const b = el(
       'button',
@@ -1457,6 +1505,13 @@ function createApp() {
   });
   addBtn.addEventListener('click', openAddDialog);
   playAgainBtn.addEventListener('click', playAgain);
+  completeGameBtn.addEventListener('click', () => {
+    if (activeGame.id !== 'greed' || resolve().status.phase !== 'targetReached') return;
+    clearScoreEffect();
+    state.completed = true;
+    save();
+    renderGame();
+  });
   headerScoreHandBtn.addEventListener('click', () => openHandDialog(null));
   selectAllOnEdit(addName);
   addStart.addEventListener('input', () => {

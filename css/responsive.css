@@ -72,4 +72,8 @@
   .reel-target {
     text-shadow: 0 0 10px var(--reel-color);
   }
+
+  .score-effect {
+    animation: none;
+  }
 }

@@ -33,6 +33,10 @@ const greed = {
   winDirection: 'high',
   target: GREED_TARGET,
   onBoardMin: GREED_ON_BOARD,
+  stateFields: ['completed'],
+  normaliseScore(value) {
+    return Math.round(value / 50) * 50;
+  },
   rounds: OPEN_ROUNDS,
   defaultNames() {
     return ['Player 1', 'Player 2'];
@@ -66,7 +70,7 @@ const greed = {
       for (let round = 0; round <= finalRound; round++) if (scores[round] == null) return false;
       return true;
     });
-    if (filledThrough)
+    if (filledThrough || state.completed)
       return {
         totals,
         status: {
@@ -84,6 +88,21 @@ const greed = {
         best,
         leaders: highlight,
         finalRound,
+        needed: objectFromEntries(
+          players.map((player) => [
+            player.id,
+            Math.max(
+              0,
+              Math.max(
+                ...players
+                  .filter((other) => other.id !== player.id)
+                  .map((other) => totals[other.id]),
+              ) +
+                50 -
+                totals[player.id],
+            ),
+          ]),
+        ),
         text:
           DART +
           joinNames(players, leaders) +

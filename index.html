@@ -102,6 +102,9 @@
               Reveal wild
             </button>
             <button id="score-hand-btn" type="button" class="primary" hidden>Score hand</button>
+            <button id="complete-game-btn" type="button" class="primary" hidden>
+              Complete game
+            </button>
             <button id="play-again-btn" type="button" class="primary" hidden>Play again</button>
             <button id="add-btn" type="button" class="ghost" hidden>+ Player</button>
             <button id="menu-btn" type="button" class="ghost">Menu</button>
@@ -115,6 +118,7 @@
           aria-atomic="true"
           hidden
         ></div>
+        <div id="score-effect" class="score-effect" role="status" aria-live="polite" hidden></div>
         <!-- A form gives iOS numeric inputs its native Previous/Next accessory bar. -->
         <form id="score-form" class="table-wrap" novalidate autocomplete="off">
           <table id="score-table">

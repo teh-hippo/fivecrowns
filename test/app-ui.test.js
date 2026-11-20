@@ -335,22 +335,23 @@ test('500 shows negative deltas and keeps the sheet editable', async () => {
 
 /* ---------- dialogs ---------- */
 
-test('the add-player dialog validates the starting score against the target', async () => {
+test('Greed adds an empty column without a starting score, even in the final round', async () => {
   app = await bootApp();
   choose('greed');
   start();
+  type(app.window, scoreInputs()[0], '5000');
+  assert.equal(app.byId('add-btn').hidden, false);
   app.byId('add-btn').click();
-
-  const startingScore = app.byId('add-start');
-  const hint = app.byId('add-hint');
-  assert.equal(hint.hidden, false, 'Greed has a target, so the hint shows');
-
-  type(app.window, startingScore, '5000');
-  assert.equal(app.byId('add-confirm').disabled, true);
-  assert.match(hint.textContent, /must be less than 5000/i);
-
-  type(app.window, startingScore, '100');
-  assert.equal(app.byId('add-confirm').disabled, false);
+  assert.equal(app.byId('add-start').closest('label').hidden, true);
+  assert.equal(app.byId('add-hint').hidden, true);
+  type(app.window, app.byId('add-name'), 'Dana');
+  app.byId('add-dialog').close('add');
+  const joined = scoreInputs().filter((input) => input.dataset.pid === 'p3');
+  assert.deepEqual(
+    joined.map((input) => input.value),
+    ['', ''],
+  );
+  assert.deepEqual(JSON.parse(localStorage.getItem('greed:v1')).scores.p3, []);
 });
 
 test('adding a player extends the scoreboard', async () => {
@@ -425,7 +426,7 @@ test('a player who joins part-way takes a 0 for every round already played', asy
   assert.equal(totals().pop(), '0♛ leader');
 });
 
-test('a joining player carries their starting score on the latest played round', async () => {
+test('a Greed player joining part-way has blank missed rounds', async () => {
   app = await bootApp();
   choose('greed');
   start();
@@ -434,14 +435,95 @@ test('a joining player carries their starting score on the latest played round',
 
   app.byId('add-btn').click();
   type(app.window, app.byId('add-name'), 'Dana');
-  type(app.window, app.byId('add-start'), '1200');
   app.byId('add-dialog').close('add');
 
   const joined = [...app.document.querySelectorAll('#score-body .score-input')]
     .filter((input) => input.getAttribute('data-pid') === 'p3')
     .map((input) => input.value);
-  assert.deepEqual(joined, ['0', '1200', ''], 'the starting score lands on the last played round');
-  assert.equal(totals().pop(), '1200', 'and counts towards their total');
+  assert.deepEqual(joined, ['', '', '']);
+  assert.equal(totals().pop(), '0', 'blank scores do not invent played turns');
+});
+
+test('Greed rounds scores without changing digits mid-entry and advances on Enter', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  const input = scoreInputs()[0];
+  for (const [entered, rounded] of [
+    ['624', '600'],
+    ['625', '650'],
+    ['674', '650'],
+    ['675', '700'],
+  ]) {
+    input.focus();
+    type(app.window, input, entered);
+    assert.equal(input.value, entered);
+    press(app.window, input, 'Enter');
+    assert.equal(input.value, rounded);
+    assert.equal(app.document.activeElement, scoreInputs()[1]);
+    assert.equal(JSON.parse(localStorage.getItem('greed:v1')).scores.p1[0], Number(rounded));
+  }
+});
+
+test('Greed low scores show random temporary effects only after leaving the box', async (t) => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  let random = 0;
+  let dismiss;
+  t.mock.method(Math, 'random', () => random);
+  t.mock.method(app.window, 'setTimeout', (callback) => {
+    dismiss = callback;
+    return 1;
+  });
+  const input = scoreInputs()[0];
+  const effect = app.byId('score-effect');
+  for (const [score, text, style, choice] of [
+    ['0', 'Booring...', 'score-pop', 0],
+    ['350', 'Boring!', 'score-tilt', 0.9],
+  ]) {
+    random = choice;
+    input.focus();
+    type(app.window, input, score);
+    assert.equal(effect.hidden, true);
+    input.blur();
+    assert.equal(effect.hidden, false);
+    assert.equal(effect.textContent, text);
+    assert.ok(effect.classList.contains(style));
+    dismiss();
+    assert.equal(effect.hidden, true);
+  }
+  input.focus();
+  type(app.window, input, '400');
+  input.blur();
+  assert.equal(effect.hidden, true);
+  input.focus();
+  type(app.window, input, '');
+  input.blur();
+  assert.equal(effect.hidden, true);
+});
+
+test('Greed shows live points needed and completes with blank scores, persisting across reloads', async () => {
+  app = await bootApp();
+  choose('greed');
+  start();
+  const complete = app.byId('complete-game-btn');
+  assert.equal(complete.hidden, true);
+  type(app.window, scoreInputs()[1], '4500');
+  type(app.window, scoreInputs()[0], '5000');
+  assert.equal(complete.hidden, false);
+  const needed = () =>
+    [...app.document.querySelectorAll('.total-cell .needs')].map((n) => n.textContent);
+  assert.deepEqual(needed(), ['Leading', 'needs 550 to win']);
+  type(app.window, scoreInputs()[3], '550');
+  assert.deepEqual(needed(), ['needs 100 to win', 'Leading']);
+  complete.click();
+  assert.equal(complete.hidden, true);
+  assert.match(app.byId('winner-banner').textContent, /Player 2 wins with 5050/);
+  assert.equal(scoreInputs()[2].value, '', 'completion leaves missing scores blank');
+  app.app.init();
+  assert.match(app.byId('winner-banner').textContent, /Player 2 wins with 5050/);
+  assert.equal(app.byId('complete-game-btn').hidden, true);
 });
 
 test('500 does not offer to add a side once the game is under way', async () => {

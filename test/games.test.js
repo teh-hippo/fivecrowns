@@ -284,6 +284,15 @@ test('Greed resolve: complete once the final round is filled, highest wins', () 
   assert.equal(totals.p1, 5100);
 });
 
+test('Greed final-round deficits require beating the highest opponent by 50, not tying', () => {
+  const { status } = greed.resolve(sides, { scores: { p1: [5000], p2: [4500, 500] } });
+  assert.deepEqual(status.needed, { p1: 50, p2: 50 });
+  const result = greed.resolve(sides, { completed: true, scores: { p1: [5000], p2: [] } });
+  assert.equal(result.status.phase, 'complete');
+  assert.deepEqual(result.totals, { p1: 5000, p2: 0 });
+  assert.deepEqual(result.status.leaders, ['p1']);
+});
+
 /* ---------- Five Crowns ---------- */
 test('Five Crowns shows only the key round note outside Super Random', () => {
   assert.equal(FIVE_CROWNS_ROUNDS, 11);

@@ -82,6 +82,10 @@ dialog h2 {
   font-weight: 600;
 }
 
+.dialog-field[hidden] {
+  display: none;
+}
+
 .dialog-field input {
   display: block;
   margin-top: 0.3rem;

@@ -17,7 +17,7 @@
 
 .header-actions {
   flex: 0 0 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.4rem;
 }
@@ -47,6 +47,54 @@
 .winner-banner.phase-targetReached {
   background: var(--target-bg);
   color: var(--target-text);
+}
+
+.score-effect {
+  position: fixed;
+  inset: 30% 0 auto;
+  z-index: 5;
+  pointer-events: none;
+  text-align: center;
+  color: var(--accent);
+  font-size: clamp(2rem, 10vw, 4rem);
+  font-weight: 800;
+  text-shadow: 0 2px 12px var(--table-bg);
+}
+
+.score-pop {
+  animation: score-pop 1.8s ease both;
+}
+
+.score-tilt {
+  animation: score-tilt 1.8s ease both;
+}
+
+@keyframes score-pop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+
+  20%,
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes score-tilt {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(20px) rotate(-8deg);
+  }
+
+  20%,
+  75% {
+    opacity: 1;
+    transform: translateY(0) rotate(4deg);
+  }
 }
 
 @keyframes winner-in {

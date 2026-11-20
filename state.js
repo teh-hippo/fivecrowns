@@ -82,7 +82,11 @@ function normaliseState(game, source) {
   base.players.forEach((player) => {
     let values = Array.isArray(scores[player.id])
       ? scores[player.id].map((value) =>
-          typeof value === 'number' && Number.isFinite(value) ? value : null,
+          typeof value === 'number' && Number.isFinite(value)
+            ? typeof game.normaliseScore === 'function'
+              ? game.normaliseScore(value)
+              : value
+            : null,
         )
       : [];
     if (fixed != null) {

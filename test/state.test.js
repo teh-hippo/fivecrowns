@@ -98,7 +98,18 @@ test('serializeState trims trailing blanks for open cell games', () => {
     scores: { p1: [600, null, null] },
     hands: [],
   });
+
   assert.deepEqual(out.scores.p1, [600]);
+});
+
+test('Greed normalises saved scores to multiples of 50 without filling blanks', () => {
+  const state = normaliseState(greed, {
+    players: [{ id: 'p1', name: 'Zac' }],
+    scores: { p1: [624, null, 625, 0] },
+    completed: true,
+  });
+  assert.deepEqual(state.scores.p1, [600, null, 650, 0]);
+  assert.equal(normaliseState(greed, serializeState(greed, state)).completed, true);
 });
 
 test('serializeState writes scores for cell games and hands for hand games', () => {
